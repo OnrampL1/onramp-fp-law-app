@@ -7,6 +7,7 @@ import { Register } from "../pages/auth/Register";
 import { Dashboard } from "../pages/dashboard/Dashboard";
 import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
+import { UploadContract } from "../pages/contracts/UploadContract";
 
 export function AppRoutes() {
   return (
@@ -23,6 +24,7 @@ export function AppRoutes() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/upload-contract" element={<UploadContract />} />
         </Route>
       </Route>
 
