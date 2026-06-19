@@ -18,5 +18,8 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "npm@10.8.0"
+  "packageManager": "npm@10.8.0",
+  "dependencies": {
+    "sequelize": "^6.37.8"
+  }
 }
