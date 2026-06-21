@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { ContractFileDropzone } from "../../components/shared/ContractFileDropzone";
+import { ContractMetadataForm } from "../../components/shared/ContractMetadataForm";
 import { SelectedFileSummary } from "../../components/shared/SelectedFileSummary";
 import { UploadGuidelinesPanel } from "../../components/shared/UploadGuidelinesPanel";
 import {
@@ -12,8 +14,21 @@ import {
   type ContractUploadStatus,
   useContractUpload,
 } from "../../hooks/useContractUpload";
+import type { ContractMetadata } from "../../types/contracts";
+
+const initialMetadata: ContractMetadata = {
+  title: "",
+  counterparty: "",
+  contractType: "",
+  tags: [],
+  effectiveDate: "",
+  expirationDate: "",
+  status: "draft",
+};
 
 export function UploadContract() {
+  const [metadata, setMetadata] = useState<ContractMetadata>(initialMetadata);
+
   const {
     selectedFile,
     validationError,
@@ -67,6 +82,22 @@ export function UploadContract() {
               <p className="text-sm text-muted-foreground" aria-live="polite">
                 {getStatusMessage(status, hasSelectedFile)}
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="min-w-0">
+            <CardHeader>
+              <CardTitle className="text-base">Contract Metadata</CardTitle>
+              <CardDescription>
+                Describe the agreement before uploading.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ContractMetadataForm
+                value={metadata}
+                disabled={isUploading}
+                onChange={setMetadata}
+              />
             </CardContent>
           </Card>
         </div>
