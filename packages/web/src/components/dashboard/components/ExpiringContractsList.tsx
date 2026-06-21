@@ -1,5 +1,6 @@
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/card";
-import { RiskBadge } from "./Riskbadge";
+import { RiskBadge } from "./RiskBadge";
 import { CalendarIcon } from "../icons";
 import type { ExpiringContract } from "../types";
 
@@ -7,10 +8,7 @@ interface ExpiringContractsListProps {
   contracts: ExpiringContract[];
 }
 
-/**
- * Ordered list of contracts approaching their expiration date.
- * Each row shows a "days remaining" pill, contract name, counterparty, and risk level.
- */
+
 export function ExpiringContractsList({ contracts }: ExpiringContractsListProps) {
   return (
     <Card>
@@ -36,8 +34,22 @@ export function ExpiringContractsList({ contracts }: ExpiringContractsListProps)
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
 function ExpiringContractRow({ contract: c }: { contract: ExpiringContract }) {
+  const navigate = useNavigate();
+
+  /* Temporary slug until real IDs arrive from the API. Replace with c.id once ExpiringContract includes an id field */
+  const slug = c.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
   return (
-    <li className="flex cursor-pointer items-center gap-3 px-6 py-3 transition-colors hover:bg-muted/40">
+    <li
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/contracts/${slug}`)}
+      onKeyDown={(e) => e.key === "Enter" && navigate(`/contracts/${slug}`)}
+      className="flex cursor-pointer items-center gap-3 px-6 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+    >
       {/* Days pill */}
       <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-muted py-1.5 text-center">
         <span className="text-lg font-bold leading-none">{c.daysLeft}</span>
