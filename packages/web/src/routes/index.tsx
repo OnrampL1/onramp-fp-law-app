@@ -23,6 +23,69 @@ export function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route
+            path="/contracts"
+            element={
+              <PlaceholderPage
+                title="Contracts"
+                description="Contract repository"
+              />
+            }
+          />
+          <Route
+            path="/ai-analysis"
+            element={
+              <PlaceholderPage
+                title="AI Analysis"
+                description="Legal intelligence review"
+              />
+            }
+          />
+          <Route
+            path="/investigator"
+            element={
+              <PlaceholderPage
+                title="Clause Investigator"
+                description="Search and compare clauses"
+              />
+            }
+          />
+          <Route
+            path="/upload"
+            element={
+              <PlaceholderPage
+                title="Contract Upload"
+                description="Add documents for review"
+              />
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <PlaceholderPage
+                title="User Management"
+                description="Manage workspace access"
+              />
+            }
+          />
+          <Route
+            path="/witness"
+            element={
+              <PlaceholderPage
+                title="Witness Workflow"
+                description="Review signatures and attestations"
+              />
+            }
+          />
+          <Route
+            path="/audit"
+            element={
+              <PlaceholderPage
+                title="Audit Logging"
+                description="Monitor system activity"
+              />
+            }
+          />
           <Route path="/settings" element={<Settings />} />
 
           {/* Contract routes */}
