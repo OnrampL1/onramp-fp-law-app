@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { validateContractFile } from "../lib/contract-file-validation";
 import { uploadContractFile } from "../services/contract-upload.service";
+import type { UploadContractResponse } from "../services/contract-upload.service";
 import type {
   ContractFileValidationError,
   SelectedContractFile,
 } from "../types/contracts";
-import type { UploadContractResponse } from "../services/contract-upload.service";
 
 export type ContractUploadStatus =
   | "idle"
@@ -26,6 +26,7 @@ export interface UseContractUploadResult {
   removeFile: () => void;
   setIsDragging: (isDragging: boolean) => void;
   uploadSelectedFile: () => Promise<void>;
+  uploadPastedText: (text: string, title: string) => Promise<void>;
   resetUpload: () => void;
   cancelUpload: () => void;
 }
@@ -43,7 +44,6 @@ export function useContractUpload(): UseContractUploadResult {
   const [isDragging, setIsDragging] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-
   const isUploading = status === "uploading";
 
   const cancelUpload = useCallback(() => {
@@ -107,7 +107,10 @@ export function useContractUpload(): UseContractUploadResult {
 
     try {
       const result = await uploadContractFile({
-        selectedFile,
+        source: {
+          kind: "file",
+          selectedFile,
+        },
         signal: abortController.signal,
       });
 
@@ -125,6 +128,46 @@ export function useContractUpload(): UseContractUploadResult {
       abortControllerRef.current = null;
     }
   }, [isUploading, selectedFile]);
+
+  const uploadPastedText = useCallback(
+    async (text: string, title: string) => {
+      if (isUploading) {
+        return;
+      }
+
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
+      setStatus("uploading");
+      setUploadError(null);
+      setUploadResult(null);
+
+      try {
+        const result = await uploadContractFile({
+          source: {
+            kind: "text",
+            text,
+            title,
+          },
+          signal: abortController.signal,
+        });
+
+        setUploadResult(result);
+        setStatus("success");
+      } catch (error) {
+        if (isAbortError(error)) {
+          setStatus("idle");
+          return;
+        }
+
+        setUploadError("We could not upload the contract. Please try again.");
+        setStatus("error");
+      } finally {
+        abortControllerRef.current = null;
+      }
+    },
+    [isUploading],
+  );
 
   useEffect(() => {
     return () => {
@@ -144,6 +187,7 @@ export function useContractUpload(): UseContractUploadResult {
     removeFile,
     setIsDragging,
     uploadSelectedFile,
+    uploadPastedText,
     resetUpload,
     cancelUpload,
   };

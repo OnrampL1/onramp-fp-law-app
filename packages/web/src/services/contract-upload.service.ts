@@ -1,7 +1,18 @@
 import type { SelectedContractFile } from "../types/contracts";
 
+export type UploadContractSource =
+  | {
+      kind: "file";
+      selectedFile: SelectedContractFile;
+    }
+  | {
+      kind: "text";
+      text: string;
+      title: string;
+    };
+
 export interface UploadContractRequest {
-  selectedFile: SelectedContractFile;
+  source: UploadContractSource;
   signal?: AbortSignal;
 }
 
@@ -15,14 +26,17 @@ export interface UploadContractResponse {
 const MOCK_UPLOAD_DELAY_MS = 900;
 
 export async function uploadContractFile({
-  selectedFile,
+  source,
   signal,
 }: UploadContractRequest): Promise<UploadContractResponse> {
   await waitForMockUpload(signal);
 
   return {
     contractId: crypto.randomUUID(),
-    fileName: selectedFile.name,
+    fileName:
+      source.kind === "file"
+        ? source.selectedFile.name
+        : `${source.title || "Pasted contract"}.txt`,
     uploadedAt: new Date().toISOString(),
     status: "uploaded",
   };

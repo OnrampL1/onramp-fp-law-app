@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { useState, type ElementType, type ReactNode } from "react";
+import { CheckCircle2, ClipboardType, FileUp, XCircle } from "lucide-react";
 import { UploadContractActionBar } from "../../components/layout/UploadContractActionBar";
 import { ContractFileDropzone } from "../../components/shared/ContractFileDropzone";
 import { ContractMetadataForm } from "../../components/shared/ContractMetadataForm";
@@ -13,11 +13,17 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
+import { Textarea } from "../../components/ui/textarea";
 import {
   type ContractUploadStatus,
   useContractUpload,
 } from "../../hooks/useContractUpload";
-import type { ContractMetadata } from "../../types/contracts";
+import {
+  MIN_PASTED_CONTRACT_TEXT_LENGTH,
+  type ContractMetadata,
+} from "../../types/contracts";
+
+type UploadInputMode = "file" | "paste";
 
 const initialMetadata: ContractMetadata = {
   title: "",
@@ -32,6 +38,8 @@ const initialMetadata: ContractMetadata = {
 export function UploadContract() {
   const [metadata, setMetadata] = useState<ContractMetadata>(initialMetadata);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<UploadInputMode>("file");
+  const [pastedText, setPastedText] = useState("");
 
   const {
     selectedFile,
@@ -45,19 +53,29 @@ export function UploadContract() {
     removeFile,
     setIsDragging,
     uploadSelectedFile,
+    uploadPastedText,
     resetUpload,
   } = useContractUpload();
 
   const metadataIsValid = isMetadataValid(metadata);
-  const canSubmit = Boolean(selectedFile) && metadataIsValid && !isUploading;
+  const pastedTextIsValid =
+    pastedText.trim().length >= MIN_PASTED_CONTRACT_TEXT_LENGTH;
+  const sourceIsValid =
+    inputMode === "file" ? Boolean(selectedFile) : pastedTextIsValid;
+  const canSubmit = sourceIsValid && metadataIsValid && !isUploading;
 
   async function handleSubmit() {
     if (isUploading) {
       return;
     }
 
-    if (!selectedFile) {
+    if (inputMode === "file" && !selectedFile) {
       setSubmitError("Select a contract file before uploading.");
+      return;
+    }
+
+    if (inputMode === "paste" && !pastedTextIsValid) {
+      setSubmitError("Paste at least 40 characters of contract text.");
       return;
     }
 
@@ -69,13 +87,21 @@ export function UploadContract() {
     }
 
     setSubmitError(null);
-    await uploadSelectedFile();
+
+    if (inputMode === "file") {
+      await uploadSelectedFile();
+      return;
+    }
+
+    await uploadPastedText(pastedText.trim(), metadata.title.trim());
   }
 
   function handleReset() {
     resetUpload();
     setMetadata(initialMetadata);
     setSubmitError(null);
+    setInputMode("file");
+    setPastedText("");
   }
 
   if (status === "success" && uploadResult) {
@@ -98,6 +124,10 @@ export function UploadContract() {
             </div>
 
             <dl className="grid w-full min-w-0 grid-cols-1 gap-3 text-left sm:grid-cols-2">
+              <SummaryItem
+                label="Source"
+                value={inputMode === "file" ? "File" : "Pasted text"}
+              />
               <SummaryItem label="File" value={uploadResult.fileName} />
               <SummaryItem label="Counterparty" value={metadata.counterparty} />
               <SummaryItem label="Status" value={metadata.status} />
@@ -129,35 +159,92 @@ export function UploadContract() {
         <div className="min-w-0 space-y-6">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle className="text-base">Contract Document</CardTitle>
-              <CardDescription>
-                Upload a PDF, DOC, DOCX, or TXT contract file up to 25 MB.
-              </CardDescription>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="text-base">Contract Document</CardTitle>
+                  <CardDescription>
+                    Upload a file or paste contract text.
+                  </CardDescription>
+                </div>
+
+                <div
+                  className="inline-flex rounded-md border border-border p-1"
+                  aria-label="Contract input mode"
+                >
+                  <ModeButton
+                    active={inputMode === "file"}
+                    disabled={isUploading}
+                    icon={FileUp}
+                    onClick={() => {
+                      setInputMode("file");
+                      setSubmitError(null);
+                    }}
+                  >
+                    File
+                  </ModeButton>
+
+                  <ModeButton
+                    active={inputMode === "paste"}
+                    disabled={isUploading}
+                    icon={ClipboardType}
+                    onClick={() => {
+                      setInputMode("paste");
+                      setSubmitError(null);
+                    }}
+                  >
+                    Paste
+                  </ModeButton>
+                </div>
+              </div>
             </CardHeader>
 
             <CardContent className="min-w-0 space-y-4">
-              {selectedFile ? (
-                <SelectedFileSummary
-                  file={selectedFile}
-                  disabled={isUploading}
-                  onRemove={removeFile}
-                  onReplace={removeFile}
-                />
+              {inputMode === "file" ? (
+                selectedFile ? (
+                  <SelectedFileSummary
+                    file={selectedFile}
+                    disabled={isUploading}
+                    onRemove={removeFile}
+                    onReplace={removeFile}
+                  />
+                ) : (
+                  <ContractFileDropzone
+                    isDragging={isDragging}
+                    error={validationError}
+                    disabled={isUploading}
+                    onSelectFile={(file) => {
+                      setSubmitError(null);
+                      selectFile(file);
+                    }}
+                    onDraggingChange={setIsDragging}
+                  />
+                )
               ) : (
-                <ContractFileDropzone
-                  isDragging={isDragging}
-                  error={validationError}
-                  disabled={isUploading}
-                  onSelectFile={(file) => {
-                    setSubmitError(null);
-                    selectFile(file);
-                  }}
-                  onDraggingChange={setIsDragging}
-                />
+                <div className="space-y-2">
+                  <Textarea
+                    value={pastedText}
+                    disabled={isUploading}
+                    placeholder="Paste the full contract text here..."
+                    className="min-h-44 resize-y font-mono text-xs leading-relaxed"
+                    onChange={(event) => {
+                      setSubmitError(null);
+                      setPastedText(event.target.value);
+                    }}
+                  />
+                  <p
+                    className="text-sm text-muted-foreground"
+                    aria-live="polite"
+                  >
+                    {pastedText.trim().length.toLocaleString()} characters
+                    {pastedText.length > 0 && !pastedTextIsValid
+                      ? " - paste at least 40 characters."
+                      : ""}
+                  </p>
+                </div>
               )}
 
               <p className="text-sm text-muted-foreground" aria-live="polite">
-                {getStatusMessage(status, Boolean(selectedFile))}
+                {getStatusMessage(status, inputMode, Boolean(selectedFile))}
               </p>
             </CardContent>
           </Card>
@@ -201,8 +288,9 @@ export function UploadContract() {
         canSubmit={canSubmit}
         isUploading={isUploading}
         statusMessage={getActionStatusMessage(
-          Boolean(selectedFile),
+          sourceIsValid,
           metadataIsValid,
+          inputMode,
         )}
         onReset={handleReset}
         onSubmit={handleSubmit}
@@ -220,11 +308,14 @@ function isMetadataValid(metadata: ContractMetadata): boolean {
 }
 
 function getActionStatusMessage(
-  hasSelectedFile: boolean,
+  sourceIsValid: boolean,
   metadataIsValid: boolean,
+  inputMode: UploadInputMode,
 ): string {
-  if (!hasSelectedFile) {
-    return "Select a contract file to continue.";
+  if (!sourceIsValid) {
+    return inputMode === "file"
+      ? "Select a contract file to continue."
+      : "Paste contract text to continue.";
   }
 
   if (!metadataIsValid) {
@@ -236,12 +327,13 @@ function getActionStatusMessage(
 
 function getStatusMessage(
   status: ContractUploadStatus,
+  inputMode: UploadInputMode,
   hasSelectedFile: boolean,
 ): string {
   if (status === "error") {
-    return hasSelectedFile
-      ? "Resolve the upload error before continuing."
-      : "Choose another file to continue.";
+    return inputMode === "file" && !hasSelectedFile
+      ? "Choose another file to continue."
+      : "Resolve the upload error before continuing.";
   }
 
   if (status === "ready") {
@@ -249,14 +341,49 @@ function getStatusMessage(
   }
 
   if (status === "uploading") {
-    return "Uploading contract file.";
+    return "Uploading contract.";
   }
 
   if (status === "success") {
     return "Contract uploaded successfully.";
   }
 
-  return "No contract file selected yet.";
+  return inputMode === "file"
+    ? "No contract file selected yet."
+    : "No contract text pasted yet.";
+}
+
+interface ModeButtonProps {
+  active: boolean;
+  disabled: boolean;
+  icon: ElementType;
+  children: ReactNode;
+  onClick: () => void;
+}
+
+function ModeButton({
+  active,
+  disabled,
+  icon: Icon,
+  children,
+  onClick,
+}: ModeButtonProps) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      className={
+        active
+          ? "inline-flex items-center gap-2 rounded-sm bg-secondary px-3 py-1.5 text-sm font-medium text-secondary-foreground"
+          : "inline-flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+      }
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+      {children}
+    </button>
+  );
 }
 
 function SummaryItem({ label, value }: { label: string; value: string }) {

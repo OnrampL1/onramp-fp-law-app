@@ -14,6 +14,8 @@ export const ACCEPTED_CONTRACT_MIME_TYPES = [
 
 export const MAX_CONTRACT_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
+export const MIN_PASTED_CONTRACT_TEXT_LENGTH = 40;
+
 export const CONTRACT_TYPE_OPTIONS = [
   { value: "msa", label: "Master Services Agreement" },
   { value: "nda", label: "Non-Disclosure Agreement" },
