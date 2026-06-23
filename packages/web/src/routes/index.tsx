@@ -7,6 +7,8 @@ import { Register } from "../pages/auth/Register";
 import { Dashboard } from "../pages/dashboard/Dashboard";
 import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
+import { UploadContract } from "../pages/contracts/UploadContract";
+import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
@@ -87,6 +89,7 @@ export function AppRoutes() {
             }
           />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/upload-contract" element={<UploadContract />} />
 
           {/* Contract routes */}
           <Route path="/contracts"     element={<PlaceholderPage />} />
