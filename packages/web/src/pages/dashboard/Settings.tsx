@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
+import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
 
 type SettingsSection =
   | "profile"
@@ -128,9 +129,11 @@ export function Settings() {
             </p>
           </div>
 
-          {activeSection === "profile" ? (
-            <ProfileSettings />
-          ) : (
+          {activeSection === "profile" && <ProfileSettings />}
+
+          {activeSection === "organization" && <OrganizationSettings />}
+
+          {activeSection !== "profile" && activeSection !== "organization" && (
             <Card>
               <CardHeader>
                 <CardTitle>{activeNavItem.label}</CardTitle>
