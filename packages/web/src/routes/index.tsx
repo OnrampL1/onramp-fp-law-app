@@ -9,7 +9,7 @@ import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
 import { UploadContract } from "../pages/contracts/UploadContract";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
-import { PlaceholderPage } from "../pages/PlaceholderPage";
+// import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
   return (
@@ -92,14 +92,14 @@ export function AppRoutes() {
           <Route path="/upload-contract" element={<UploadContract />} />
 
           {/* Contract routes */}
-          <Route path="/contracts"     element={<PlaceholderPage />} />
-          <Route path="/contracts/:id" element={<PlaceholderPage />} />
+          {/* <Route path="/contracts"     element={<PlaceholderPage />} />
+          <Route path="/contracts/:id" element={<PlaceholderPage />} /> */}
 
           {/* AI Insight routes */}
-          <Route path="/insights/auto-renewal"  element={<PlaceholderPage />} />
+          {/* <Route path="/insights/auto-renewal"  element={<PlaceholderPage />} />
           <Route path="/insights/liability"     element={<PlaceholderPage />} />
           <Route path="/insights/non-compete"   element={<PlaceholderPage />} />
-          <Route path="/insights/ip-assignment" element={<PlaceholderPage />} />
+          <Route path="/insights/ip-assignment" element={<PlaceholderPage />} /> */}
         </Route>
       </Route>
 
