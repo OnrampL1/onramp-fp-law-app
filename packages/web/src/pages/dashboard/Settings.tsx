@@ -11,12 +11,13 @@ import {
 
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+import { ProfileSettings } from "@/components/settings/ProfileSettings";
 
 type SettingsSection =
   | "profile"
@@ -117,19 +118,27 @@ export function Settings() {
           })}
         </nav>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{activeNavItem.label}</CardTitle>
-            <CardDescription>{activeNavItem.description}</CardDescription>
-          </CardHeader>
-
-          <CardContent>
+        <section className="min-w-0 space-y-6">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">
+              {activeNavItem.label}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              We’ll add the {activeNavItem.label.toLowerCase()} settings in the
-              next step.
+              {activeNavItem.description}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+
+          {activeSection === "profile" ? (
+            <ProfileSettings />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>{activeNavItem.label}</CardTitle>
+                <CardDescription>{activeNavItem.description}</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </section>
       </div>
     </div>
   );
