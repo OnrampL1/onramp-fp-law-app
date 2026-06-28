@@ -21,6 +21,7 @@ import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { AiPreferencesSettings } from "@/components/settings/AiPreferencesSettings";
+import { NotificationSettings } from "@/components/settings/NotificationSettings";
 
 type SettingsSection =
   | "profile"
@@ -135,18 +136,7 @@ export function Settings() {
           {activeSection === "organization" && <OrganizationSettings />}
           {activeSection === "security" && <SecuritySettings />}
           {activeSection === "ai" && <AiPreferencesSettings />}
-
-          {activeSection !== "profile" &&
-            activeSection !== "organization" &&
-            activeSection !== "security" &&
-            activeSection !== "ai" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{activeNavItem.label}</CardTitle>
-                  <CardDescription>{activeNavItem.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            )}
+          {activeSection === "notifications" && <NotificationSettings />}
         </section>
       </div>
     </div>
