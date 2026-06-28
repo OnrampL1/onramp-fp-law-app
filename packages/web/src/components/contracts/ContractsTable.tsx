@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -49,7 +47,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Link } from "react-router-dom";
-import { RiskBadge, StatusBadge } from "./badges";
+import { RiskBadge, StatusBadge } from "../ui/badges";
 
 type SortKey =
   | "name"
@@ -425,7 +423,7 @@ function FilterSelect({
   options: { value: string; label: string }[];
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value} onValueChange={(v) => { if (v !== null) onChange(v); }}>
       <SelectTrigger
         size="sm"
         className="min-w-[8.5rem]"

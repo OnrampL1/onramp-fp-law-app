@@ -9,6 +9,7 @@ import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import Contracts from "@/pages/contracts/Contracts";
+import ContractDetailPage from "@/pages/contracts/ContractDetails";
 
 export function AppRoutes() {
   return (
@@ -25,6 +26,7 @@ export function AppRoutes() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/contracts" element={<Contracts />} />
+          <Route path="/contracts/:id" element={<ContractDetailPage />} />
           <Route
             path="/ai-analysis"
             element={
@@ -80,16 +82,6 @@ export function AppRoutes() {
             }
           />
           <Route path="/settings" element={<Settings />} />
-
-          {/* Contract routes */}
-          {/* <Route path="/contracts" element={<PlaceholderPage />} />
-          <Route path="/contracts/:id" element={<PlaceholderPage />} /> */}
-
-          {/* AI Insight routes */}
-          {/* <Route path="/insights/auto-renewal" element={<PlaceholderPage />} />
-          <Route path="/insights/liability" element={<PlaceholderPage />} />
-          <Route path="/insights/non-compete" element={<PlaceholderPage />} />
-          <Route path="/insights/ip-assignment" element={<PlaceholderPage />} /> */}
         </Route>
       </Route>
 

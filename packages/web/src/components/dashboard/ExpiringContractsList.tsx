@@ -10,7 +10,7 @@ import { expiringContracts } from "@/lib/data";
 import { CalendarClock, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-import { RiskBadge } from "../contracts/badges";
+import { RiskBadge } from "../ui/badges";
 
 const CONTRACT_ROUTES: Record<string, string> = {
   "Manufacturing Supply Contract": "/contracts/CTR-10470",

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { recentContracts } from "@/lib/data";
 import { ArrowRight, FileText } from "lucide-react";
-import { RiskBadge, StatusBadge } from "../contracts/badges";
+import { RiskBadge, StatusBadge } from "../ui/badges";
 
 export function RecentContracts() {
   return (
