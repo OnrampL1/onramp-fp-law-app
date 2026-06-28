@@ -3,20 +3,13 @@ import { useAuth } from "../../hooks/useAuth";
 import {
   ActivityFeed,
   AiInsightsPanel,
-  ContractStatusOverview,
-  ContractTable,
   DashboardHeader,
   ExpiringContractsList,
-  StatCard,
-} from "../../components/dashboard/components"; 
+} from "../../components/dashboard";
 
-import {
-  AI_INSIGHTS,
-  ACTIVITY,
-  CONTRACTS,
-  EXPIRING,
-  STATS,
-} from "../../components/dashboard/data";
+import { KpiCards } from "@/components/dashboard/KPICard";
+import { RecentContracts } from "@/components/dashboard/RecentContractsTable";
+import { ContractStatusOverview } from "@/components/dashboard/ContractStatusOverview";
 
 /**
  * Dashboard page.
@@ -37,16 +30,12 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6 pb-10">
-
       {/* ── Page header ────────────────────────────────────────────────────── */}
       <DashboardHeader userName={userName} />
 
       {/* ── KPI stat cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {STATS.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </div>
+
+      <KpiCards />
 
       {/* ── Status overview  +  AI insights ────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
@@ -54,23 +43,22 @@ export function Dashboard() {
           <ContractStatusOverview />
         </div>
         <div className="lg:col-span-2">
-          <AiInsightsPanel insights={AI_INSIGHTS} />
+          <AiInsightsPanel />
         </div>
       </div>
 
       {/* ── Recent contracts table ──────────────────────────────────────────── */}
-      <ContractTable contracts={CONTRACTS} />
+      <RecentContracts />
 
       {/* ── Activity feed  +  Expiring contracts ───────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
-          <ActivityFeed items={ACTIVITY} />
+          <ActivityFeed />
         </div>
         <div className="lg:col-span-2">
-          <ExpiringContractsList contracts={EXPIRING} />
+          <ExpiringContractsList />
         </div>
       </div>
-
     </div>
   );
 }
