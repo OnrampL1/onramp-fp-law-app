@@ -9,12 +9,6 @@ import {
   UserRound,
 } from "lucide-react";
 
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
