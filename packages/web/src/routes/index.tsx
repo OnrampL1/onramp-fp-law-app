@@ -10,6 +10,9 @@ import { NotFound } from "../pages/NotFound";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import Contracts from "@/pages/contracts/Contracts";
 import ContractDetailPage from "@/pages/contracts/ContractDetails";
+import { UploadContract } from "../pages/contracts/UploadContract";
+import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
+import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
   return (
