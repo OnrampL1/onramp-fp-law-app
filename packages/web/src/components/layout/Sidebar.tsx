@@ -101,6 +101,7 @@ export function Sidebar() {
                     }
                     isActive={pathname === item.href}
                     tooltip={item.title}
+                    className="my-[2px]"
                   />
                 </SidebarMenuItem>
               ))}
@@ -123,6 +124,7 @@ export function Sidebar() {
                     }
                     isActive={pathname === item.href}
                     tooltip={item.title}
+                    className="my-[2px]"
                   />
                 </SidebarMenuItem>
               ))}
@@ -135,7 +137,7 @@ export function Sidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" tooltip={userName}>
-              <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-xs font-medium">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-xs font-medium p-2">
                 {getInitials(userName)}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
