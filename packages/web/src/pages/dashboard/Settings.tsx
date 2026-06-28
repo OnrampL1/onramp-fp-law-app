@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
+import { SecuritySettings } from "@/components/settings/SecuritySettings";
 
 type SettingsSection =
   | "profile"
@@ -133,14 +134,18 @@ export function Settings() {
 
           {activeSection === "organization" && <OrganizationSettings />}
 
-          {activeSection !== "profile" && activeSection !== "organization" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{activeNavItem.label}</CardTitle>
-                <CardDescription>{activeNavItem.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          )}
+          {activeSection === "security" && <SecuritySettings />}
+
+          {activeSection !== "profile" &&
+            activeSection !== "organization" &&
+            activeSection !== "security" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{activeNavItem.label}</CardTitle>
+                  <CardDescription>{activeNavItem.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            )}
         </section>
       </div>
     </div>
