@@ -9,7 +9,7 @@ import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
 import { UploadContract } from "../pages/contracts/UploadContract";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
-import { PlaceholderPage } from "../pages/PlaceholderPage";
+import { WitnessWorkflow } from "../pages/WitnessWorkflow";
 
 export function AppRoutes() {
   return (
@@ -25,6 +25,7 @@ export function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
+
           <Route
             path="/contracts"
             element={
@@ -52,15 +53,9 @@ export function AppRoutes() {
               />
             }
           />
-          <Route
-            path="/upload"
-            element={
-              <PlaceholderPage
-                title="Contract Upload"
-                description="Add documents for review"
-              />
-            }
-          />
+
+          <Route path="/upload" element={<UploadContract />} />
+          <Route path="/upload-contract" element={<UploadContract />} />
           <Route
             path="/users"
             element={
@@ -70,15 +65,11 @@ export function AppRoutes() {
               />
             }
           />
-          <Route
-            path="/witness"
-            element={
-              <PlaceholderPage
-                title="Witness Workflow"
-                description="Review signatures and attestations"
-              />
-            }
-          />
+          
+          <Route path="/witness" element={<WitnessWorkflow />} />
+          <Route path="/witness-workflow" element={<WitnessWorkflow />} />
+
+
           <Route
             path="/audit"
             element={
@@ -88,17 +79,17 @@ export function AppRoutes() {
               />
             }
           />
+
           <Route path="/settings" element={<Settings />} />
-          <Route path="/upload-contract" element={<UploadContract />} />
 
           {/* Contract routes */}
-          <Route path="/contracts"     element={<PlaceholderPage />} />
+          <Route path="/contracts" element={<PlaceholderPage />} />
           <Route path="/contracts/:id" element={<PlaceholderPage />} />
 
           {/* AI Insight routes */}
-          <Route path="/insights/auto-renewal"  element={<PlaceholderPage />} />
-          <Route path="/insights/liability"     element={<PlaceholderPage />} />
-          <Route path="/insights/non-compete"   element={<PlaceholderPage />} />
+          <Route path="/insights/auto-renewal" element={<PlaceholderPage />} />
+          <Route path="/insights/liability" element={<PlaceholderPage />} />
+          <Route path="/insights/non-compete" element={<PlaceholderPage />} />
           <Route path="/insights/ip-assignment" element={<PlaceholderPage />} />
         </Route>
       </Route>
