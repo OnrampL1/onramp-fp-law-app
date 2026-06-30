@@ -53,15 +53,6 @@ export function AppRoutes() {
             }
           />
           <Route
-            path="/upload"
-            element={
-              <PlaceholderPage
-                title="Contract Upload"
-                description="Add documents for review"
-              />
-            }
-          />
-          <Route
             path="/users"
             element={
               <PlaceholderPage
@@ -89,7 +80,7 @@ export function AppRoutes() {
             }
           />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/upload-contract" element={<UploadContract />} />
+          <Route path="/upload" element={<UploadContract />} />
 
           {/* Contract routes */}
           {/* <Route path="/contracts"     element={<PlaceholderPage />} />
