@@ -40,6 +40,42 @@ export function AppRoutes() {
             }
           />
           <Route
+            path="/insights/auto-renewal"
+            element={
+              <PlaceholderPage
+                title="Auto Renewal Alerts"
+                description="Auto-renew clauses triggering within 60 days"
+              />
+            }
+          />
+          <Route
+            path="/insights/liability"
+            element={
+              <PlaceholderPage
+                title="Liability Risks"
+                description="Uncapped or broad indemnification terms"
+              />
+            }
+          />
+          <Route
+            path="/insights/non-compete"
+            element={
+              <PlaceholderPage
+                title="Non-Compete Detection"
+                description="Restrictive covenants requiring legal review"
+              />
+            }
+          />
+          <Route
+            path="/insights/ip-assignment"
+            element={
+              <PlaceholderPage
+                title="IP Assignment Detection"
+                description="Intellectual property transfer provisions found"
+              />
+            }
+          />
+          <Route
             path="/investigator"
             element={
               <PlaceholderPage

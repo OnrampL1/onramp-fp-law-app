@@ -172,8 +172,27 @@ function RiskAnalysis({ contract }: { contract: ContractDetail }) {
   );
 }
 
-function InternalNotes({ notes }: { notes: InternalNote[] }) {
+function InternalNotes({ notes: initialNotes }: { notes: InternalNote[] }) {
+  const [notes, setNotes] = useState(initialNotes);
   const [draft, setDraft] = useState("");
+
+  function handleSend() {
+    const body = draft.trim();
+    if (!body) return;
+
+    setNotes((prev) => [
+      ...prev,
+      {
+        id: `note-${Date.now()}`,
+        author: "Alex Rivera",
+        initials: "AR",
+        role: "Administrator",
+        time: "Just now",
+        body,
+      },
+    ]);
+    setDraft("");
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -203,6 +222,7 @@ function InternalNotes({ notes }: { notes: InternalNote[] }) {
               className="absolute bottom-1.5 right-1.5 size-6"
               disabled={!draft.trim()}
               aria-label="Send note"
+              onClick={handleSend}
             >
               <Send className="size-3.5" />
             </Button>

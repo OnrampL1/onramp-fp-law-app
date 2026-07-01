@@ -10,10 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  contractDetail,
-  contractPages,
-  contractTimeline,
-  internalNotes,
+  contractDetails,
+  contractPagesById,
+  contractTimelineById,
+  internalNotesById,
 } from "@/lib/data";
 import type { ContractStatus } from "@/lib/data";
 import {
@@ -33,15 +33,19 @@ import { ContractTimeline } from "@/components/contracts/ContractTimeline";
 
 const statuses: ContractStatus[] = ["Draft", "Active", "Expired", "Terminated"];
 
-// Temporary: all contracts render the same mock detail data.
+// Temporary: mock detail data only exists for a handful of contract ids;
+// unknown ids fall back to the default contract below.
 // When the backend is ready, replace this with an API call:
 //   const { data } = useQuery(['contract', id], () => api.getContract(id));
-function useContractData(_id: string | undefined) {
+const DEFAULT_CONTRACT_ID = "CTR-10470";
+
+function useContractData(id: string | undefined) {
+  const key = id && contractDetails[id] ? id : DEFAULT_CONTRACT_ID;
   return {
-    contract: contractDetail,
-    pages: contractPages,
-    timeline: contractTimeline,
-    notes: internalNotes,
+    contract: contractDetails[key],
+    pages: contractPagesById[key],
+    timeline: contractTimelineById[key],
+    notes: internalNotesById[key],
   };
 }
 

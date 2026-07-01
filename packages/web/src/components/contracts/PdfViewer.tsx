@@ -182,7 +182,7 @@ export function PdfViewer({ contract, pages }: PdfViewerProps) {
 
             <div className="mt-8 flex justify-center">
               <span className="text-[10px] text-muted-foreground">
-                Page {page} of {contract.pages}
+                Page {page} of {total}
               </span>
             </div>
           </div>

@@ -43,7 +43,12 @@ export function ExpiringContractsList() {
               role="button"
               tabIndex={0}
               onClick={() => navigate(route)}
-              onKeyDown={(e) => e.key === "Enter" && navigate(route)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(route);
+                }
+              }}
               className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <div
@@ -71,7 +76,12 @@ export function ExpiringContractsList() {
             </div>
           );
         })}
-        <Button variant="outline" className="w-full gap-1.5">
+        <Button
+          variant="outline"
+          className="w-full gap-1.5"
+          disabled
+          title="Coming soon"
+        >
           View renewal calendar
           <ArrowRight className="size-4" />
         </Button>
