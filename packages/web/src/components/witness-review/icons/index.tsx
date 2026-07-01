@@ -70,7 +70,7 @@ export function SearchIcon({ className }: IconProps) {
 export function ZoomOutIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" strokeWidth={1.5} className={cn("h-4 w-4", base, className)}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803zM10.5 7.5v6m-3-3h6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803zM13.5 10.5h-6" />
     </svg>
   );
 }
@@ -78,7 +78,7 @@ export function ZoomOutIcon({ className }: IconProps) {
 export function ZoomInIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" strokeWidth={1.5} className={cn("h-4 w-4", base, className)}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803zM13.5 10.5h-6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803zM10.5 7.5v6m-3-3h6" />
     </svg>
   );
 }

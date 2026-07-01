@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -18,12 +18,7 @@ interface ContractDocumentViewerProps {
 
 const ZOOM_LEVELS = [75, 100, 125, 150];
 
-/**
- * Paginated contract document viewer.
- * - Search bar + zoom controls in the toolbar
- * - Document page rendered in a styled "paper" panel
- * - Previous / Next navigation + page dot indicators
- */
+
 export function ContractDocumentViewer({ pages }: ContractDocumentViewerProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [zoomIndex, setZoomIndex]     = useState(1); // default 100%
@@ -32,9 +27,47 @@ export function ContractDocumentViewer({ pages }: ContractDocumentViewerProps) {
   const page       = pages[currentPage];
   const totalPages = pages.length;
   const zoom       = ZOOM_LEVELS[zoomIndex];
+  const normalizedSearch = search.trim();
+
+  const searchPageIndex = useMemo(() => {
+    if (!normalizedSearch) return -1;
+    const query = normalizedSearch.toLowerCase();
+
+    return pages.findIndex((page) =>
+      page.sections.some((section) =>
+        section.heading.toLowerCase().includes(query) ||
+        section.paragraphs.some((paragraph) => paragraph.toLowerCase().includes(query))
+      )
+    );
+  }, [normalizedSearch, pages]);
+
+  function escapeRegExp(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function highlightText(text: string, query: string) {
+    if (!query) return text;
+    const regex = new RegExp(`(${escapeRegExp(query)})`, "gi");
+    return text.split(regex).map((part, index) =>
+      index % 2 === 1 ? (
+        <mark key={index} className="bg-yellow-200 text-foreground rounded-sm px-0.5">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  }
 
   function goTo(index: number) {
     setCurrentPage(Math.max(0, Math.min(index, totalPages - 1)));
+  }
+
+  function handleSearch() {
+    if (!normalizedSearch) return;
+    if (searchPageIndex !== -1) {
+      goTo(searchPageIndex);
+    }
   }
 
   return (
@@ -55,6 +88,12 @@ export function ContractDocumentViewer({ pages }: ContractDocumentViewerProps) {
               placeholder="Search contract..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSearch();
+                }
+              }}
               className="h-8 pl-8 text-xs w-44"
             />
           </div>
@@ -105,13 +144,15 @@ export function ContractDocumentViewer({ pages }: ContractDocumentViewerProps) {
           {/* Sections */}
           {page.sections.map((section, i) => (
             <div key={i} className="mb-5">
-              <h3 className="mb-3 text-sm font-bold text-foreground">{section.heading}</h3>
+              <h3 className="mb-3 text-sm font-bold text-foreground">
+                {normalizedSearch ? highlightText(section.heading, normalizedSearch) : section.heading}
+              </h3>
               {section.paragraphs.map((para, j) => (
                 <p
                   key={j}
                   className="mb-3 text-sm leading-relaxed text-foreground/80 last:mb-0"
                 >
-                  {para}
+                  {normalizedSearch ? highlightText(para, normalizedSearch) : para}
                 </p>
               ))}
             </div>
@@ -143,7 +184,7 @@ export function ContractDocumentViewer({ pages }: ContractDocumentViewerProps) {
               className={`h-2 w-2 rounded-full transition-colors ${
                 i === currentPage
                   ? "bg-foreground"
-                  : "bg-muted-foreground/40 hover:bg-muted-foreground/70"
+                  : "bg-slate-400 hover:bg-slate-500"
               }`}
             />
           ))}

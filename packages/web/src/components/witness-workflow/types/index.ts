@@ -23,6 +23,8 @@ export interface WitnessInvitation {
   status: WitnessStatus;
   accessType: AccessType;
   lastAction: string;
+  generatedDate: string;
+  url: string;
 }
 
 export interface ReviewStage {
@@ -55,4 +57,29 @@ export interface WitnessStatCard {
   value: string | number;
   label: string;
   sublabel?: string;
+}
+
+// ─── NEW: generated link state ────────────────────────────────────────────────
+
+export interface GeneratedLink {
+  url: string;
+  expirationDate: string;
+  accessType: AccessType;
+}
+
+// ─── NEW: access activity timeline ───────────────────────────────────────────
+
+export type ActivityEventType =
+  | "acknowledged"
+  | "review_completed"
+  | "pdf_downloaded"
+  | "contract_opened"
+  | "link_generated";
+
+export interface AccessActivityItem {
+  id: string;
+  eventType: ActivityEventType;
+  label: string;
+  subLabel: string;
+  time: string;
 }
