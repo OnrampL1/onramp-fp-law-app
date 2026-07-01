@@ -11,6 +11,7 @@ import { UploadContract } from "../pages/contracts/UploadContract";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import { WitnessWorkflow } from "../pages/WitnessWorkflow";
 import { WitnessReview } from "../pages/WitnessReview";
+// import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
   return (
@@ -57,9 +58,6 @@ export function AppRoutes() {
               />
             }
           />
-
-          <Route path="/upload" element={<UploadContract />} />
-          <Route path="/upload-contract" element={<UploadContract />} />
           <Route
             path="/users"
             element={
