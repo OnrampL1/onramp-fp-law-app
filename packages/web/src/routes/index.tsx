@@ -10,6 +10,7 @@ import { NotFound } from "../pages/NotFound";
 import { UploadContract } from "../pages/contracts/UploadContract";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import { WitnessWorkflow } from "../pages/WitnessWorkflow";
+import { WitnessReview } from "../pages/WitnessReview";
 
 export function AppRoutes() {
   return (
@@ -20,6 +21,9 @@ export function AppRoutes() {
         <Route path="/register" element={<Register />} />
       </Route>
 
+      <Route path="/witness-review" element={<WitnessReview />} />
+      <Route path="/witness/review" element={<WitnessReview />} />
+      
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
