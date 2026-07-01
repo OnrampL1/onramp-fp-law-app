@@ -7,10 +7,11 @@ import { Register } from "../pages/auth/Register";
 import { Dashboard } from "../pages/dashboard/Dashboard";
 import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
-import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import Contracts from "@/pages/contracts/Contracts";
 import ContractDetailPage from "@/pages/contracts/ContractDetails";
 import { UploadContract } from "../pages/contracts/UploadContract";
+import { WitnessWorkflow } from "../pages/WitnessWorkflow";
+import { WitnessReview } from "../pages/WitnessReview";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
@@ -22,6 +23,9 @@ export function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
       </Route>
+
+      <Route path="/witness-review" element={<WitnessReview />} />
+      <Route path="/witness/review" element={<WitnessReview />} />
 
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>
@@ -93,15 +97,10 @@ export function AppRoutes() {
               />
             }
           />
-          <Route
-            path="/witness"
-            element={
-              <PlaceholderPage
-                title="Witness Workflow"
-                description="Review signatures and attestations"
-              />
-            }
-          />
+
+          <Route path="/witness" element={<WitnessWorkflow />} />
+          <Route path="/witness-workflow" element={<WitnessWorkflow />} />
+
           <Route
             path="/audit"
             element={
@@ -111,14 +110,10 @@ export function AppRoutes() {
               />
             }
           />
+
           <Route path="/settings" element={<Settings />} />
           <Route path="/upload" element={<UploadContract />} />
 
-          {/* AI Insight routes */}
-          {/* <Route path="/insights/auto-renewal"  element={<PlaceholderPage />} />
-          <Route path="/insights/liability"     element={<PlaceholderPage />} />
-          <Route path="/insights/non-compete"   element={<PlaceholderPage />} />
-          <Route path="/insights/ip-assignment" element={<PlaceholderPage />} /> */}
         </Route>
       </Route>
 

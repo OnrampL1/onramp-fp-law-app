@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { SparklesIcon, UploadIcon } from "../shared/icons";
 
@@ -5,11 +6,9 @@ interface DashboardHeaderProps {
   userName: string;
 }
 
-/**
- * Page header with a contextual welcome line and two primary actions.
- * Stacks vertically on mobile, aligns to a row on sm+.
- */
 export function DashboardHeader({ userName }: DashboardHeaderProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       {/* Title + subtitle */}
@@ -27,7 +26,11 @@ export function DashboardHeader({ userName }: DashboardHeaderProps) {
           <SparklesIcon />
           Run AI Analysis
         </Button>
-        <Button size="sm" className="gap-1.5">
+        <Button
+          size="sm"
+          className="gap-1.5"
+          onClick={() => navigate("/upload")}
+        >
           <UploadIcon />
           Upload Contract
         </Button>

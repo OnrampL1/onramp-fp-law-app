@@ -7,9 +7,33 @@ import {
   ExpiringContractsList,
 } from "../../components/dashboard";
 
-import { KpiCards } from "@/components/dashboard/KPICard";
+import {
+  FileText,
+  FileCheck2,
+  CalendarClock,
+  ShieldAlert,
+} from "lucide-react";
+import { KpiCards, type KpiCardItem } from "@/components/dashboard/KPICard";
 import { RecentContracts } from "@/components/dashboard/RecentContractsTable";
 import { ContractStatusOverview } from "@/components/dashboard/ContractStatusOverview";
+import { kpis } from "@/lib/data";
+
+const ICONS = { FileText, FileCheck2, CalendarClock, ShieldAlert };
+
+const kpiItems: KpiCardItem[] = kpis.map((kpi) => {
+  const Icon = ICONS[kpi.icon as keyof typeof ICONS];
+  const isUp = kpi.trend === "up";
+  // For the risk card, a downward trend is good
+  const isPositive = kpi.label.includes("Risk") ? !isUp : isUp;
+  return {
+    icon: <Icon className="size-5" />,
+    value: kpi.value,
+    label: kpi.label,
+    sublabel: kpi.sub,
+    delta: kpi.change,
+    deltaPositive: isPositive,
+  };
+});
 
 /**
  * Dashboard page.
@@ -35,7 +59,7 @@ export function Dashboard() {
 
       {/* ── KPI stat cards ─────────────────────────────────────────────────── */}
 
-      <KpiCards />
+      <KpiCards items={kpiItems} />
 
       {/* ── Status overview  +  AI insights ────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
