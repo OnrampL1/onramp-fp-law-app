@@ -113,7 +113,6 @@ export function AppRoutes() {
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/upload" element={<UploadContract />} />
-
         </Route>
       </Route>
 
