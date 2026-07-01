@@ -7,10 +7,12 @@ import { Register } from "../pages/auth/Register";
 import { Dashboard } from "../pages/dashboard/Dashboard";
 import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
+import Contracts from "@/pages/contracts/Contracts";
+import ContractDetailPage from "@/pages/contracts/ContractDetails";
 import { UploadContract } from "../pages/contracts/UploadContract";
-import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import { WitnessWorkflow } from "../pages/WitnessWorkflow";
 import { WitnessReview } from "../pages/WitnessReview";
+import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
@@ -24,28 +26,56 @@ export function AppRoutes() {
 
       <Route path="/witness-review" element={<WitnessReview />} />
       <Route path="/witness/review" element={<WitnessReview />} />
-      
+
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
-
-          <Route
-            path="/contracts"
-            element={
-              <PlaceholderPage
-                title="Contracts"
-                description="Contract repository"
-              />
-            }
-          />
+          <Route path="/contracts" element={<Contracts />} />
+          <Route path="/contracts/:id" element={<ContractDetailPage />} />
           <Route
             path="/ai-analysis"
             element={
               <PlaceholderPage
                 title="AI Analysis"
                 description="Legal intelligence review"
+              />
+            }
+          />
+          <Route
+            path="/insights/auto-renewal"
+            element={
+              <PlaceholderPage
+                title="Auto Renewal Alerts"
+                description="Auto-renew clauses triggering within 60 days"
+              />
+            }
+          />
+          <Route
+            path="/insights/liability"
+            element={
+              <PlaceholderPage
+                title="Liability Risks"
+                description="Uncapped or broad indemnification terms"
+              />
+            }
+          />
+          <Route
+            path="/insights/non-compete"
+            element={
+              <PlaceholderPage
+                title="Non-Compete Detection"
+                description="Restrictive covenants requiring legal review"
+              />
+            }
+          />
+          <Route
+            path="/insights/ip-assignment"
+            element={
+              <PlaceholderPage
+                title="IP Assignment Detection"
+                description="Intellectual property transfer provisions found"
               />
             }
           />
@@ -67,10 +97,9 @@ export function AppRoutes() {
               />
             }
           />
-          
+
           <Route path="/witness" element={<WitnessWorkflow />} />
           <Route path="/witness-workflow" element={<WitnessWorkflow />} />
-
 
           <Route
             path="/audit"
@@ -83,16 +112,7 @@ export function AppRoutes() {
           />
 
           <Route path="/settings" element={<Settings />} />
-
-          {/* Contract routes */}
-          <Route path="/contracts" element={<PlaceholderPage />} />
-          <Route path="/contracts/:id" element={<PlaceholderPage />} />
-
-          {/* AI Insight routes */}
-          <Route path="/insights/auto-renewal" element={<PlaceholderPage />} />
-          <Route path="/insights/liability" element={<PlaceholderPage />} />
-          <Route path="/insights/non-compete" element={<PlaceholderPage />} />
-          <Route path="/insights/ip-assignment" element={<PlaceholderPage />} />
+          <Route path="/upload" element={<UploadContract />} />
         </Route>
       </Route>
 

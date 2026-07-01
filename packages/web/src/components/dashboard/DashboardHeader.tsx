@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Button } from "../../../components/ui/button";
-import { SparklesIcon, UploadIcon } from "../icons";
+import { Button } from "../ui/button";
+import { SparklesIcon, UploadIcon } from "../shared/icons";
 
 interface DashboardHeaderProps {
   userName: string;
@@ -15,7 +15,8 @@ export function DashboardHeader({ userName }: DashboardHeaderProps) {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, {userName}. Here's what's happening across your contracts.
+          Welcome back, {userName}. Here's what's happening across your
+          contracts.
         </p>
       </div>
 

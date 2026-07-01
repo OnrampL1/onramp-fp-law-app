@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { StatCard } from "../components/dashboard/components/StatCard";
 import {
   WitnessWorkflowHeader,
   GenerateWitnessAccessPanel,
@@ -18,15 +17,21 @@ import {
   EXPIRING_LINKS,
   ACCESS_ACTIVITY,
 } from "../components/witness-workflow/data";
-import type { WitnessInvitation, GeneratedLink } from "../components/witness-workflow/types";
-
+import type {
+  WitnessInvitation,
+  GeneratedLink,
+} from "../components/witness-workflow/types";
+import { KpiCards } from "@/components/dashboard";
 
 export function WitnessWorkflow() {
-  const [modalOpen, setModalOpen]                     = useState(false);
-  const [selectedInvitation, setSelectedInvitation]   = useState<WitnessInvitation | null>(null);
-  const [generatedLink, setGeneratedLink]             = useState<GeneratedLink | null>(null);
-  const [refreshKey, setRefreshKey]                   = useState(0);
-  
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedInvitation, setSelectedInvitation] =
+    useState<WitnessInvitation | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<GeneratedLink | null>(
+    null,
+  );
+  const [refreshKey, setRefreshKey] = useState(0);
+
   function handleRefresh() {
     // Clears the generated link state
     // When backend is ready: also re-fetch witness access activity here
@@ -37,7 +42,6 @@ export function WitnessWorkflow() {
   return (
     <>
       <div className="space-y-6 pb-10">
-
         {/* ── Page header ──────────────────────────────────────────────────── */}
         <WitnessWorkflowHeader
           onGenerate={() => setModalOpen(true)}
@@ -45,11 +49,7 @@ export function WitnessWorkflow() {
         />
 
         {/* ── KPI stat cards ───────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {WITNESS_STATS.map((stat) => (
-            <StatCard key={stat.label} {...stat} />
-          ))}
-        </div>
+        <KpiCards items={WITNESS_STATS} />
 
         {/* ── Generate witness access (inline panel) ───────────────────────── */}
         <GenerateWitnessAccessPanel
@@ -75,7 +75,6 @@ export function WitnessWorkflow() {
 
         {/* ── Expiring links warning ───────────────────────────────────────── */}
         <ExpiringLinksPanel links={EXPIRING_LINKS} />
-
       </div>
 
       {/* ── Modal (portal-like, renders above everything) ────────────────── */}
