@@ -3,6 +3,7 @@ import type { UserRole } from "../../auth/types";
 
 export interface UserAttributes {
   id: string;
+  organizationId?: string;
   email: string;
   passwordHash: string;
   name: string;
@@ -14,7 +15,7 @@ export interface UserAttributes {
 
 export interface UserCreationAttributes extends Optional<
   UserAttributes,
-  "id" | "role" | "emailVerified"
+  "id" | "organizationId" | "role" | "emailVerified"
 > {}
 
 export class User
@@ -22,6 +23,7 @@ export class User
   implements UserAttributes
 {
   declare id: string;
+  declare organizationId: string | undefined;
   declare email: string;
   declare passwordHash: string;
   declare name: string;
@@ -38,6 +40,12 @@ export class User
           defaultValue: DataTypes.UUIDV4,
           primaryKey: true,
         },
+        organizationId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: { model: "organizations", key: "id" },
+          onDelete: "SET NULL",
+        },
         email: {
           type: DataTypes.STRING,
           allowNull: false,
@@ -53,7 +61,7 @@ export class User
           allowNull: false,
         },
         role: {
-          type: DataTypes.ENUM("admin", "user"),
+          type: DataTypes.ENUM("admin", "lawyer", "paralegal", "user"),
           defaultValue: "user",
           allowNull: false,
         },
