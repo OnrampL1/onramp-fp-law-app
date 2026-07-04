@@ -20,6 +20,8 @@ import {
   type UserAccountStatus,
 } from "@/lib/users";
 
+import { InviteUserSheet } from "@/components/users/InviteUserSheet";
+
 type RoleFilter = "all" | UserAccessRole;
 type StatusFilter = "all" | UserAccountStatus;
 
@@ -30,6 +32,7 @@ export function UserManagement() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -74,7 +77,11 @@ export function UserManagement() {
             Export
           </Button>
 
-          <Button type="button" className="gap-2">
+          <Button
+            type="button"
+            className="gap-2"
+            onClick={() => setInviteOpen(true)}
+          >
             <Plus className="size-4" aria-hidden="true" />
             Invite user
           </Button>
@@ -141,6 +148,8 @@ export function UserManagement() {
       </div>
 
       <UserTable users={filteredUsers} />
+
+      <InviteUserSheet open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
   );
 }

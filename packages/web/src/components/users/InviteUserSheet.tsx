@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  permissionLabels,
   roleLabels,
   type PermissionKey,
   type UserAccessRole,
