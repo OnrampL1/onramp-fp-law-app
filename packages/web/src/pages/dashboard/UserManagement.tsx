@@ -21,6 +21,8 @@ import {
 } from "@/lib/users";
 
 import { InviteUserSheet } from "@/components/users/InviteUserSheet";
+import { UserDetailSheet } from "@/components/users/UserDetailSheet";
+import type { TeamMember } from "@/lib/users";
 
 type RoleFilter = "all" | UserAccessRole;
 type StatusFilter = "all" | UserAccountStatus;
@@ -33,6 +35,8 @@ export function UserManagement() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<TeamMember | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -51,6 +55,11 @@ export function UserManagement() {
       return matchesQuery && matchesRole && matchesStatus;
     });
   }, [query, roleFilter, statusFilter]);
+
+  function handleSelectUser(user: TeamMember) {
+    setSelectedUser(user);
+    setDetailOpen(true);
+  }
 
   return (
     <div className="space-y-6 pb-10">
@@ -147,9 +156,15 @@ export function UserManagement() {
         </div>
       </div>
 
-      <UserTable users={filteredUsers} />
+      <UserTable users={filteredUsers} onSelectUser={handleSelectUser} />
 
       <InviteUserSheet open={inviteOpen} onOpenChange={setInviteOpen} />
+
+      <UserDetailSheet
+        user={selectedUser}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </div>
   );
 }

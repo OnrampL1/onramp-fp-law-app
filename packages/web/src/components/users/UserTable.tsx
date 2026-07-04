@@ -31,6 +31,7 @@ import { PermissionBadge, UserRoleBadge, UserStatusBadge } from "./UserBadges";
 
 type UserTableProps = {
   users: TeamMember[];
+  onSelectUser: (user: TeamMember) => void;
 };
 
 function formatDate(value: string | null) {
@@ -45,7 +46,7 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-export function UserTable({ users }: UserTableProps) {
+export function UserTable({ users, onSelectUser }: UserTableProps) {
   return (
     <Card className="overflow-hidden">
       <Table>
@@ -70,7 +71,11 @@ export function UserTable({ users }: UserTableProps) {
               user.permissionKeys.length - visiblePermissions.length;
 
             return (
-              <TableRow key={user.id}>
+              <TableRow
+                key={user.id}
+                onClick={() => onSelectUser(user)}
+                className="cursor-pointer"
+              >
                 <TableCell className="pl-4">
                   <div className="flex min-w-56 items-center gap-3">
                     <Avatar>
@@ -124,7 +129,10 @@ export function UserTable({ users }: UserTableProps) {
                   {formatDate(user.createdAt)}
                 </TableCell>
 
-                <TableCell className="pr-4 text-right">
+                <TableCell
+                  className="pr-4 text-right"
+                  onClick={(event) => event.stopPropagation()}
+                >
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       render={
@@ -144,7 +152,7 @@ export function UserTable({ users }: UserTableProps) {
                         <UserCog className="size-4" />
                         Change role
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onSelectUser(user)}>
                         <ShieldCheck className="size-4" />
                         Review permissions
                       </DropdownMenuItem>
