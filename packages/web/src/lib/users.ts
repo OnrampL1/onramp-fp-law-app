@@ -45,6 +45,23 @@ export const permissionLabels: Record<PermissionKey, string> = {
   "settings.manage": "Manage settings",
 };
 
+export const rolePermissionKeys = {
+  admin: [
+    "contracts.read",
+    "contracts.write",
+    "contracts.upload",
+    "users.manage",
+    "audit.read",
+    "settings.manage",
+  ],
+  user: ["contracts.read", "contracts.write", "contracts.upload"],
+  viewer: ["contracts.read"],
+} satisfies Record<UserAccessRole, PermissionKey[]>;
+
+export function getPermissionKeysForRole(role: UserAccessRole) {
+  return rolePermissionKeys[role];
+}
+
 export const teamMembers: TeamMember[] = [
   {
     id: "usr_alex_whitfield",

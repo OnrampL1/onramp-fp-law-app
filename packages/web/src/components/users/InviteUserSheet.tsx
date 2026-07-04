@@ -21,8 +21,8 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  getPermissionKeysForRole,
   roleLabels,
-  type PermissionKey,
   type UserAccessRole,
 } from "@/lib/users";
 
@@ -43,19 +43,6 @@ type InviteUserSheetProps = {
   onInvite?: (payload: InviteUserPayload) => void;
 };
 
-const rolePermissions = {
-  admin: [
-    "contracts.read",
-    "contracts.write",
-    "contracts.upload",
-    "users.manage",
-    "audit.read",
-    "settings.manage",
-  ],
-  user: ["contracts.read", "contracts.write", "contracts.upload"],
-  viewer: ["contracts.read"],
-} satisfies Record<UserAccessRole, PermissionKey[]>;
-
 export function InviteUserSheet({
   open,
   onOpenChange,
@@ -68,7 +55,7 @@ export function InviteUserSheet({
   const [role, setRole] = useState<UserAccessRole>("viewer");
   const [message, setMessage] = useState("");
 
-  const permissions = useMemo(() => rolePermissions[role], [role]);
+  const permissions = useMemo(() => getPermissionKeysForRole(role), [role]);
 
   function resetForm() {
     setEmail("");
