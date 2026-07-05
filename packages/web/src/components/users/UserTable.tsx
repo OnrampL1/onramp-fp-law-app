@@ -35,6 +35,7 @@ type UserTableProps = {
   onDisableUser: (user: TeamMember) => void;
   onResendInvite: (user: TeamMember) => void;
   onChangeRole: (user: TeamMember) => void;
+  canChangeRole: (user: TeamMember) => boolean;
 };
 
 function formatDate(value: string | null) {
@@ -55,6 +56,7 @@ export function UserTable({
   onDisableUser,
   onResendInvite,
   onChangeRole,
+  canChangeRole,
 }: UserTableProps) {
   return (
     <Card className="overflow-hidden">
@@ -157,10 +159,12 @@ export function UserTable({
                     />
 
                     <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={() => onChangeRole(user)}>
-                        <UserCog className="size-4" />
-                        Change role
-                      </DropdownMenuItem>
+                      {canChangeRole(user) && (
+                        <DropdownMenuItem onClick={() => onChangeRole(user)}>
+                          <UserCog className="size-4" />
+                          Change role
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => onSelectUser(user)}>
                         <ShieldCheck className="size-4" />
                         Review permissions

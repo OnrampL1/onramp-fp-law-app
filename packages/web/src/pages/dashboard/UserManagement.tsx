@@ -21,6 +21,7 @@ import {
   type UserAccessRole,
   type UserAccountStatus,
 } from "@/lib/users";
+import { useAuth } from "@/hooks/useAuth";
 
 import {
   InviteUserSheet,
@@ -36,6 +37,8 @@ const roleFilters: RoleFilter[] = ["all", "admin", "user", "viewer"];
 const statusFilters: StatusFilter[] = ["all", "active", "pending", "disabled"];
 
 export function UserManagement() {
+  const { user: currentUser } = useAuth();
+
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -124,12 +127,24 @@ export function UserManagement() {
     );
   }
 
+  function canChangeUserRole(user: TeamMember) {
+    return currentUser?.role === "admin" && user.role !== "admin";
+  }
+
   function handleOpenRoleChange(user: TeamMember) {
+    if (!canChangeUserRole(user)) {
+      return;
+    }
+
     setRoleChangeUser(user);
     setRoleChangeOpen(true);
   }
 
   function handleSaveRole(user: TeamMember, role: UserAccessRole) {
+    if (!canChangeUserRole(user)) {
+      return;
+    }
+
     const permissionKeys = getPermissionKeysForRole(role);
 
     setUsers((currentUsers) =>
@@ -254,6 +269,7 @@ export function UserManagement() {
         onDisableUser={handleDisableUser}
         onResendInvite={handleResendInvite}
         onChangeRole={handleOpenRoleChange}
+        canChangeRole={canChangeUserRole}
       />
 
       <InviteUserSheet
