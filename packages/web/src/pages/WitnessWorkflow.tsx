@@ -16,7 +16,7 @@ import {
   SECURITY_FEATURES,
   EXPIRING_LINKS,
   ACCESS_ACTIVITY,
-} from "../components/witness-workflow/data";
+} from "@/lib/data";
 import type {
   WitnessInvitation,
   GeneratedLink,

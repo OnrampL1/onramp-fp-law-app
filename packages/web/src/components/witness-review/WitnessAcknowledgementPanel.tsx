@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { UserIcon, ClockIcon, SecurityIcon, DownloadIcon, ShieldCheckIcon } from "./icons";
+import { UserIcon, ClockIcon, SecurityIcon, DownloadIcon, ShieldCheckIcon } from "../shared/icons";
 import type { WitnessInfo, WitnessReviewContract } from "./types";
 
 interface WitnessAcknowledgementPanelProps {
@@ -58,7 +58,7 @@ export function WitnessAcknowledgementPanel({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ClockIcon />
+              <ClockIcon className="h-4 w-4" />
               Timestamp
             </div>
             <p className="mt-2 text-sm font-semibold text-foreground">On acknowledgement</p>
@@ -110,7 +110,7 @@ export function WitnessAcknowledgementPanel({
           disabled={!checked}
           onClick={onAcknowledge}
         >
-          <ShieldCheckIcon />
+          <ShieldCheckIcon className="h-4 w-4" />
           Acknowledge contract
         </Button>
       </div>

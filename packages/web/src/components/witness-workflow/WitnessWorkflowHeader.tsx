@@ -1,5 +1,5 @@
 import { Button } from "../../components/ui/button";
-import { ExportIcon, RefreshIcon, PlusIcon } from "./icons";
+import { ExportIcon, RefreshIcon, PlusIcon } from "../shared/icons";
 
 interface WitnessWorkflowHeaderProps {
   onExport?: () => void;

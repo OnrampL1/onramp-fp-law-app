@@ -1,4 +1,4 @@
-import { ShieldCheckIcon } from "./icons";
+import { ShieldCheckIcon } from "../shared/icons";
 
 /**
  * Top navigation bar for the public witness review page.
@@ -23,7 +23,7 @@ export function WitnessReviewHeader() {
 
       {/* Contract verification badge */}
       <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-600 dark:text-green-400">
-        <ShieldCheckIcon />
+        <ShieldCheckIcon className="h-4 w-4" />
         Contract verification
       </span>
     </header>

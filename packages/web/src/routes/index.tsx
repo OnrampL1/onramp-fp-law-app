@@ -13,6 +13,7 @@ import { UploadContract } from "../pages/contracts/UploadContract";
 import { WitnessWorkflow } from "../pages/WitnessWorkflow";
 import { WitnessReview } from "../pages/WitnessReview";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
+import { AuditLogPage } from "../pages/AuditLogPage";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
@@ -100,16 +101,9 @@ export function AppRoutes() {
 
           <Route path="/witness" element={<WitnessWorkflow />} />
           <Route path="/witness-workflow" element={<WitnessWorkflow />} />
-
-          <Route
-            path="/audit"
-            element={
-              <PlaceholderPage
-                title="Audit Logging"
-                description="Monitor system activity"
-              />
-            }
-          />
+          <Route path="/audit" element={<AuditLogPage />} />
+          <Route path="/audit-log" element={<AuditLogPage />} />  
+          
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/upload" element={<UploadContract />} />
