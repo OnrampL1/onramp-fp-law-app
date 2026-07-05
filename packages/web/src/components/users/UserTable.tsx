@@ -32,6 +32,8 @@ import { PermissionBadge, UserRoleBadge, UserStatusBadge } from "./UserBadges";
 type UserTableProps = {
   users: TeamMember[];
   onSelectUser: (user: TeamMember) => void;
+  onDisableUser: (user: TeamMember) => void;
+  onResendInvite: (user: TeamMember) => void;
 };
 
 function formatDate(value: string | null) {
@@ -46,7 +48,12 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-export function UserTable({ users, onSelectUser }: UserTableProps) {
+export function UserTable({
+  users,
+  onSelectUser,
+  onDisableUser,
+  onResendInvite,
+}: UserTableProps) {
   return (
     <Card className="overflow-hidden">
       <Table>
@@ -157,13 +164,16 @@ export function UserTable({ users, onSelectUser }: UserTableProps) {
                         Review permissions
                       </DropdownMenuItem>
                       {user.status === "pending" && (
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onResendInvite(user)}>
                           <RotateCcw className="size-4" />
                           Resend invite
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive">
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => onDisableUser(user)}
+                      >
                         <Ban className="size-4" />
                         Disable access
                       </DropdownMenuItem>

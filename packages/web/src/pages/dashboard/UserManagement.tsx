@@ -87,6 +87,40 @@ export function UserManagement() {
     ]);
   }
 
+  function handleResendInvite(user: TeamMember) {
+    const now = new Date().toISOString();
+
+    setUsers((currentUsers) =>
+      currentUsers.map((currentUser) =>
+        currentUser.id === user.id
+          ? { ...currentUser, invitedAt: now }
+          : currentUser,
+      ),
+    );
+
+    setSelectedUser((currentUser) =>
+      currentUser?.id === user.id
+        ? { ...currentUser, invitedAt: now }
+        : currentUser,
+    );
+  }
+
+  function handleDisableUser(user: TeamMember) {
+    setUsers((currentUsers) =>
+      currentUsers.map((currentUser) =>
+        currentUser.id === user.id
+          ? { ...currentUser, status: "disabled" }
+          : currentUser,
+      ),
+    );
+
+    setSelectedUser((currentUser) =>
+      currentUser?.id === user.id
+        ? { ...currentUser, status: "disabled" }
+        : currentUser,
+    );
+  }
+
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -182,7 +216,12 @@ export function UserManagement() {
         </div>
       </div>
 
-      <UserTable users={filteredUsers} onSelectUser={handleSelectUser} />
+      <UserTable
+        users={filteredUsers}
+        onSelectUser={handleSelectUser}
+        onDisableUser={handleDisableUser}
+        onResendInvite={handleResendInvite}
+      />
 
       <InviteUserSheet
         open={inviteOpen}
