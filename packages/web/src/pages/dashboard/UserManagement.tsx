@@ -49,6 +49,8 @@ export function UserManagement() {
   const [roleChangeUser, setRoleChangeUser] = useState<TeamMember | null>(null);
   const [roleChangeOpen, setRoleChangeOpen] = useState(false);
 
+  const isCurrentUserAdmin = currentUser?.role === "admin";
+
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -73,6 +75,10 @@ export function UserManagement() {
   }
 
   function handleInviteUser(payload: InviteUserPayload) {
+    if (!isCurrentUserAdmin) {
+      return;
+    }
+
     const now = new Date().toISOString();
 
     setUsers((currentUsers) => [
@@ -94,6 +100,9 @@ export function UserManagement() {
   }
 
   function handleResendInvite(user: TeamMember) {
+    if (!canManageUserAccess(user)) {
+      return;
+    }
     const now = new Date().toISOString();
 
     setUsers((currentUsers) =>
@@ -112,6 +121,9 @@ export function UserManagement() {
   }
 
   function handleDisableUser(user: TeamMember) {
+    if (!canManageUserAccess(user)) {
+      return;
+    }
     setUsers((currentUsers) =>
       currentUsers.map((currentUser) =>
         currentUser.id === user.id
@@ -129,6 +141,12 @@ export function UserManagement() {
 
   function canChangeUserRole(user: TeamMember) {
     return currentUser?.role === "admin" && user.role !== "admin";
+  }
+
+  function canManageUserAccess(user: TeamMember) {
+    return (
+      isCurrentUserAdmin && user.role !== "admin" && user.id !== currentUser?.id
+    );
   }
 
   function handleOpenRoleChange(user: TeamMember) {
@@ -193,14 +211,16 @@ export function UserManagement() {
             Export
           </Button>
 
-          <Button
-            type="button"
-            className="gap-2"
-            onClick={() => setInviteOpen(true)}
-          >
-            <Plus className="size-4" aria-hidden="true" />
-            Invite user
-          </Button>
+          {isCurrentUserAdmin && (
+            <Button
+              type="button"
+              className="gap-2"
+              onClick={() => setInviteOpen(true)}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              Invite user
+            </Button>
+          )}
         </div>
       </div>
 
@@ -270,6 +290,7 @@ export function UserManagement() {
         onResendInvite={handleResendInvite}
         onChangeRole={handleOpenRoleChange}
         canChangeRole={canChangeUserRole}
+        canManageAccess={canManageUserAccess}
       />
 
       <InviteUserSheet

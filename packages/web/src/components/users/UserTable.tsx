@@ -36,6 +36,7 @@ type UserTableProps = {
   onResendInvite: (user: TeamMember) => void;
   onChangeRole: (user: TeamMember) => void;
   canChangeRole: (user: TeamMember) => boolean;
+  canManageAccess: (user: TeamMember) => boolean;
 };
 
 function formatDate(value: string | null) {
@@ -57,6 +58,7 @@ export function UserTable({
   onResendInvite,
   onChangeRole,
   canChangeRole,
+  canManageAccess,
 }: UserTableProps) {
   return (
     <Card className="overflow-hidden">
@@ -169,20 +171,24 @@ export function UserTable({
                         <ShieldCheck className="size-4" />
                         Review permissions
                       </DropdownMenuItem>
-                      {user.status === "pending" && (
+                      {user.status === "pending" && canManageAccess(user) && (
                         <DropdownMenuItem onClick={() => onResendInvite(user)}>
                           <RotateCcw className="size-4" />
                           Resend invite
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => onDisableUser(user)}
-                      >
-                        <Ban className="size-4" />
-                        Disable access
-                      </DropdownMenuItem>
+                      {canManageAccess(user) && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => onDisableUser(user)}
+                          >
+                            <Ban className="size-4" />
+                            Disable access
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
