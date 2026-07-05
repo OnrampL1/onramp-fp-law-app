@@ -28,7 +28,7 @@ import {
 
 import { PermissionBadge } from "./UserBadges";
 
-type InviteUserPayload = {
+export type InviteUserPayload = {
   email: string;
   name: string;
   title: string;

@@ -13,16 +13,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  getPermissionKeysForRole,
   roleLabels,
   statusLabels,
   teamMembers,
+  type TeamMember,
   type UserAccessRole,
   type UserAccountStatus,
 } from "@/lib/users";
 
-import { InviteUserSheet } from "@/components/users/InviteUserSheet";
+import {
+  InviteUserSheet,
+  type InviteUserPayload,
+} from "@/components/users/InviteUserSheet";
 import { UserDetailSheet } from "@/components/users/UserDetailSheet";
-import type { TeamMember } from "@/lib/users";
 
 type RoleFilter = "all" | UserAccessRole;
 type StatusFilter = "all" | UserAccountStatus;
@@ -37,11 +41,12 @@ export function UserManagement() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<TeamMember | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [users, setUsers] = useState<TeamMember[]>(teamMembers);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return teamMembers.filter((user) => {
+    return users.filter((user) => {
       const matchesQuery =
         normalizedQuery.length === 0 ||
         user.name.toLowerCase().includes(normalizedQuery) ||
@@ -54,11 +59,32 @@ export function UserManagement() {
 
       return matchesQuery && matchesRole && matchesStatus;
     });
-  }, [query, roleFilter, statusFilter]);
+  }, [query, roleFilter, statusFilter, users]);
 
   function handleSelectUser(user: TeamMember) {
     setSelectedUser(user);
     setDetailOpen(true);
+  }
+
+  function handleInviteUser(payload: InviteUserPayload) {
+    const now = new Date().toISOString();
+
+    setUsers((currentUsers) => [
+      {
+        id: crypto.randomUUID(),
+        name: payload.name,
+        email: payload.email,
+        role: payload.role,
+        status: "pending",
+        title: payload.title || "Invited user",
+        team: payload.team || "Unassigned",
+        permissionKeys: getPermissionKeysForRole(payload.role),
+        createdAt: now,
+        lastActiveAt: null,
+        invitedAt: now,
+      },
+      ...currentUsers,
+    ]);
   }
 
   return (
@@ -97,7 +123,7 @@ export function UserManagement() {
         </div>
       </div>
 
-      <UserStats users={teamMembers} />
+      <UserStats users={users} />
 
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-sm">
@@ -158,7 +184,11 @@ export function UserManagement() {
 
       <UserTable users={filteredUsers} onSelectUser={handleSelectUser} />
 
-      <InviteUserSheet open={inviteOpen} onOpenChange={setInviteOpen} />
+      <InviteUserSheet
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onInvite={handleInviteUser}
+      />
 
       <UserDetailSheet
         user={selectedUser}
