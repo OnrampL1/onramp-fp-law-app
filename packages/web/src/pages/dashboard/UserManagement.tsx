@@ -27,6 +27,7 @@ import {
   type InviteUserPayload,
 } from "@/components/users/InviteUserSheet";
 import { UserDetailSheet } from "@/components/users/UserDetailSheet";
+import { ChangeRoleSheet } from "@/components/users/ChangeRoleSheet";
 
 type RoleFilter = "all" | UserAccessRole;
 type StatusFilter = "all" | UserAccountStatus;
@@ -42,6 +43,8 @@ export function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<TeamMember | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [users, setUsers] = useState<TeamMember[]>(teamMembers);
+  const [roleChangeUser, setRoleChangeUser] = useState<TeamMember | null>(null);
+  const [roleChangeOpen, setRoleChangeOpen] = useState(false);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -117,6 +120,35 @@ export function UserManagement() {
     setSelectedUser((currentUser) =>
       currentUser?.id === user.id
         ? { ...currentUser, status: "disabled" }
+        : currentUser,
+    );
+  }
+
+  function handleOpenRoleChange(user: TeamMember) {
+    setRoleChangeUser(user);
+    setRoleChangeOpen(true);
+  }
+
+  function handleSaveRole(user: TeamMember, role: UserAccessRole) {
+    const permissionKeys = getPermissionKeysForRole(role);
+
+    setUsers((currentUsers) =>
+      currentUsers.map((currentUser) =>
+        currentUser.id === user.id
+          ? { ...currentUser, role, permissionKeys }
+          : currentUser,
+      ),
+    );
+
+    setSelectedUser((currentUser) =>
+      currentUser?.id === user.id
+        ? { ...currentUser, role, permissionKeys }
+        : currentUser,
+    );
+
+    setRoleChangeUser((currentUser) =>
+      currentUser?.id === user.id
+        ? { ...currentUser, role, permissionKeys }
         : currentUser,
     );
   }
@@ -221,6 +253,7 @@ export function UserManagement() {
         onSelectUser={handleSelectUser}
         onDisableUser={handleDisableUser}
         onResendInvite={handleResendInvite}
+        onChangeRole={handleOpenRoleChange}
       />
 
       <InviteUserSheet
@@ -233,6 +266,13 @@ export function UserManagement() {
         user={selectedUser}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+      />
+
+      <ChangeRoleSheet
+        user={roleChangeUser}
+        open={roleChangeOpen}
+        onOpenChange={setRoleChangeOpen}
+        onSave={handleSaveRole}
       />
     </div>
   );

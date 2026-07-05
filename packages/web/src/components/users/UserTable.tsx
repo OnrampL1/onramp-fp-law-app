@@ -34,6 +34,7 @@ type UserTableProps = {
   onSelectUser: (user: TeamMember) => void;
   onDisableUser: (user: TeamMember) => void;
   onResendInvite: (user: TeamMember) => void;
+  onChangeRole: (user: TeamMember) => void;
 };
 
 function formatDate(value: string | null) {
@@ -53,6 +54,7 @@ export function UserTable({
   onSelectUser,
   onDisableUser,
   onResendInvite,
+  onChangeRole,
 }: UserTableProps) {
   return (
     <Card className="overflow-hidden">
@@ -155,7 +157,7 @@ export function UserTable({
                     />
 
                     <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onChangeRole(user)}>
                         <UserCog className="size-4" />
                         Change role
                       </DropdownMenuItem>
