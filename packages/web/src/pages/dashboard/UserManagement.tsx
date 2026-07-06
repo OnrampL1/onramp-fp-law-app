@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Download, Plus, Search, UsersRound } from "lucide-react";
+import { Download, Plus, Search, ShieldCheck, UsersRound } from "lucide-react";
 
 import { UserStats } from "@/components/users/UserStats";
 import { UserTable } from "@/components/users/UserTable";
@@ -225,6 +225,23 @@ export function UserManagement() {
           )}
         </div>
       </div>
+
+      {!isCurrentUserAdmin && (
+        <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground">
+            <ShieldCheck className="size-4" aria-hidden="true" />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium">Read-only access</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              You can review team members and permissions, but only
+              administrators can invite users, resend invitations, disable
+              access, or change roles.
+            </p>
+          </div>
+        </div>
+      )}
 
       <UserStats users={users} />
 
