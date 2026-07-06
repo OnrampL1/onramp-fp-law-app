@@ -52,6 +52,8 @@ export function ChangeRoleSheet({
     [selectedRole],
   );
 
+  const isRoleUnchanged = user?.role === selectedRole;
+
   if (!user) {
     return null;
   }
@@ -120,7 +122,7 @@ export function ChangeRoleSheet({
         </div>
 
         <SheetFooter className="border-t">
-          <Button type="button" onClick={handleSave}>
+          <Button type="button" onClick={handleSave} disabled={isRoleUnchanged}>
             Save role
           </Button>
           <Button
