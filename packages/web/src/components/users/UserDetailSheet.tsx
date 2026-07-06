@@ -151,8 +151,9 @@ export function UserDetailSheet({
               Current status: {statusLabels[user.status]}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              This panel is read-only for now. Role changes and permission
-              updates will be wired after the API contract is added.
+              Role and access changes are available from the user actions menu
+              and follow admin-only RBAC rules. API persistence will be added
+              later.
             </p>
           </section>
         </div>
