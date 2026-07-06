@@ -188,6 +188,50 @@ export function UserManagement() {
     );
   }
 
+  function handleExportUsers() {
+    const headers = [
+      "Name",
+      "Email",
+      "Role",
+      "Status",
+      "Title",
+      "Team",
+      "Permissions",
+      "Created",
+      "Last Active",
+      "Invited",
+    ];
+
+    const rows = filteredUsers.map((user) => [
+      user.name,
+      user.email,
+      roleLabels[user.role],
+      statusLabels[user.status],
+      user.title,
+      user.team,
+      user.permissionKeys.join("; "),
+      user.createdAt,
+      user.lastActiveAt ?? "",
+      user.invitedAt ?? "",
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "user-management.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -208,7 +252,12 @@ export function UserManagement() {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Button type="button" variant="outline" className="gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={handleExportUsers}
+          >
             <Download className="size-4" aria-hidden="true" />
             Export
           </Button>
