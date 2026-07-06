@@ -139,14 +139,16 @@ export function UserManagement() {
     );
   }
 
+  function isCurrentUser(user: TeamMember) {
+    return user.id === currentUser?.id || user.email === currentUser?.email;
+  }
+
   function canChangeUserRole(user: TeamMember) {
-    return currentUser?.role === "admin" && user.role !== "admin";
+    return isCurrentUserAdmin && user.role !== "admin" && !isCurrentUser(user);
   }
 
   function canManageUserAccess(user: TeamMember) {
-    return (
-      isCurrentUserAdmin && user.role !== "admin" && user.id !== currentUser?.id
-    );
+    return isCurrentUserAdmin && user.role !== "admin" && !isCurrentUser(user);
   }
 
   function handleOpenRoleChange(user: TeamMember) {

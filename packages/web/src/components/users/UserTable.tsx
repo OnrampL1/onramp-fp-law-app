@@ -177,7 +177,7 @@ export function UserTable({
                           Resend invite
                         </DropdownMenuItem>
                       )}
-                      {canManageAccess(user) && (
+                      {canManageAccess(user) && user.status !== "disabled" && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
