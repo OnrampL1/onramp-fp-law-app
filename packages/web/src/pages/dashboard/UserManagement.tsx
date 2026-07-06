@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { Download, Plus, Search, ShieldCheck, UsersRound } from "lucide-react";
 
-import { UserStats } from "@/components/users/UserStats";
-import { UserTable } from "@/components/users/UserTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,11 +22,13 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 
 import {
+  ChangeRoleSheet,
   InviteUserSheet,
+  UserDetailSheet,
+  UserStats,
+  UserTable,
   type InviteUserPayload,
-} from "@/components/users/InviteUserSheet";
-import { UserDetailSheet } from "@/components/users/UserDetailSheet";
-import { ChangeRoleSheet } from "@/components/users/ChangeRoleSheet";
+} from "@/components/users";
 
 type RoleFilter = "all" | UserAccessRole;
 type StatusFilter = "all" | UserAccountStatus;
