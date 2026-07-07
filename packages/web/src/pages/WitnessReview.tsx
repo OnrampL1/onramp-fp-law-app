@@ -9,7 +9,7 @@ import {
   REVIEW_CONTRACT,
   WITNESS_INFO,
   DOCUMENT_PAGES,
-} from "../components/witness-review/data";
+} from "@/lib/data";
 
 
 export function WitnessReview() {

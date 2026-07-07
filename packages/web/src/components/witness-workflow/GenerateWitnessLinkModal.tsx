@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { LinkIcon, CopyIcon } from "./icons";
-import { CONTRACT_OPTIONS } from "./data";
+import { LinkIcon, CopyIcon } from "../shared/icons";
+import { CONTRACT_OPTIONS } from "@/lib/data";
 import type { GeneratedLink, AccessType, AccessExpiry } from "./types";
 
 interface GenerateWitnessLinkModalProps {
