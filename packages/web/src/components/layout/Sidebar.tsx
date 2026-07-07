@@ -6,10 +6,8 @@ import {
   PenLine,
   Scale,
   ScrollText,
-  Search,
   Settings,
   ShieldCheck,
-  Sparkles,
   Upload,
   Users,
 } from "lucide-react";
@@ -31,8 +29,6 @@ import { useAuth } from "@/hooks/useAuth";
 const workspaceNav = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Contracts", href: "/contracts", icon: FileText },
-  { title: "AI Analysis", href: "/ai-analysis", icon: Sparkles },
-  { title: "Clause Investigator", href: "/investigator", icon: Search },
   { title: "Contract Upload", href: "/upload", icon: Upload },
 ];
 

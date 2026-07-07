@@ -9,6 +9,8 @@ import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
 import Contracts from "@/pages/contracts/Contracts";
 import ContractDetailPage from "@/pages/contracts/ContractDetails";
+import ContractAnalysisPage from "@/pages/contracts/ContractAnalysis";
+import ContractInvestigatorPage from "@/pages/contracts/ContractInvestigator";
 import { UploadContract } from "../pages/contracts/UploadContract";
 import { WitnessWorkflow } from "../pages/WitnessWorkflow";
 import { WitnessReview } from "../pages/WitnessReview";
@@ -35,13 +37,12 @@ export function AppRoutes() {
           <Route path="/contracts" element={<Contracts />} />
           <Route path="/contracts/:id" element={<ContractDetailPage />} />
           <Route
-            path="/ai-analysis"
-            element={
-              <PlaceholderPage
-                title="AI Analysis"
-                description="Legal intelligence review"
-              />
-            }
+            path="/contracts/:id/analysis"
+            element={<ContractAnalysisPage />}
+          />
+          <Route
+            path="/contracts/:id/investigator"
+            element={<ContractInvestigatorPage />}
           />
           <Route
             path="/insights/auto-renewal"
@@ -76,15 +77,6 @@ export function AppRoutes() {
               <PlaceholderPage
                 title="IP Assignment Detection"
                 description="Intellectual property transfer provisions found"
-              />
-            }
-          />
-          <Route
-            path="/investigator"
-            element={
-              <PlaceholderPage
-                title="Clause Investigator"
-                description="Search and compare clauses"
               />
             }
           />

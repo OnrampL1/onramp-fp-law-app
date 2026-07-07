@@ -1142,12 +1142,6 @@ export const allContracts: Contract[] = [
 
 export type AnalysisStatus = "Complete" | "Analyzing" | "Outdated" | "Queued";
 
-export const analysisContracts = allContracts.map((c) => ({
-  id: c.id,
-  name: c.name,
-  counterparty: c.counterparty,
-}));
-
 export type RiskFinding = {
   type: string;
   severity: Severity;
@@ -1205,7 +1199,12 @@ export type ContractAnalysis = {
   history: AnalysisHistoryEntry[];
 };
 
-export const contractAnalysis: ContractAnalysis = {
+// Temporary: mock analysis data only exists for a handful of contract ids;
+// unknown ids fall back to the default contract in ContractAnalysis.tsx.
+// When the backend is ready, replace this with an API call:
+//   const { data } = useQuery(['contract-analysis', id], () => api.getContractAnalysis(id));
+export const contractAnalysisById: Record<string, ContractAnalysis> = {
+  "CTR-10470": {
   contractId: "CTR-10470",
   status: "Complete",
   lastRun: "Yesterday at 4:18 PM",
@@ -1396,4 +1395,170 @@ export const contractAnalysis: ContractAnalysis = {
       status: "Outdated",
     },
   ],
+  },
 };
+
+// ── Clause Investigator page data ─────────────────────────────────────────
+
+export type ChatRole = "user" | "assistant";
+
+export type SourceRef = {
+  clause: string;
+  title: string;
+  excerpt: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  role: ChatRole;
+  content: string;
+  sources?: SourceRef[];
+  confidence?: number;
+};
+
+export type Conversation = {
+  id: string;
+  title: string;
+  preview: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+};
+
+export const suggestedQuestions: string[] = [
+  "What are the termination conditions?",
+  "Is there a cap on liability?",
+  "When does this contract auto-renew?",
+  "Summarize the payment terms",
+];
+
+// Temporary: generic conversation history shared across contracts for demo
+// purposes. When the backend is ready, scope this per contract id, e.g.:
+//   const { data } = useQuery(['investigator-history', contractId], () => api.getConversations(contractId));
+export const conversationHistory: Conversation[] = [
+  {
+    id: "conv-1",
+    title: "Liability exposure",
+    preview: "Is Buyer's liability capped under this agreement?",
+    updatedAt: "2 days ago",
+    messages: [
+      {
+        id: "conv-1-m1",
+        role: "user",
+        content: "Is Buyer's liability capped under this agreement?",
+      },
+      {
+        id: "conv-1-m2",
+        role: "assistant",
+        content:
+          "No. **Buyer's liability is uncapped** for breach of payment and indemnification obligations.",
+        sources: [
+          {
+            clause: "Section 9.4",
+            title: "Limitation of Liability",
+            excerpt:
+              "Notwithstanding anything to the contrary, Buyer's liability for breach of its payment and indemnification obligations shall not be subject to any limitation or cap.",
+          },
+        ],
+        confidence: 96,
+      },
+    ],
+  },
+  {
+    id: "conv-2",
+    title: "Renewal window",
+    preview: "When do we need to give notice to avoid auto-renewal?",
+    updatedAt: "5 days ago",
+    messages: [
+      {
+        id: "conv-2-m1",
+        role: "user",
+        content: "When do we need to give notice to avoid auto-renewal?",
+      },
+      {
+        id: "conv-2-m2",
+        role: "assistant",
+        content:
+          "You must provide **written notice at least 90 days** before the current term ends, or the agreement auto-renews for another year.",
+        sources: [
+          {
+            clause: "Section 12.2",
+            title: "Term & Renewal",
+            excerpt:
+              "This Agreement shall automatically renew for successive one (1) year terms unless either party provides written notice of non-renewal at least ninety (90) days prior to the end of the then-current term.",
+          },
+        ],
+        confidence: 92,
+      },
+    ],
+  },
+];
+
+// Very small keyword-matched mock resolver standing in for a real LLM call,
+// grounded in the same per-contract data used on the Contract Details page.
+// When the backend is ready, replace this with an API call:
+//   const { data } = await api.askClauseInvestigator(contract.id, question);
+export function resolveAnswer(
+  question: string,
+  contract: ContractDetail,
+): { content: string; sources: SourceRef[]; confidence: number } {
+  const q = question.toLowerCase();
+
+  if (
+    q.includes("payment") ||
+    q.includes("invoice") ||
+    q.includes("pay") ||
+    q.includes("net ")
+  ) {
+    const term = contract.aiSummary.paymentTerms[0];
+    return {
+      content: `Based on the payment terms: **${term}**`,
+      sources: [
+        { clause: "Payment Terms", title: "Payment Terms", excerpt: term },
+      ],
+      confidence: 90,
+    };
+  }
+
+  if (
+    q.includes("renew") ||
+    q.includes("terminat") ||
+    q.includes("cancel") ||
+    q.includes("notice") ||
+    q.includes("expir")
+  ) {
+    const term = contract.aiSummary.terminationTerms[0];
+    return {
+      content: `Regarding termination and renewal: **${term}**`,
+      sources: [
+        { clause: "Termination", title: "Termination Terms", excerpt: term },
+      ],
+      confidence: 88,
+    };
+  }
+
+  const words = q.split(/\s+/).filter((w) => w.length > 3);
+  const findingMatch = contract.riskAnalysis.find((r) =>
+    words.some((w) => r.title.toLowerCase().includes(w)),
+  );
+
+  if (findingMatch) {
+    return {
+      content: findingMatch.explanation,
+      sources: [
+        {
+          clause: findingMatch.section,
+          title: findingMatch.title,
+          excerpt: findingMatch.excerpt,
+        },
+      ],
+      confidence: 91,
+    };
+  }
+
+  return {
+    content:
+      "I couldn't find a clause directly addressing that in this contract. Try asking about payment terms, termination, renewal, or liability.",
+    sources: [],
+    confidence: 55,
+  };
+}

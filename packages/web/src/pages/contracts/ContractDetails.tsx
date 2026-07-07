@@ -1,9 +1,10 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badges";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -25,6 +26,10 @@ import {
   Clock,
   FileText,
   CircleDot,
+  Sparkles,
+  ScrollText,
+  Search,
+  MoreHorizontal,
 } from "lucide-react";
 import { ContractMetadata } from "@/components/contracts/ContractMetaData";
 import { PdfViewer } from "@/components/contracts/PdfViewer";
@@ -51,6 +56,7 @@ function useContractData(id: string | undefined) {
 
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { contract: c, pages, timeline, notes } = useContractData(id);
 
   return (
@@ -60,7 +66,10 @@ export default function ContractDetailPage() {
         className="flex items-center gap-1.5 text-sm text-muted-foreground"
         aria-label="Breadcrumb"
       >
-        <Link to="/dashboard" className="transition-colors hover:text-foreground">
+        <Link
+          to="/dashboard"
+          className="transition-colors hover:text-foreground"
+        >
           Dashboard
         </Link>
         <ChevronRight className="size-3.5" />
@@ -81,7 +90,6 @@ export default function ContractDetailPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
               {c.name}
             </h1>
-            <StatusBadge status={c.status} />
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
@@ -101,6 +109,43 @@ export default function ContractDetailPage() {
 
         {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  className="gap-2 border-primary/30 text-primary hover:bg-primary/5 hover:text-primary"
+                />
+              }
+            >
+              <span className="flex items-center gap-2">
+                <Sparkles className="size-4" />
+                AI Tools
+                <ChevronDown className="size-4" />
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>AI Tools</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => navigate(`/contracts/${c.id}/analysis`)}
+                >
+                  <ScrollText className="size-4 text-muted-foreground" />
+                  Analyze Contract
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => navigate(`/contracts/${c.id}/investigator`)}
+                >
+                  <Search className="size-4 text-muted-foreground" />
+                  Clause Investigator
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button variant="outline" className="gap-2">
             <Pencil className="size-4" />
             Edit Contract
@@ -111,34 +156,54 @@ export default function ContractDetailPage() {
               render={<Button variant="outline" className="gap-2" />}
             >
               <span className="flex items-center gap-2">
-                Change Status
+                Status
+                <StatusBadge status={c.status} />
                 <ChevronDown className="size-4 text-muted-foreground" />
               </span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Set contract status</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {statuses.map((s) => (
-                <DropdownMenuItem key={s} className="gap-2">
-                  <StatusBadge status={s} />
-                  {s === c.status && (
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      Current
-                    </span>
-                  )}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Set contract status</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {statuses.map((s) => (
+                  <DropdownMenuItem key={s} className="gap-2">
+                    <StatusBadge status={s} />
+                    {s === c.status && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        Current
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" className="gap-2">
-            <Link2 className="size-4" />
-            Generate Witness Link
-          </Button>
-          <Button className="gap-2">
-            <Download className="size-4" />
-            Download PDF
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="More actions"
+                />
+              }
+            >
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuItem className="gap-2">
+                  <Download className="size-4 text-muted-foreground" />
+                  Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2">
+                  <Link2 className="size-4 text-muted-foreground" />
+                  Generate Witness Link
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
