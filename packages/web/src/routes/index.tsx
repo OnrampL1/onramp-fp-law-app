@@ -12,6 +12,7 @@ import ContractDetailPage from "@/pages/contracts/ContractDetails";
 import { UploadContract } from "../pages/contracts/UploadContract";
 import { WitnessWorkflow } from "../pages/WitnessWorkflow";
 import { WitnessReview } from "../pages/WitnessReview";
+import { UserManagement } from "../pages/dashboard/UserManagement";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
@@ -88,15 +89,7 @@ export function AppRoutes() {
               />
             }
           />
-          <Route
-            path="/users"
-            element={
-              <PlaceholderPage
-                title="User Management"
-                description="Manage workspace access"
-              />
-            }
-          />
+          <Route path="/users" element={<UserManagement />} />
 
           <Route path="/witness" element={<WitnessWorkflow />} />
           <Route path="/witness-workflow" element={<WitnessWorkflow />} />
