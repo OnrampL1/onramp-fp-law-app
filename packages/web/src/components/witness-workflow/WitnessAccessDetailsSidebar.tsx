@@ -1,6 +1,6 @@
 import { Button } from "../../components/ui/button";
 import { WitnessStatusBadge } from "./WitnessStatusBadge";
-import { CopyIcon, RefreshIcon } from "./icons";
+import { CopyIcon, RefreshIcon } from "../shared/icons";
 import type { WitnessInvitation } from "./types";
 
 interface WitnessAccessDetailsSidebarProps {

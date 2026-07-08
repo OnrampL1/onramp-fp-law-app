@@ -14,7 +14,9 @@ import ContractInvestigatorPage from "@/pages/contracts/ContractInvestigator";
 import { UploadContract } from "../pages/contracts/UploadContract";
 import { WitnessWorkflow } from "../pages/WitnessWorkflow";
 import { WitnessReview } from "../pages/WitnessReview";
+import { UserManagement } from "../pages/dashboard/UserManagement";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
+import { AuditLogPage } from "../pages/AuditLogPage";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
@@ -81,27 +83,20 @@ export function AppRoutes() {
             }
           />
           <Route
-            path="/users"
+            path="/investigator"
             element={
               <PlaceholderPage
-                title="User Management"
-                description="Manage workspace access"
+                title="Clause Investigator"
+                description="Search and compare clauses"
               />
             }
           />
+          <Route path="/users" element={<UserManagement />} />
 
           <Route path="/witness" element={<WitnessWorkflow />} />
           <Route path="/witness-workflow" element={<WitnessWorkflow />} />
-
-          <Route
-            path="/audit"
-            element={
-              <PlaceholderPage
-                title="Audit Logging"
-                description="Monitor system activity"
-              />
-            }
-          />
+          <Route path="/audit" element={<AuditLogPage />} />
+          <Route path="/audit-log" element={<AuditLogPage />} />
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/upload" element={<UploadContract />} />
