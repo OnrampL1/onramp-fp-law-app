@@ -9,7 +9,7 @@ import {
   ZoomInIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-} from "./icons";
+} from "../shared/icons";
 import type { DocumentPage } from "./types";
 
 interface ContractDocumentViewerProps {

@@ -1,3 +1,32 @@
+import { createElement } from "react";
+import type {
+  WitnessInvitation,
+  ExpiringLink,
+  WitnessStatCard,
+  SecurityFeature,
+  ReviewStage,
+  AccessActivityItem,
+} from "../components/witness-workflow/types";
+import {
+  LinkIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  EyeIcon,
+  DocumentOpenIcon,
+  SendIcon,
+  UserCheckIcon,
+  LockIcon,
+  ShieldCheckIcon,
+  ComputerIcon,
+  UserGroupIcon,
+} from "../components/shared/icons";
+import type {
+  WitnessReviewContract,
+  WitnessInfo,
+  DocumentPage,
+} from "../components/witness-review/types";
+
 export type ContractStatus = "Draft" | "Active" | "Expired" | "Terminated";
 export type RiskLevel = "Low" | "Medium" | "High" | "Critical";
 
@@ -1562,3 +1591,579 @@ export function resolveAnswer(
     confidence: 55,
   };
 }
+
+// Witness Workflow page data --------------------------------------------------
+
+// ─── Stat cards ───────────────────────────────────────────────────────────────
+
+export const WITNESS_STATS: WitnessStatCard[] = [
+  {
+    icon:          createElement(LinkIcon),
+    delta:         "6",
+    deltaPositive: true,
+    value:         "24",
+    label:         "Active Witness Links",
+    sublabel:      "vs. last week",
+  },
+  {
+    icon:          createElement(ClockIcon),
+    delta:         "3",
+    deltaPositive: false,
+    value:         "9",
+    label:         "Pending Reviews",
+    sublabel:      "awaiting witness",
+  },
+  {
+    icon:          createElement(CheckCircleIcon),
+    delta:         "18",
+    deltaPositive: true,
+    value:         "143",
+    label:         "Completed Reviews",
+    sublabel:      "this month",
+  },
+  {
+    icon:          createElement(XCircleIcon),
+    delta:         "2",
+    deltaPositive: false,
+    value:         "7",
+    label:         "Expired Links",
+    sublabel:      "vs. last week",
+  },
+];
+
+// ─── Active witness invitations ───────────────────────────────────────────────
+
+export const WITNESS_INVITATIONS: WitnessInvitation[] = [
+  {
+    id:            "WIT-001",
+    contractName:  "Master Services Agreement",
+    contractId:    "MSA-2026-0142",
+    witnessName:   "Jordan Avery",
+    witnessEmail:  "j.avery@external-counsel.com",
+    generatedBy:   "Alex Whitfield",
+    generatedDate: "Jun 14, 2026 · 09:12",
+    created:       "Jun 14, 2026 · 09:12",
+    expires:       "Jun 16, 2026 · 09:12",
+    expiresLabel:  "in 21h",
+    status:        "Viewed",
+    accessType:    "Review & Acknowledge",
+    lastAction:    "12 min ago",
+    url:           "https://app.clausio.com/witness/review?t=wv_msa142avery",
+  },
+  {
+    id:            "WIT-002",
+    contractName:  "Share Purchase Agreement",
+    contractId:    "SPA-2026-0211",
+    witnessName:   "Maria Velasquez",
+    witnessEmail:  "m.velasquez@velasquezlaw.com",
+    generatedBy:   "Alex Whitfield",
+    generatedDate: "Jun 13, 2026 · 16:40",
+    created:       "Jun 13, 2026 · 16:40",
+    expires:       "Jun 20, 2026 · 16:40",
+    expiresLabel:  "in 6d",
+    status:        "Acknowledged",
+    accessType:    "Review & Acknowledge",
+    lastAction:    "1 day ago",
+    url:           "https://app.clausio.com/witness/review?t=wv_spa211velasquez",
+  },
+  {
+    id:            "WIT-003",
+    contractName:  "Mutual Non-Disclosure Agreement",
+    contractId:    "NDA-2026-0098",
+    witnessName:   "Thomas Reed",
+    witnessEmail:  "t.reed@reedpartners.com",
+    generatedBy:   "Sofia Lindgren",
+    generatedDate: "Jun 14, 2026 · 11:05",
+    created:       "Jun 14, 2026 · 11:05",
+    expires:       "Jun 15, 2026 · 11:05",
+    expiresLabel:  "Expired",
+    status:        "Pending",
+    accessType:    "Review Only",
+    lastAction:    "Not yet open",
+    url:           "https://app.clausio.com/witness/review?t=wv_nda098reed",
+  },
+  {
+    id:            "WIT-004",
+    contractName:  "Commercial Lease Agreement",
+    contractId:    "LSE-2026-0077",
+    witnessName:   "Helen Park",
+    witnessEmail:  "h.park@parkrealty.com",
+    generatedBy:   "Alex Whitfield",
+    generatedDate: "Jun 08, 2026 · 10:20",
+    created:       "Jun 08, 2026 · 10:20",
+    expires:       "Jun 10, 2026 · 10:20",
+    expiresLabel:  "Expired",
+    status:        "Expired",
+    accessType:    "Review & Acknowledge",
+    lastAction:    "5 days ago",
+    url:           "https://app.clausio.com/witness/review?t=wv_lse077park",
+  },
+  {
+    id:            "WIT-005",
+    contractName:  "Executive Employment Contract",
+    contractId:    "EMP-2026-0303",
+    witnessName:   "Daniel Osei",
+    witnessEmail:  "d.osei@oseiadvisors.com",
+    generatedBy:   "Sofia Lindgren",
+    generatedDate: "Jun 12, 2026 · 14:55",
+    created:       "Jun 12, 2026 · 14:55",
+    expires:       "Jun 13, 2026 · 14:55",
+    expiresLabel:  "Expired",
+    status:        "Revoked",
+    accessType:    "Review Only",
+    lastAction:    "2 days ago",
+    url:           "https://app.clausio.com/witness/review?t=wv_emp303osei",
+  },
+];
+
+// ─── Review stages (funnel) ───────────────────────────────────────────────────
+
+export const REVIEW_STAGES: ReviewStage[] = [
+  { stage: 1, icon: createElement(SendIcon),         label: "Invitation Sent",   count: 24, pct: 100 },
+  { stage: 2, icon: createElement(EyeIcon),          label: "Viewed",            count: 19, pct: 78  },
+  { stage: 3, icon: createElement(DocumentOpenIcon), label: "Contract Opened",   count: 15, pct: 63  },
+  { stage: 4, icon: createElement(UserCheckIcon),    label: "Review Completed",  count: 11, pct: 46  },
+  { stage: 5, icon: createElement(CheckCircleIcon),  label: "Acknowledged",      count: 8,  pct: 33  },
+];
+
+// ─── Security features ────────────────────────────────────────────────────────
+
+export const SECURITY_FEATURES: SecurityFeature[] = [
+  { icon: createElement(LockIcon),       title: "Link Encryption",      subtitle: "AES-256 token payloads",  badgeLabel: "Secure",   badgeVariant: "secure"   },
+  { icon: createElement(ShieldCheckIcon), title: "Token Validation",    subtitle: "Signed, single-use JWT",  badgeLabel: "Active",   badgeVariant: "active"   },
+  { icon: createElement(ComputerIcon),   title: "Access Restrictions",  subtitle: "IP & device binding",     badgeLabel: "Enforced", badgeVariant: "enforced" },
+  { icon: createElement(UserGroupIcon),  title: "Single Contract Scope",subtitle: "One contract per link",   badgeLabel: "Verified", badgeVariant: "verified" },
+];
+
+// ─── Expiring links ───────────────────────────────────────────────────────────
+
+export const EXPIRING_LINKS: ExpiringLink[] = [
+  { contractName: "Master Services Agreement",     contractId: "MSA-2026-0142", witnessName: "Jordan Avery", expirationTime: "in 21h" },
+  { contractName: "Mutual Non-Disclosure Agreement", contractId: "NDA-2026-0098", witnessName: "Thomas Reed",  expirationTime: "in 3h"  },
+];
+
+// ─── Contract options (for the generate form select) ─────────────────────────
+
+export const CONTRACT_OPTIONS = [
+  { id: "MSA-2026-0142", name: "Master Services Agreement"       },
+  { id: "SPA-2026-0211", name: "Share Purchase Agreement"        },
+  { id: "NDA-2026-0098", name: "Mutual Non-Disclosure Agreement" },
+  { id: "LSE-2026-0077", name: "Commercial Lease Agreement"      },
+  { id: "EMP-2026-0303", name: "Executive Employment Contract"   },
+];
+
+// ─── Access activity (timeline) ───────────────────────────────────────────────
+
+export const ACCESS_ACTIVITY: AccessActivityItem[] = [
+  {
+    id:        "ACT-001",
+    eventType: "acknowledged",
+    label:     "Witness acknowledgement submitted",
+    subLabel:  "Share Purchase Agreement · Maria Velasquez",
+    time:      "Today · 08:54",
+  },
+  {
+    id:        "ACT-002",
+    eventType: "review_completed",
+    label:     "Witness completed review",
+    subLabel:  "Share Purchase Agreement · Maria Velasquez",
+    time:      "Today · 08:41",
+  },
+  {
+    id:        "ACT-003",
+    eventType: "pdf_downloaded",
+    label:     "Witness downloaded PDF",
+    subLabel:  "Master Services Agreement · Jordan Avery",
+    time:      "Today · 08:36",
+  },
+  {
+    id:        "ACT-004",
+    eventType: "contract_opened",
+    label:     "Witness opened contract",
+    subLabel:  "Master Services Agreement · Jordan Avery",
+    time:      "Today · 08:30",
+  },
+  {
+    id:        "ACT-005",
+    eventType: "link_generated",
+    label:     "Witness link generated",
+    subLabel:  "Mutual Non-Disclosure Agreement · Thomas Reed",
+    time:      "Yesterday · 11:05",
+  },
+  {
+    id:        "ACT-006",
+    eventType: "link_generated",
+    label:     "Witness link generated",
+    subLabel:  "Master Services Agreement · Jordan Avery",
+    time:      "Jun 14 · 09:12",
+  },
+];
+
+// Witness Review page data ----------------------------------------------------
+
+// ─── Contract being reviewed ──────────────────────────────────────────────────
+
+export const REVIEW_CONTRACT: WitnessReviewContract = {
+  name:          "Master Services Agreement",
+  id:            "MSA-2026-0142",
+  counterparty:  "Northwind Logistics, Inc.",
+  effectiveDate: "June 1, 2026",
+  status:        "Pending witness",
+};
+
+// ─── Witness details ──────────────────────────────────────────────────────────
+
+export const WITNESS_INFO: WitnessInfo = {
+  name:  "Jordan Avery",
+  role:  "Independent Witness",
+  email: "j.avery@external-counsel.com",
+};
+
+// ─── Document pages ───────────────────────────────────────────────────────────
+
+export const DOCUMENT_PAGES: DocumentPage[] = [
+  {
+    pageNumber:  1,
+    totalPages:  5,
+    title:       "Master Services Agreement",
+    sections: [
+      {
+        heading: "1. Definitions & Interpretation",
+        paragraphs: [
+          `This Master Services Agreement (the "Agreement") is entered into as of the Effective Date by and between Clausio Holdings, LLC ("Provider") and Northwind Logistics, Inc. ("Client"), each a "Party" and together the "Parties".`,
+          `In this Agreement, capitalized terms have the meanings given to them in this Section 1 or where otherwise defined. "Confidential Information" means all non-public information disclosed by one Party to the other, whether oral, written, or electronic, that is designated as confidential or that reasonably should be understood to be confidential.`,
+          `References to a Section are to a section of this Agreement unless otherwise stated. Headings are for convenience only and do not affect interpretation.`,
+        ],
+      },
+    ],
+  },
+  {
+    pageNumber:  2,
+    totalPages:  5,
+    title:       "Master Services Agreement",
+    sections: [
+      {
+        heading: "2. Services",
+        paragraphs: [
+          `Provider agrees to perform the services described in one or more Statements of Work ("SOW") executed by both Parties. Each SOW shall specify the nature of the services, deliverables, timelines, and applicable fees.`,
+          `Provider shall perform all services in a professional and workmanlike manner consistent with industry standards. Client shall provide timely access to personnel, systems, and information reasonably required for the performance of services.`,
+        ],
+      },
+    ],
+  },
+  {
+    pageNumber:  3,
+    totalPages:  5,
+    title:       "Master Services Agreement",
+    sections: [
+      {
+        heading: "3. Fees and Payment",
+        paragraphs: [
+          `Client shall pay Provider the fees set forth in each SOW within thirty (30) days of receipt of an invoice. All fees are non-refundable except as expressly stated herein.`,
+          `Any amounts not paid when due shall accrue interest at the rate of 1.5% per month or the maximum rate permitted by applicable law, whichever is less.`,
+        ],
+      },
+    ],
+  },
+  {
+    pageNumber:  4,
+    totalPages:  5,
+    title:       "Master Services Agreement",
+    sections: [
+      {
+        heading: "4. Intellectual Property",
+        paragraphs: [
+          `Unless otherwise specified in an SOW, all work product, deliverables, and materials created by Provider in the course of performing services shall be owned by Client upon full payment of all applicable fees.`,
+          `Provider retains ownership of any pre-existing tools, frameworks, or methodologies used in the performance of services.`,
+        ],
+      },
+    ],
+  },
+  {
+    pageNumber:  5,
+    totalPages:  5,
+    title:       "Master Services Agreement",
+    sections: [
+      {
+        heading: "5. Term and Termination",
+        paragraphs: [
+          `This Agreement commences on the Effective Date and continues until terminated by either Party upon thirty (30) days written notice, or immediately upon material breach by the other Party.`,
+          `Upon termination, each Party shall return or destroy the other's Confidential Information and certify such destruction in writing upon request.`,
+        ],
+      },
+    ],
+  },
+];
+
+//// ── Audit Log page data ──────────────────────────────────────────────────────
+
+export type AuditAction =
+  | "contract.clause.updated"
+  | "auth.session.created"
+  | "contract.created"
+  | "user.role.changed"
+  | "report.exported"
+  | "auth.login.failed"
+  | "contract.viewed"
+  | "contract.deleted"
+  | "user.invited"
+  | "contract.exported";
+
+export type AuditVerb =
+  | "Update"
+  | "Create"
+  | "Delete"
+  | "Auth"
+  | "View"
+  | "Export"
+  | "Permission";
+
+export type FieldChangeType = "changed" | "added" | "removed" | "unchanged";
+
+export interface FieldDiff {
+  key: string;
+  changeType: FieldChangeType;
+  before: unknown;
+  after: unknown;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  user: {
+    name: string;
+    initials: string;
+    location: string;
+  };
+  action: AuditAction;
+  actionLabel: string;
+  verb: AuditVerb;
+  resourceName: string;
+  resourceType: "Contract" | "Session" | "User" | "Report";
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  changedFields: FieldDiff[];
+  ipAddress: string;
+}
+
+export const auditLogs: AuditLogEntry[] = [
+  {
+    id: "LOG-001",
+    timestamp: "Jun 15, 2026, 15:14:22",
+    user: { name: "Sophie Bauer", initials: "SB", location: "Berlin, DE" },
+    action: "contract.clause.updated",
+    actionLabel: "Clause updated",
+    verb: "Update",
+    resourceName: "Contoso MSA 2026",
+    resourceType: "Contract",
+    before: { clause: "Limitation of Liability", cap: "12 months of fees", indemnification: "Mutual", carveOuts: ["Confidentiality", "IP infringement"], autoRenew: true },
+    after:  { clause: "Limitation of Liability", cap: "24 months of fees", indemnification: "Mutual", carveOuts: ["Confidentiality", "IP infringement", "Data breach"], autoRenew: true },
+    changedFields: [
+      { key: "Cap",        changeType: "changed",   before: "12 months of fees", after: "24 months of fees" },
+      { key: "Carve outs", changeType: "changed",   before: ["Confidentiality", "IP infringement"], after: ["Confidentiality", "IP infringement", "Data breach"] },
+      { key: "Clause",     changeType: "unchanged",  before: "Limitation of Liability", after: "Limitation of Liability" },
+      { key: "Indemnification", changeType: "unchanged", before: "Mutual", after: "Mutual" },
+      { key: "Auto renew", changeType: "unchanged",  before: true, after: true },
+    ],
+    ipAddress: "92.55.10.41",
+  },
+  {
+    id: "LOG-002",
+    timestamp: "Jun 15, 2026, 14:42:03",
+    user: { name: "Amelia Hartwell", initials: "AH", location: "San Francisco, US" },
+    action: "auth.session.created",
+    actionLabel: "Signed in",
+    verb: "Auth",
+    resourceName: "Web session",
+    resourceType: "Session",
+    before: null,
+    after:  { method: "password", mfa: "totp", device: "Chrome on macOS", trusted: true },
+    changedFields: [
+      { key: "Method",  changeType: "added", before: null, after: "Password" },
+      { key: "Mfa",     changeType: "added", before: null, after: "Authenticator app" },
+      { key: "Device",  changeType: "added", before: null, after: "Chrome on macOS" },
+      { key: "Trusted", changeType: "added", before: null, after: true },
+    ],
+    ipAddress: "72.21.4.10",
+  },
+  {
+    id: "LOG-003",
+    timestamp: "Jun 14, 2026, 22:02:55",
+    user: { name: "Diego Ramirez", initials: "DR", location: "Austin, US" },
+    action: "contract.created",
+    actionLabel: "Contract created",
+    verb: "Create",
+    resourceName: "Contoso Renewal SOW",
+    resourceType: "Contract",
+    before: null,
+    after:  { title: "Contoso Renewal SOW", value: "$420,000", status: "Draft", owner: "Diego Ramirez", counterparty: "Contoso Ltd." },
+    changedFields: [
+      { key: "Title",        changeType: "added", before: null, after: "Contoso Renewal SOW" },
+      { key: "Value",        changeType: "added", before: null, after: "$420,000" },
+      { key: "Status",       changeType: "added", before: null, after: "Draft" },
+      { key: "Owner",        changeType: "added", before: null, after: "Diego Ramirez" },
+      { key: "Counterparty", changeType: "added", before: null, after: "Contoso Ltd." },
+    ],
+    ipAddress: "64.8.112.5",
+  },
+  {
+    id: "LOG-004",
+    timestamp: "Jun 14, 2026, 19:11:40",
+    user: { name: "Amelia Hartwell", initials: "AH", location: "San Francisco, US" },
+    action: "user.role.changed",
+    actionLabel: "Role changed",
+    verb: "Permission",
+    resourceName: "Marcus Lee",
+    resourceType: "User",
+    before: { role: "Internal", permissions: 3 },
+    after:  { role: "Manager", permissions: 4 },
+    changedFields: [
+      { key: "Role",        changeType: "changed", before: "Internal", after: "Manager" },
+      { key: "Permissions", changeType: "changed", before: 3,          after: 4 },
+    ],
+    ipAddress: "72.21.4.10",
+  },
+  {
+    id: "LOG-005",
+    timestamp: "Jun 14, 2026, 16:48:00",
+    user: { name: "Marcus Lee", initials: "ML", location: "London, UK" },
+    action: "report.exported",
+    actionLabel: "Report exported",
+    verb: "Export",
+    resourceName: "Q2 Contract Summary",
+    resourceType: "Report",
+    before: null,
+    after:  { format: "CSV", rows: 1284, scope: "All active contracts", destination: "Local download" },
+    changedFields: [
+      { key: "Format",      changeType: "added", before: null, after: "CSV" },
+      { key: "Rows",        changeType: "added", before: null, after: 1284 },
+      { key: "Scope",       changeType: "added", before: null, after: "All active contracts" },
+      { key: "Destination", changeType: "added", before: null, after: "Local download" },
+    ],
+    ipAddress: "81.14.0.2",
+  },
+  {
+    id: "LOG-006",
+    timestamp: "Jun 14, 2026, 14:02:31",
+    user: { name: "Tobias Klein", initials: "TK", location: "Unknown" },
+    action: "auth.login.failed",
+    actionLabel: "Login failed",
+    verb: "Auth",
+    resourceName: "Failed login",
+    resourceType: "Session",
+    before: null,
+    after:  { method: "password", reason: "Account disabled", attempts: 3 },
+    changedFields: [
+      { key: "Method",   changeType: "added", before: null, after: "password" },
+      { key: "Reason",   changeType: "added", before: null, after: "Account disabled" },
+      { key: "Attempts", changeType: "added", before: null, after: 3 },
+    ],
+    ipAddress: "203.0.113.77",
+  },
+  {
+    id: "LOG-007",
+    timestamp: "Jun 14, 2026, 01:19:14",
+    user: { name: "Hana Suzuki", initials: "HS", location: "Tokyo, JP" },
+    action: "contract.viewed",
+    actionLabel: "Contract viewed",
+    verb: "View",
+    resourceName: "Globex NDA",
+    resourceType: "Contract",
+    before: null,
+    after: null,
+    changedFields: [],
+    ipAddress: "73.41.9.18",
+  },
+  {
+    id: "LOG-008",
+    timestamp: "Jun 13, 2026, 18:33:48",
+    user: { name: "Sophie Bauer", initials: "SB", location: "Berlin, DE" },
+    action: "contract.deleted",
+    actionLabel: "Contract deleted",
+    verb: "Delete",
+    resourceName: "Initech Pilot (expired)",
+    resourceType: "Contract",
+    before: { title: "Initech Pilot (expired)", status: "Expired", value: "$88,000", retention: "Met" },
+    after:  null,
+    changedFields: [
+      { key: "Title",     changeType: "removed", before: "Initech Pilot (expired)", after: null },
+      { key: "Status",    changeType: "removed", before: "Expired",                  after: null },
+      { key: "Value",     changeType: "removed", before: "$88,000",                  after: null },
+      { key: "Retention", changeType: "removed", before: "Met",                      after: null },
+    ],
+    ipAddress: "92.55.10.41",
+  },
+  {
+    id: "LOG-009",
+    timestamp: "Jun 13, 2026, 14:05:06",
+    user: { name: "Amelia Hartwell", initials: "AH", location: "San Francisco, US" },
+    action: "user.invited",
+    actionLabel: "User invited",
+    verb: "Create",
+    resourceName: "Priya Nair",
+    resourceType: "User",
+    before: null,
+    after:  { email: "priya.nair@northwind.com", role: "Internal", status: "Pending" },
+    changedFields: [
+      { key: "Email",  changeType: "added", before: null, after: "priya.nair@northwind.com" },
+      { key: "Role",   changeType: "added", before: null, after: "Internal" },
+      { key: "Status", changeType: "added", before: null, after: "Pending" },
+    ],
+    ipAddress: "72.21.4.10",
+  },
+  {
+    id: "LOG-010",
+    timestamp: "Jun 12, 2026, 17:27:52",
+    user: { name: "Grace Okoro", initials: "GO", location: "Lagos, NG" },
+    action: "contract.clause.updated",
+    actionLabel: "Clause updated",
+    verb: "Update",
+    resourceName: "Umbrella Services Agreement",
+    resourceType: "Contract",
+    before: { clause: "Payment Terms", net: "Net 30", lateFee: "1.5%/mo" },
+    after:  { clause: "Payment Terms", net: "Net 45", lateFee: "1.0%/mo" },
+    changedFields: [
+      { key: "Net",      changeType: "changed",   before: "Net 30",   after: "Net 45" },
+      { key: "Late fee", changeType: "changed",   before: "1.5%/mo",  after: "1.0%/mo" },
+      { key: "Clause",   changeType: "unchanged", before: "Payment Terms", after: "Payment Terms" },
+    ],
+    ipAddress: "88.27.3.99",
+  },
+  {
+    id: "LOG-011",
+    timestamp: "Jun 11, 2026, 20:58:36",
+    user: { name: "Noah Schmidt", initials: "NS", location: "Dublin, IE" },
+    action: "contract.exported",
+    actionLabel: "Contract exported",
+    verb: "Export",
+    resourceName: "Globex NDA",
+    resourceType: "Contract",
+    before: null,
+    after:  { format: "PDF", pages: 14, watermark: true },
+    changedFields: [
+      { key: "Format",    changeType: "added", before: null, after: "PDF" },
+      { key: "Pages",     changeType: "added", before: null, after: 14 },
+      { key: "Watermark", changeType: "added", before: null, after: true },
+    ],
+    ipAddress: "55.19.220.7",
+  },
+  {
+    id: "LOG-012",
+    timestamp: "Jun 10, 2026, 19:48:12",
+    user: { name: "Marcus Lee", initials: "ML", location: "London, UK" },
+    action: "user.invited",
+    actionLabel: "User invited",
+    verb: "Create",
+    resourceName: "Liam O'Connor",
+    resourceType: "User",
+    before: null,
+    after:  { email: "liam.oconnor@northwind.com", role: "Internal", status: "Pending" },
+    changedFields: [
+      { key: "Email",  changeType: "added", before: null, after: "liam.oconnor@northwind.com" },
+      { key: "Role",   changeType: "added", before: null, after: "Internal" },
+      { key: "Status", changeType: "added", before: null, after: "Pending" },
+    ],
+    ipAddress: "81.14.9.2",
+  },
+];
+

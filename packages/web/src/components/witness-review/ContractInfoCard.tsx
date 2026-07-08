@@ -5,7 +5,7 @@ import {
   CounterpartyIcon,
   CalendarIcon,
   StatusIcon,
-} from "./icons";
+} from "../shared/icons";
 import type { WitnessReviewContract } from "./types";
 
 interface ContractInfoCardProps {

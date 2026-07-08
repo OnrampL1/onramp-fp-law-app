@@ -1,4 +1,4 @@
-import { LockFooterIcon } from "./icons";
+import { LockFooterIcon } from "../shared/icons";
 
 /**
  * Footer bar shown at the bottom of the public witness review page.

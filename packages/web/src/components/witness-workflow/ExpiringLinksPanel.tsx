@@ -1,6 +1,6 @@
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
-import { WarningIcon, ExtendIcon } from "./icons";
+import { WarningIcon, ExtendIcon } from "../shared/icons";
 import type { ExpiringLink } from "./types";
 
 interface ExpiringLinksPanelProps {
