@@ -57,7 +57,7 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
     <Badge
       variant="outline"
       className={cn(
-        "font-medium uppercase tracking-wide text-[10px]",
+        "font-medium uppercase tracking-wide text-[10px] rounded-full",
         severityStyles[severity],
       )}
     >
