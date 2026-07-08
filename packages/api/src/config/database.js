@@ -22,7 +22,7 @@ function parseDbUrl(dbUrl) {
 
 const dbUrl =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@localhost:5432/starter_kit";
+  "postgresql://postgres:postgres@localhost:5432/onrampproject";
 
 module.exports = {
   development: parseDbUrl(dbUrl),
