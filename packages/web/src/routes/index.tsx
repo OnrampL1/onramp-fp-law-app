@@ -9,6 +9,8 @@ import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
 import Contracts from "@/pages/contracts/Contracts";
 import ContractDetailPage from "@/pages/contracts/ContractDetails";
+import ContractAnalysisPage from "@/pages/contracts/ContractAnalysis";
+import ContractInvestigatorPage from "@/pages/contracts/ContractInvestigator";
 import { UploadContract } from "../pages/contracts/UploadContract";
 import { WitnessWorkflow } from "../pages/WitnessWorkflow";
 import { WitnessReview } from "../pages/WitnessReview";
@@ -37,13 +39,12 @@ export function AppRoutes() {
           <Route path="/contracts" element={<Contracts />} />
           <Route path="/contracts/:id" element={<ContractDetailPage />} />
           <Route
-            path="/ai-analysis"
-            element={
-              <PlaceholderPage
-                title="AI Analysis"
-                description="Legal intelligence review"
-              />
-            }
+            path="/contracts/:id/analysis"
+            element={<ContractAnalysisPage />}
+          />
+          <Route
+            path="/contracts/:id/investigator"
+            element={<ContractInvestigatorPage />}
           />
           <Route
             path="/insights/auto-renewal"
@@ -95,8 +96,7 @@ export function AppRoutes() {
           <Route path="/witness" element={<WitnessWorkflow />} />
           <Route path="/witness-workflow" element={<WitnessWorkflow />} />
           <Route path="/audit" element={<AuditLogPage />} />
-          <Route path="/audit-log" element={<AuditLogPage />} />  
-          
+          <Route path="/audit-log" element={<AuditLogPage />} />
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/upload" element={<UploadContract />} />
