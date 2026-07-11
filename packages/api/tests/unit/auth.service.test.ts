@@ -33,9 +33,8 @@ describe("hashPassword / verifyPassword", () => {
 describe("signAccessToken / verifyAccessToken", () => {
   const payload = {
     userId: "user-uuid-123",
-    email: "test@example.com",
-    role: "user" as const,
-    sessionId: "session-uuid-456",
+    orgId: "org-uuid-789",
+    role: "INTERNAL" as const,
   };
 
   it("signs and verifies a token successfully", () => {
@@ -43,8 +42,16 @@ describe("signAccessToken / verifyAccessToken", () => {
     const decoded = verifyAccessToken(token);
 
     expect(decoded.userId).toBe(payload.userId);
-    expect(decoded.email).toBe(payload.email);
+    expect(decoded.orgId).toBe(payload.orgId);
     expect(decoded.role).toBe(payload.role);
+    expect(typeof decoded.jti).toBe("string");
+    expect(decoded.jti.length).toBeGreaterThan(0);
+  });
+
+  it("assigns a unique jti to every token, even with identical payloads", () => {
+    const first = verifyAccessToken(signAccessToken(payload));
+    const second = verifyAccessToken(signAccessToken(payload));
+    expect(first.jti).not.toBe(second.jti);
   });
 
   it("throws when verifying a tampered token", () => {
