@@ -1,10 +1,17 @@
-export type UserRole = "admin" | "lawyer" | "paralegal" | "user";
+import type { UserRole } from "@prisma/client";
 
-export interface JwtPayload {
+export type { UserRole };
+
+export interface AccessTokenPayload {
   userId: string;
-  email: string;
+  orgId: string;
   role: UserRole;
-  sessionId: string;
+  jti: string;
+}
+
+export interface RefreshTokenPayload {
+  userId: string;
+  jti: string;
 }
 
 export interface TokenPair {
@@ -14,7 +21,8 @@ export interface TokenPair {
 
 export interface AuthUser {
   id: string;
+  organizationId: string;
   email: string;
-  name: string;
+  fullName: string;
   role: UserRole;
 }

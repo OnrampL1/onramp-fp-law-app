@@ -7,7 +7,7 @@ A full-stack TypeScript monorepo with everything pre-configured so you can focus
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 18, Vite, Tailwind CSS, shadcn/ui |
-| Backend | Express, Sequelize, Zod |
+| Backend | Express, Prisma, Zod |
 | Background Jobs | BullMQ, Redis |
 | Database | PostgreSQL |
 | Monorepo | Turborepo |
@@ -52,10 +52,13 @@ cp .env.example .env
 ### 5. Run database migrations
 
 ```bash
-cd packages/api
-npx sequelize-cli db:migrate
-npx sequelize-cli db:seed:all   # optional sample data
+npm run db:generate   # generate the Prisma Client
+npm run db:migrate     # apply migrations
+npm run db:seed        # optional sample data
 ```
+
+> Pulling this repo for the first time after the Sequelize → Prisma migration?
+> See [MIGRATION_NOTES.md](./MIGRATION_NOTES.md) before running the above.
 
 ### 6. Start development servers
 
