@@ -42,12 +42,12 @@ export function ProfileSettings() {
           <div className="flex items-center gap-4">
             <Avatar className="size-16">
               <AvatarFallback className="text-lg font-semibold">
-                {getInitials(user.name)}
+                {getInitials(user.fullName)}
               </AvatarFallback>
             </Avatar>
 
             <div>
-              <p className="font-medium">{user.name}</p>
+              <p className="font-medium">{user.fullName}</p>
               <p className="text-sm text-muted-foreground">{user.email}</p>
             </div>
           </div>
@@ -55,7 +55,7 @@ export function ProfileSettings() {
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="profile-name">Full name</Label>
-              <Input id="profile-name" value={user.name} readOnly />
+              <Input id="profile-name" value={user.fullName} readOnly />
             </div>
 
             <div className="space-y-2">

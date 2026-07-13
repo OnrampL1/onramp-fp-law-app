@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,8 +17,8 @@ import {
 } from "../../components/ui/card";
 
 const registerSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email"),
+  invitationToken: z.string().min(1, "Invitation token is required"),
+  fullName: z.string().min(2, "Name must be at least 2 characters"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -29,8 +29,9 @@ const registerSchema = z.object({
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function Register() {
-  const { register: registerUser } = useAuth();
+  const { acceptInvitation } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -39,24 +40,33 @@ export function Register() {
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      invitationToken: searchParams.get("token") ?? "",
+    },
   });
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
       setError(null);
-      await registerUser(data.email, data.password, data.name);
-      navigate("/login");
+      await acceptInvitation(
+        data.invitationToken,
+        data.fullName,
+        data.password,
+      );
+      navigate("/dashboard");
     } catch {
-      setError("Registration failed. That email may already be in use.");
+      setError(
+        "Invitation acceptance failed. Check your invitation and try again.",
+      );
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create an account</CardTitle>
+        <CardTitle>Accept invitation</CardTitle>
         <CardDescription>
-          Fill in the details below to get started
+          Enter your invitation token and set up your account.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -67,22 +77,29 @@ export function Register() {
             </p>
           )}
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" placeholder="Alice Smith" {...register("name")} />
-            {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
+            <Label htmlFor="fullName">Full name</Label>
+            <Input
+              id="fullName"
+              placeholder="Alice Smith"
+              {...register("fullName")}
+            />
+            {errors.fullName && (
+              <p className="text-xs text-destructive">
+                {errors.fullName.message}
+              </p>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="invitationToken">Invitation token</Label>
             <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              {...register("email")}
+              id="invitationToken"
+              placeholder="Paste your invitation token"
+              {...register("invitationToken")}
             />
-            {errors.email && (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
+            {errors.invitationToken && (
+              <p className="text-xs text-destructive">
+                {errors.invitationToken.message}
+              </p>
             )}
           </div>
           <div className="space-y-2">
@@ -102,7 +119,7 @@ export function Register() {
         </CardContent>
         <CardFooter className="flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Creating account…" : "Create account"}
+            {isSubmitting ? "Accepting invitation…" : "Accept invitation"}
           </Button>
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
