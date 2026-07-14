@@ -1,31 +1,84 @@
-// Storage helpers — configure your S3 bucket via env vars.
-// Uncomment the S3 implementation once AWS credentials are configured.
-
-// import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-// import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createError } from "../middleware/error-handler";
 
 export interface UploadResult {
   key: string;
-  url: string;
+  url: string | null;
+}
+
+let s3Client: S3Client | null = null;
+
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+
+  if (!value) {
+    throw createError(`${name} is not configured`, 500);
+  }
+
+  return value;
+}
+
+function getS3Client(): S3Client {
+  if (s3Client) {
+    return s3Client;
+  }
+
+  const endpoint = process.env.S3_ENDPOINT;
+  const forcePathStyle = process.env.S3_FORCE_PATH_STYLE === "true";
+
+  s3Client = new S3Client({
+    region: getRequiredEnv("S3_REGION"),
+    endpoint,
+    forcePathStyle,
+    credentials: {
+      accessKeyId: getRequiredEnv("AWS_ACCESS_KEY_ID"),
+      secretAccessKey: getRequiredEnv("AWS_SECRET_ACCESS_KEY"),
+    },
+  });
+
+  return s3Client;
 }
 
 export async function uploadFile(
-  _key: string,
-  _body: Buffer,
-  _contentType: string,
+  key: string,
+  body: Buffer,
+  contentType: string,
 ): Promise<UploadResult> {
-  // TODO: implement S3 upload
-  throw new Error(
-    "Storage not configured. Set S3_BUCKET and AWS credentials in .env",
+  const bucket = getRequiredEnv("S3_BUCKET");
+
+  await getS3Client().send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      ServerSideEncryption: "AES256",
+    }),
   );
+
+  return {
+    key,
+    url: null,
+  };
 }
 
 export async function getPresignedUrl(
-  _key: string,
-  _expiresIn = 3600,
+  key: string,
+  expiresIn = 3600,
 ): Promise<string> {
-  // TODO: implement S3 presigned URL
-  throw new Error(
-    "Storage not configured. Set S3_BUCKET and AWS credentials in .env",
+  const bucket = getRequiredEnv("S3_BUCKET");
+
+  return getSignedUrl(
+    getS3Client(),
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    }),
+    { expiresIn },
   );
 }
