@@ -1,64 +1,67 @@
-import type { SelectedContractFile } from "../types/contracts";
-
-export type UploadContractSource =
-  | {
-      kind: "file";
-      selectedFile: SelectedContractFile;
-    }
-  | {
-      kind: "text";
-      text: string;
-      title: string;
-    };
+import { apiClient } from "../lib/api-client";
+import type {
+  ContractMetadata,
+  SelectedContractFile,
+} from "../types/contracts";
 
 export interface UploadContractRequest {
-  source: UploadContractSource;
+  selectedFile: SelectedContractFile;
+  metadata: ContractMetadata;
   signal?: AbortSignal;
 }
 
 export interface UploadContractResponse {
-  contractId: string;
-  fileName: string;
-  uploadedAt: string;
-  status: "uploaded";
+  id: string;
+  title: string;
+  counterparty: string;
+  businessStatus: "DRAFT" | "UNDER_REVIEW" | "COMPLETED" | "ARCHIVED";
+  processingStatus:
+    | "PENDING_EXTRACTION"
+    | "EXTRACTION_COMPLETED"
+    | "AI_PENDING"
+    | "AI_COMPLETED"
+    | "FAILED";
+  legalState: "DRAFT" | "ACTIVE" | "EXPIRED" | "TERMINATED" | null;
+  tags: string[];
+  expirationDate: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 }
-
-const MOCK_UPLOAD_DELAY_MS = 900;
 
 export async function uploadContractFile({
-  source,
+  selectedFile,
+  metadata,
   signal,
 }: UploadContractRequest): Promise<UploadContractResponse> {
-  await waitForMockUpload(signal);
+  const formData = new FormData();
 
-  return {
-    contractId: crypto.randomUUID(),
-    fileName:
-      source.kind === "file"
-        ? source.selectedFile.name
-        : `${source.title || "Pasted contract"}.txt`,
-    uploadedAt: new Date().toISOString(),
-    status: "uploaded",
-  };
-}
+  formData.append("file", selectedFile.file);
+  formData.append("title", metadata.title.trim());
+  formData.append("counterparty", metadata.counterparty.trim());
 
-function waitForMockUpload(signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException("Upload cancelled.", "AbortError"));
-      return;
-    }
+  if (metadata.tags.length > 0) {
+    formData.append("tags", JSON.stringify(metadata.tags));
+  }
 
-    const timeoutId = window.setTimeout(() => {
-      signal?.removeEventListener("abort", handleAbort);
-      resolve();
-    }, MOCK_UPLOAD_DELAY_MS);
+  if (metadata.expirationDate) {
+    formData.append("expirationDate", metadata.expirationDate);
+  }
 
-    function handleAbort() {
-      window.clearTimeout(timeoutId);
-      reject(new DOMException("Upload cancelled.", "AbortError"));
-    }
+  if (metadata.legalState) {
+    formData.append("legalState", metadata.legalState);
+  }
 
-    signal?.addEventListener("abort", handleAbort, { once: true });
-  });
+  const response = await apiClient.post<{ data: UploadContractResponse }>(
+    "/contracts",
+    formData,
+    {
+      signal,
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+
+  return response.data.data;
 }

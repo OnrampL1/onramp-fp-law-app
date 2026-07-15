@@ -28,11 +28,9 @@ type UploadInputMode = "file" | "paste";
 const initialMetadata: ContractMetadata = {
   title: "",
   counterparty: "",
-  contractType: "",
   tags: [],
-  effectiveDate: "",
   expirationDate: "",
-  status: "draft",
+  legalState: "",
 };
 
 export function UploadContract() {
@@ -53,7 +51,6 @@ export function UploadContract() {
     removeFile,
     setIsDragging,
     uploadSelectedFile,
-    uploadPastedText,
     resetUpload,
   } = useContractUpload();
 
@@ -69,31 +66,18 @@ export function UploadContract() {
       return;
     }
 
-    if (inputMode === "file" && !selectedFile) {
+    if (!selectedFile) {
       setSubmitError("Select a contract file before uploading.");
       return;
     }
 
-    if (inputMode === "paste" && !pastedTextIsValid) {
-      setSubmitError("Paste at least 40 characters of contract text.");
-      return;
-    }
-
     if (!metadataIsValid) {
-      setSubmitError(
-        "Add a contract title, counterparty, and contract type before uploading.",
-      );
+      setSubmitError("Add a contract title and counterparty before uploading.");
       return;
     }
 
     setSubmitError(null);
-
-    if (inputMode === "file") {
-      await uploadSelectedFile();
-      return;
-    }
-
-    await uploadPastedText(pastedText.trim(), metadata.title.trim());
+    await uploadSelectedFile(metadata);
   }
 
   function handleReset() {
@@ -118,7 +102,7 @@ export function UploadContract() {
                 Contract uploaded
               </h1>
               <p className="text-muted-foreground">
-                {metadata.title || uploadResult.fileName} has been uploaded
+                {metadata.title || uploadResult.title} has been uploaded
                 successfully.
               </p>
             </div>
@@ -128,12 +112,15 @@ export function UploadContract() {
                 label="Source"
                 value={inputMode === "file" ? "File" : "Pasted text"}
               />
-              <SummaryItem label="File" value={uploadResult.fileName} />
+              <SummaryItem label="Contract" value={uploadResult.title} />
               <SummaryItem label="Counterparty" value={metadata.counterparty} />
-              <SummaryItem label="Status" value={metadata.status} />
+              <SummaryItem
+                label="Legal State"
+                value={uploadResult.legalState ?? "Not specified"}
+              />
               <SummaryItem
                 label="Uploaded"
-                value={new Date(uploadResult.uploadedAt).toLocaleString()}
+                value={new Date(uploadResult.createdAt).toLocaleString()}
               />
             </dl>
 
@@ -301,9 +288,7 @@ export function UploadContract() {
 
 function isMetadataValid(metadata: ContractMetadata): boolean {
   return (
-    metadata.title.trim().length > 0 &&
-    metadata.counterparty.trim().length > 0 &&
-    metadata.contractType.length > 0
+    metadata.title.trim().length > 0 && metadata.counterparty.trim().length > 0
   );
 }
 

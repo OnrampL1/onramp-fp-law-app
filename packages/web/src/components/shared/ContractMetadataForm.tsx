@@ -3,11 +3,9 @@ import { X } from "lucide-react";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import {
-  CONTRACT_STATUS_OPTIONS,
-  CONTRACT_TYPE_OPTIONS,
+  CONTRACT_LEGAL_STATE_OPTIONS,
+  type ContractLegalState,
   type ContractMetadata,
-  type ContractStatus,
-  type ContractType,
 } from "../../types/contracts";
 import { cn } from "../../lib/utils";
 
@@ -24,11 +22,9 @@ export function ContractMetadataForm({
 }: ContractMetadataFormProps) {
   const titleId = useId();
   const counterpartyId = useId();
-  const contractTypeId = useId();
   const tagInputId = useId();
-  const effectiveDateId = useId();
   const expirationDateId = useId();
-  const statusId = useId();
+  const legalStateId = useId();
 
   const [tagInput, setTagInput] = useState("");
 
@@ -97,20 +93,20 @@ export function ContractMetadataForm({
         />
       </Field>
 
-      <Field label="Contract Type" htmlFor={contractTypeId}>
+      <Field label="Legal State" htmlFor={legalStateId}>
         <select
-          id={contractTypeId}
-          value={value.contractType}
+          id={legalStateId}
+          value={value.legalState}
           disabled={disabled}
           className={selectClassName}
           onChange={(event) =>
             updateMetadata({
-              contractType: event.target.value as ContractType | "",
+              legalState: event.target.value as ContractLegalState | "",
             })
           }
         >
-          <option value="">Select type</option>
-          {CONTRACT_TYPE_OPTIONS.map((option) => (
+          <option value="">Not specified</option>
+          {CONTRACT_LEGAL_STATE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -163,18 +159,6 @@ export function ContractMetadataForm({
         </div>
       </Field>
 
-      <Field label="Effective Date" htmlFor={effectiveDateId}>
-        <Input
-          id={effectiveDateId}
-          type="date"
-          value={value.effectiveDate}
-          disabled={disabled}
-          onChange={(event) =>
-            updateMetadata({ effectiveDate: event.target.value })
-          }
-        />
-      </Field>
-
       <Field label="Expiration Date" htmlFor={expirationDateId}>
         <Input
           id={expirationDateId}
@@ -185,24 +169,6 @@ export function ContractMetadataForm({
             updateMetadata({ expirationDate: event.target.value })
           }
         />
-      </Field>
-
-      <Field label="Status" htmlFor={statusId}>
-        <select
-          id={statusId}
-          value={value.status}
-          disabled={disabled}
-          className={selectClassName}
-          onChange={(event) =>
-            updateMetadata({ status: event.target.value as ContractStatus })
-          }
-        >
-          {CONTRACT_STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
       </Field>
     </div>
   );
