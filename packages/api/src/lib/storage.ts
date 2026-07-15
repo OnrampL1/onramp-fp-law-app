@@ -50,16 +50,22 @@ export async function uploadFile(
   contentType: string,
 ): Promise<UploadResult> {
   const bucket = getRequiredEnv("S3_BUCKET");
+  const serverSideEncryption =
+    process.env.S3_SERVER_SIDE_ENCRYPTION === "AES256" ? "AES256" : undefined;
 
-  await getS3Client().send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: body,
-      ContentType: contentType,
-      ServerSideEncryption: "AES256",
-    }),
-  );
+  try {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        ServerSideEncryption: serverSideEncryption,
+      }),
+    );
+  } catch {
+    throw createError("Could not store contract file", 502);
+  }
 
   return {
     key,

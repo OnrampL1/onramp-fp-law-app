@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { Request, Response, NextFunction } from "express";
 import multer from "multer";
 import { createError } from "./error-handler";
 import {
@@ -43,6 +44,34 @@ const upload = multer({
   },
 });
 
-export const parseContractUploadFile = upload.single(
-  CONTRACT_UPLOAD_FIELD_NAME,
-);
+const parseSingleContractFile = upload.single(CONTRACT_UPLOAD_FIELD_NAME);
+
+export function parseContractUploadFile(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  parseSingleContractFile(req, res, (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    if (error instanceof multer.MulterError) {
+      if (error.code === "LIMIT_FILE_SIZE") {
+        next(createError("Contract file is too large", 422));
+        return;
+      }
+
+      if (error.code === "LIMIT_FILE_COUNT") {
+        next(createError("Only one contract file may be uploaded", 422));
+        return;
+      }
+
+      next(createError("Invalid contract upload", 422));
+      return;
+    }
+
+    next(error);
+  });
+}
