@@ -96,7 +96,10 @@ export function UploadContract() {
             <dl className="grid w-full min-w-0 grid-cols-1 gap-3 text-left sm:grid-cols-2">
               <SummaryItem label="Source" value="File" />
               <SummaryItem label="Contract" value={uploadResult.title} />
-              <SummaryItem label="Counterparty" value={metadata.counterparty} />
+              <SummaryItem
+                label="Counterparty"
+                value={uploadResult.counterparty}
+              />
               <SummaryItem
                 label="Legal State"
                 value={uploadResult.legalState ?? "Not specified"}
