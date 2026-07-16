@@ -1,9 +1,14 @@
 /// <reference types="jest" />
 
-import { ContractsService } from "../../src/services/contracts.service";
-import { uploadFile } from "../../src/lib/storage";
-import { contractsRepository } from "../../src/repositories/contracts.repository";
-import { getPrismaClient } from "@starter-kit/shared";
+const mockPrisma = {
+  user: {
+    findFirst: jest.fn(),
+  },
+};
+
+jest.mock("@starter-kit/shared", () => ({
+  getPrismaClient: jest.fn(() => mockPrisma),
+}));
 
 jest.mock("../../src/lib/storage", () => ({
   uploadFile: jest.fn(),
@@ -15,16 +20,13 @@ jest.mock("../../src/repositories/contracts.repository", () => ({
   },
 }));
 
-jest.mock("@starter-kit/shared", () => ({
-  getPrismaClient: jest.fn(),
-}));
+import { ContractsService } from "../../src/services/contracts.service";
+import { uploadFile } from "../../src/lib/storage";
+import { contractsRepository } from "../../src/repositories/contracts.repository";
 
 const mockUploadFile = uploadFile as jest.MockedFunction<typeof uploadFile>;
 const mockContractsRepository = contractsRepository as jest.Mocked<
   typeof contractsRepository
->;
-const mockGetPrismaClient = getPrismaClient as jest.MockedFunction<
-  typeof getPrismaClient
 >;
 
 function createTextFile(): Express.Multer.File {
@@ -45,17 +47,10 @@ function createTextFile(): Express.Multer.File {
 }
 
 describe("ContractsService.uploadContract", () => {
-  const prisma = {
-    user: {
-      findFirst: jest.fn(),
-    },
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetPrismaClient.mockReturnValue(prisma as never);
 
-    prisma.user.findFirst.mockResolvedValue({
+    mockPrisma.user.findFirst.mockResolvedValue({
       id: "00000000-0000-4000-8000-000000000001",
       organizationId: "00000000-0000-4000-8000-000000000002",
       status: "ACTIVE",
@@ -112,7 +107,7 @@ describe("ContractsService.uploadContract", () => {
       },
     });
 
-    expect(prisma.user.findFirst).toHaveBeenCalledWith({
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
       where: {
         id: "00000000-0000-4000-8000-000000000001",
         organizationId: "00000000-0000-4000-8000-000000000002",
@@ -152,7 +147,7 @@ describe("ContractsService.uploadContract", () => {
   });
 
   it("rejects uploads for suspended users", async () => {
-    prisma.user.findFirst.mockResolvedValue({
+    mockPrisma.user.findFirst.mockResolvedValue({
       id: "00000000-0000-4000-8000-000000000001",
       organizationId: "00000000-0000-4000-8000-000000000002",
       status: "SUSPENDED",
