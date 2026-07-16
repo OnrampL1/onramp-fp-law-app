@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { authRouter } from "./auth.routes";
+import { userRouter } from "./user.routes";
+import { invitationRouter } from "./invitation.routes";
 
 const router = Router();
 
 router.use("/auth", authRouter);
-
-// Add more routers here:
-// router.use('/users', usersRouter);
+router.use("/users", userRouter);
+router.use("/invitations", invitationRouter);
 
 export { router };

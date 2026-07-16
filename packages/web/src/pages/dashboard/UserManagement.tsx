@@ -10,16 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  getPermissionKeysForRole,
-  roleLabels,
-  statusLabels,
-  teamMembers,
-  type TeamMember,
-  type UserAccessRole,
-  type UserAccountStatus,
-} from "@/lib/users";
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { statusLabels, type TeamMember, type UserAccountStatus } from "@/lib/users";
+import { isAdminRole, roleLabels, type BackendUserRole } from "@/lib/permissions";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  useCreateInvitation,
+  useResendInvitation,
+  useTeamMembers,
+  useUpdateUserRole,
+  useUpdateUserStatus,
+} from "@/hooks/useUserManagement";
 
 import {
   ChangeRoleSheet,
@@ -30,11 +31,11 @@ import {
   type InviteUserPayload,
 } from "@/components/users";
 
-type RoleFilter = "all" | UserAccessRole;
+type RoleFilter = "all" | BackendUserRole;
 type StatusFilter = "all" | UserAccountStatus;
 
-const roleFilters: RoleFilter[] = ["all", "admin", "user", "viewer"];
-const statusFilters: StatusFilter[] = ["all", "active", "pending", "disabled"];
+const roleFilters: RoleFilter[] = ["all", "OWNER", "ADMIN", "INTERNAL"];
+const statusFilters: StatusFilter[] = ["all", "active", "disabled", "pending"];
 
 export function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -45,21 +46,28 @@ export function UserManagement() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<TeamMember | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [users, setUsers] = useState<TeamMember[]>(teamMembers);
   const [roleChangeUser, setRoleChangeUser] = useState<TeamMember | null>(null);
   const [roleChangeOpen, setRoleChangeOpen] = useState(false);
 
-  const isCurrentUserAdmin = currentUser?.role === "admin";
+  const { members, isLoading, isError } = useTeamMembers();
+  const createInvitation = useCreateInvitation();
+  const resendInvitationMutation = useResendInvitation();
+  const updateUserStatus = useUpdateUserStatus();
+  const updateUserRole = useUpdateUserRole();
+
+  // Backend authorization is what actually protects these actions (see
+  // PUT /users/:id/role, /status, POST /invitations) — this only controls
+  // what the UI offers, matching a read-only INTERNAL account's real access.
+  const isCurrentUserAdmin = isAdminRole(currentUser?.role);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return users.filter((user) => {
+    return members.filter((user) => {
       const matchesQuery =
         normalizedQuery.length === 0 ||
-        user.name.toLowerCase().includes(normalizedQuery) ||
-        user.email.toLowerCase().includes(normalizedQuery) ||
-        user.team.toLowerCase().includes(normalizedQuery);
+        (user.name?.toLowerCase().includes(normalizedQuery) ?? false) ||
+        user.email.toLowerCase().includes(normalizedQuery);
 
       const matchesRole = roleFilter === "all" || user.role === roleFilter;
       const matchesStatus =
@@ -67,7 +75,7 @@ export function UserManagement() {
 
       return matchesQuery && matchesRole && matchesStatus;
     });
-  }, [query, roleFilter, statusFilter, users]);
+  }, [query, roleFilter, statusFilter, members]);
 
   function handleSelectUser(user: TeamMember) {
     setSelectedUser(user);
@@ -79,64 +87,32 @@ export function UserManagement() {
       return;
     }
 
-    const now = new Date().toISOString();
-
-    setUsers((currentUsers) => [
-      {
-        id: crypto.randomUUID(),
-        name: payload.name,
-        email: payload.email,
-        role: payload.role,
-        status: "pending",
-        title: payload.title || "Invited user",
-        team: payload.team || "Unassigned",
-        permissionKeys: getPermissionKeysForRole(payload.role),
-        createdAt: now,
-        lastActiveAt: null,
-        invitedAt: now,
-      },
-      ...currentUsers,
-    ]);
+    createInvitation.mutate({
+      email: payload.email,
+      fullName: payload.name,
+      role: payload.role,
+    });
   }
 
   function handleResendInvite(user: TeamMember) {
-    if (!canManageUserAccess(user)) {
+    if (!canManageUserAccess(user) || user.source !== "invitation") {
       return;
     }
-    const now = new Date().toISOString();
-
-    setUsers((currentUsers) =>
-      currentUsers.map((currentUser) =>
-        currentUser.id === user.id
-          ? { ...currentUser, invitedAt: now }
-          : currentUser,
-      ),
-    );
-
-    setSelectedUser((currentUser) =>
-      currentUser?.id === user.id
-        ? { ...currentUser, invitedAt: now }
-        : currentUser,
-    );
+    resendInvitationMutation.mutate(user.id);
   }
 
   function handleDisableUser(user: TeamMember) {
-    if (!canManageUserAccess(user)) {
+    if (!canManageUserAccess(user) || user.source !== "user") {
       return;
     }
-    setUsers((currentUsers) =>
-      currentUsers.map((currentUser) =>
-        currentUser.id === user.id
-          ? { ...currentUser, status: "disabled" }
-          : currentUser,
-      ),
-    );
+    updateUserStatus.mutate({ userId: user.id, status: "SUSPENDED" });
+  }
 
-    setSelectedUser((currentUser) =>
-      currentUser?.id === user.id
-        ? { ...currentUser, status: "disabled" }
-        : currentUser,
-    );
+  function handleReactivateUser(user: TeamMember) {
+    if (!canManageUserAccess(user) || user.source !== "user") {
+      return;
+    }
+    updateUserStatus.mutate({ userId: user.id, status: "ACTIVE" });
   }
 
   function isCurrentUser(user: TeamMember) {
@@ -144,11 +120,18 @@ export function UserManagement() {
   }
 
   function canChangeUserRole(user: TeamMember) {
-    return isCurrentUserAdmin && user.role !== "admin" && !isCurrentUser(user);
+    return (
+      isCurrentUserAdmin &&
+      user.source === "user" &&
+      user.role !== "OWNER" &&
+      !isCurrentUser(user)
+    );
   }
 
   function canManageUserAccess(user: TeamMember) {
-    return isCurrentUserAdmin && user.role !== "admin" && !isCurrentUser(user);
+    return (
+      isCurrentUserAdmin && user.role !== "OWNER" && !isCurrentUser(user)
+    );
   }
 
   function handleOpenRoleChange(user: TeamMember) {
@@ -160,32 +143,16 @@ export function UserManagement() {
     setRoleChangeOpen(true);
   }
 
-  function handleSaveRole(user: TeamMember, role: UserAccessRole) {
+  function handleSaveRole(
+    user: TeamMember,
+    role: Extract<BackendUserRole, "ADMIN" | "INTERNAL">,
+  ) {
     if (!canChangeUserRole(user)) {
       return;
     }
 
-    const permissionKeys = getPermissionKeysForRole(role);
-
-    setUsers((currentUsers) =>
-      currentUsers.map((currentUser) =>
-        currentUser.id === user.id
-          ? { ...currentUser, role, permissionKeys }
-          : currentUser,
-      ),
-    );
-
-    setSelectedUser((currentUser) =>
-      currentUser?.id === user.id
-        ? { ...currentUser, role, permissionKeys }
-        : currentUser,
-    );
-
-    setRoleChangeUser((currentUser) =>
-      currentUser?.id === user.id
-        ? { ...currentUser, role, permissionKeys }
-        : currentUser,
-    );
+    updateUserRole.mutate({ userId: user.id, role });
+    setRoleChangeOpen(false);
   }
 
   function handleExportUsers() {
@@ -194,25 +161,17 @@ export function UserManagement() {
       "Email",
       "Role",
       "Status",
-      "Title",
-      "Team",
-      "Permissions",
       "Created",
       "Last Active",
-      "Invited",
     ];
 
     const rows = filteredUsers.map((user) => [
-      user.name,
+      user.name ?? "(pending)",
       user.email,
       roleLabels[user.role],
       statusLabels[user.status],
-      user.title,
-      user.team,
-      user.permissionKeys.join("; "),
       user.createdAt,
       user.lastActiveAt ?? "",
-      user.invitedAt ?? "",
     ]);
 
     const csv = [headers, ...rows]
@@ -245,8 +204,8 @@ export function UserManagement() {
               User Management
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage team members, role-based access, viewer permissions, and
-              pending invitations.
+              Manage team members, role-based access, and pending
+              invitations.
             </p>
           </div>
         </div>
@@ -292,7 +251,13 @@ export function UserManagement() {
         </div>
       )}
 
-      <UserStats users={users} />
+      {isError && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          Couldn't load team members. Try refreshing the page.
+        </div>
+      )}
+
+      <UserStats users={members} />
 
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-sm">
@@ -305,7 +270,7 @@ export function UserManagement() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="pl-9"
-            placeholder="Search by name, email, or team"
+            placeholder="Search by name or email"
             aria-label="Search users"
           />
         </div>
@@ -351,15 +316,22 @@ export function UserManagement() {
         </div>
       </div>
 
-      <UserTable
-        users={filteredUsers}
-        onSelectUser={handleSelectUser}
-        onDisableUser={handleDisableUser}
-        onResendInvite={handleResendInvite}
-        onChangeRole={handleOpenRoleChange}
-        canChangeRole={canChangeUserRole}
-        canManageAccess={canManageUserAccess}
-      />
+      {isLoading ? (
+        <div className="flex justify-center py-16">
+          <LoadingSpinner />
+        </div>
+      ) : (
+        <UserTable
+          users={filteredUsers}
+          onSelectUser={handleSelectUser}
+          onDisableUser={handleDisableUser}
+          onReactivateUser={handleReactivateUser}
+          onResendInvite={handleResendInvite}
+          onChangeRole={handleOpenRoleChange}
+          canChangeRole={canChangeUserRole}
+          canManageAccess={canManageUserAccess}
+        />
+      )}
 
       <InviteUserSheet
         open={inviteOpen}

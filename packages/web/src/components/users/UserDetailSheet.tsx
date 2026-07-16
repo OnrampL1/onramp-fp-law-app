@@ -1,4 +1,4 @@
-import { CalendarDays, Mail, UsersRound } from "lucide-react";
+import { CalendarDays, Mail } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -8,12 +8,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  getInitials,
-  roleLabels,
-  statusLabels,
-  type TeamMember,
-} from "@/lib/users";
+import { getInitials, statusLabels, type TeamMember } from "@/lib/users";
+import { roleLabels } from "@/lib/permissions";
 
 import { PermissionBadge, UserRoleBadge, UserStatusBadge } from "./UserBadges";
 
@@ -44,6 +40,8 @@ export function UserDetailSheet({
     return null;
   }
 
+  const displayName = user.name ?? "Invitation pending";
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md">
@@ -51,14 +49,14 @@ export function UserDetailSheet({
           <div className="flex items-center gap-3">
             <Avatar size="lg">
               <AvatarFallback className="bg-accent text-sm font-semibold text-accent-foreground">
-                {getInitials(user.name)}
+                {getInitials(user.name ?? user.email)}
               </AvatarFallback>
             </Avatar>
 
             <div className="min-w-0">
-              <SheetTitle className="truncate">{user.name}</SheetTitle>
+              <SheetTitle className="truncate">{displayName}</SheetTitle>
               <SheetDescription className="truncate">
-                {user.title} - {user.team}
+                {user.email}
               </SheetDescription>
             </div>
           </div>
@@ -113,17 +111,6 @@ export function UserDetailSheet({
               </div>
 
               <div className="flex items-start gap-2">
-                <UsersRound
-                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <div>
-                  <p className="font-medium">Team</p>
-                  <p className="text-muted-foreground">{user.team}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2">
                 <CalendarDays
                   className="mt-0.5 size-4 shrink-0 text-muted-foreground"
                   aria-hidden="true"
@@ -136,7 +123,7 @@ export function UserDetailSheet({
                   <p className="text-muted-foreground">
                     Last active {formatDate(user.lastActiveAt)}
                   </p>
-                  {user.invitedAt && (
+                  {user.source === "invitation" && (
                     <p className="text-muted-foreground">
                       Invited {formatDate(user.invitedAt)}
                     </p>
@@ -151,9 +138,8 @@ export function UserDetailSheet({
               Current status: {statusLabels[user.status]}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Role and access changes are available from the user actions menu
-              and follow admin-only RBAC rules. API persistence will be added
-              later.
+              Role and access changes are available from the user actions
+              menu and are enforced by the backend, not just this screen.
             </p>
           </section>
         </div>

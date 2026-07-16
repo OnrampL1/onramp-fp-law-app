@@ -1,8 +1,9 @@
 import type { LucideIcon } from "lucide-react";
-import { Eye, Clock, ShieldCheck, UsersRound } from "lucide-react";
+import { Clock, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import type { TeamMember } from "@/lib/users";
+import { isAdminRole } from "@/lib/permissions";
 
 type UserStatsProps = {
   users: TeamMember[];
@@ -25,15 +26,15 @@ export function UserStats({ users }: UserStatsProps) {
     },
     {
       label: "Administrators",
-      value: users.filter((user) => user.role === "admin").length,
+      value: users.filter((user) => isAdminRole(user.role)).length,
       description: "Can manage access",
       icon: ShieldCheck,
     },
     {
-      label: "Viewers",
-      value: users.filter((user) => user.role === "viewer").length,
+      label: "Internal users",
+      value: users.filter((user) => user.role === "INTERNAL").length,
       description: "Read-only contract access",
-      icon: Eye,
+      icon: UserRound,
     },
     {
       label: "Pending invites",

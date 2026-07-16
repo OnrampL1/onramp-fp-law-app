@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import {
   getPrismaClient,
   hashPassword,
@@ -7,6 +6,7 @@ import {
   verifyRefreshToken,
   blacklistToken,
   isJtiBlacklisted,
+  hashToken,
   type AuthUser,
 } from "@starter-kit/shared";
 import type { User } from "@prisma/client";
@@ -33,10 +33,6 @@ function toPublicUser(user: User): AuthUser {
     fullName: user.fullName,
     role: user.role,
   };
-}
-
-function hashToken(rawToken: string): string {
-  return crypto.createHash("sha256").update(rawToken).digest("hex");
 }
 
 export class AuthService {
