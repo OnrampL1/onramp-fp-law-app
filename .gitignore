@@ -9,6 +9,25 @@ build/
 out/
 .next/
 
+# packages/shared's source dirs are TS-only; a stray `tsc` run without
+# --project tsconfig.build.json emits compiled output next to the source
+# instead of into dist/. Never legitimate to commit.
+packages/shared/ai/*.js
+packages/shared/ai/*.js.map
+packages/shared/ai/*.d.ts
+packages/shared/auth/*.js
+packages/shared/auth/*.js.map
+packages/shared/auth/*.d.ts
+packages/shared/db/**/*.js
+packages/shared/db/**/*.js.map
+packages/shared/db/**/*.d.ts
+packages/shared/queue/*.js
+packages/shared/queue/*.js.map
+packages/shared/queue/*.d.ts
+packages/shared/src/*.js
+packages/shared/src/*.js.map
+packages/shared/src/*.d.ts
+
 # ─── Environment ──────────────────────────────────────────────────────────────
 .env
 .env.local

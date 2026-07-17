@@ -204,6 +204,7 @@ model Contract {
   legalState       ContractLegalState?      @map("legal_state")
 
   tags           String[]
+  effectiveDate  DateTime? @map("effective_date") @db.Date
   expirationDate DateTime? @map("expiration_date") @db.Date
 
   fileKey       String  @map("file_key")

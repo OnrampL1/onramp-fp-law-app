@@ -78,3 +78,62 @@ export type ContractFileValidationResult =
       isValid: false;
       error: ContractFileValidationError;
     };
+
+export const CONTRACT_LEGAL_STATUSES = [
+  "DRAFT",
+  "ACTIVE",
+  "EXPIRED",
+  "TERMINATED",
+] as const;
+
+export type ContractLegalStatus = (typeof CONTRACT_LEGAL_STATUSES)[number];
+
+export type ContractExpirationBucket =
+  | "expiring_30"
+  | "expiring_90"
+  | "expired"
+  | "none";
+
+export type ContractSortField =
+  | "title"
+  | "counterparty"
+  | "status"
+  | "effectiveDate"
+  | "expirationDate"
+  | "updatedAt";
+
+export type ContractSortDirection = "asc" | "desc";
+
+export interface ContractListItem {
+  id: string;
+  title: string;
+  counterparty: string;
+  status: ContractLegalStatus | null;
+  tags: string[];
+  effectiveDate: string | null;
+  expirationDate: string | null;
+  updatedAt: string;
+}
+
+export interface ContractListPaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface ContractListParams {
+  search?: string;
+  status?: ContractLegalStatus;
+  tag?: string;
+  expirationBucket?: ContractExpirationBucket;
+  sortBy: ContractSortField;
+  sortDirection: ContractSortDirection;
+  page: number;
+  pageSize: number;
+}
+
+export interface ContractListResult {
+  items: ContractListItem[];
+  pagination: ContractListPaginationMeta;
+}
