@@ -161,6 +161,7 @@ function SortableHead({
   return (
     <TableHead>
       <button
+        type="button"
         onClick={() => onClick(sortKey)}
         className={cn(
           "flex items-center gap-1.5 text-left font-medium transition-colors hover:text-foreground",

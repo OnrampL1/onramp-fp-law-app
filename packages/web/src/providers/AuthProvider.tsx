@@ -9,8 +9,9 @@ import { apiClient } from "../lib/api-client";
 
 interface AuthUser {
   id: string;
+  organizationId: string;
   email: string;
-  name: string;
+  fullName: string;
   role: string;
 }
 
@@ -18,7 +19,11 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  acceptInvitation: (
+    invitationToken: string,
+    fullName: string,
+    password: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -44,12 +49,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.data.user);
   }
 
-  async function register(
-    email: string,
+  async function acceptInvitation(
+    invitationToken: string,
+    fullName: string,
     password: string,
-    name: string,
   ): Promise<void> {
-    await apiClient.post("/auth/register", { email, password, name });
+    const { data } = await apiClient.post<{
+      data: { user: AuthUser };
+    }>("/auth/accept-invitation", {
+      invitationToken,
+      fullName,
+      password,
+    });
+
+    setUser(data.data.user);
   }
 
   async function logout(): Promise<void> {
@@ -61,7 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, isLoading, login, acceptInvitation, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

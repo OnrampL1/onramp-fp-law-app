@@ -62,6 +62,15 @@ export function PdfViewer({ contract, pages }: PdfViewerProps) {
     }, 0);
   }, [query, pages]);
 
+  if (!current) {
+    return (
+      <Card className="flex h-[calc(100svh-9rem)] min-h-[640px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+        <FileText className="size-6" />
+        <p>No document pages available for this contract.</p>
+      </Card>
+    );
+  }
+
   return (
     <Card className="flex h-[calc(100svh-9rem)] min-h-[640px] flex-col overflow-hidden p-0">
       {/* Toolbar */}
