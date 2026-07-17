@@ -157,9 +157,15 @@ describe("UserManagement revoke invitation", () => {
     await user.click(
       screen.getByRole("button", { name: /actions for jordan@clausio\.test/i }),
     );
-    await user.click(screen.getByRole("menuitem", { name: /revoke invite/i }));
+    // The menu opens asynchronously (Base UI schedules it past the click's
+    // own await), so this must retry rather than query synchronously.
+    await user.click(
+      await screen.findByRole("menuitem", { name: /revoke invite/i }),
+    );
 
-    expect(screen.getByText("Revoke this invitation?")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Revoke this invitation?"),
+    ).toBeInTheDocument();
     expect(mockMutate).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: /revoke invite/i }));
