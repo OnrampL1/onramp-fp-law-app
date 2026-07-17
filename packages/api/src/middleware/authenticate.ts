@@ -1,21 +1,21 @@
 import type { Request, Response, NextFunction } from "express";
-import { verifyAccessToken } from "@starter-kit/shared";
-import type { JwtPayload } from "@starter-kit/shared";
+import { verifyAccessToken, isJtiBlacklisted } from "@starter-kit/shared";
+import type { AccessTokenPayload } from "@starter-kit/shared";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      user?: JwtPayload;
+      user?: AccessTokenPayload;
     }
   }
 }
 
-export function authenticate(
+export async function authenticate(
   req: Request,
   res: Response,
   next: NextFunction,
-): void {
+): Promise<void> {
   const token = req.cookies?.accessToken as string | undefined;
 
   if (!token) {
@@ -23,10 +23,30 @@ export function authenticate(
     return;
   }
 
+  let payload: AccessTokenPayload;
   try {
-    req.user = verifyAccessToken(token);
-    next();
+    payload = verifyAccessToken(token);
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
+    return;
   }
+
+  let blacklisted: boolean;
+  try {
+    blacklisted = await isJtiBlacklisted(payload.jti);
+  } catch (err) {
+    console.error("[authenticate] Token blacklist check failed:", err);
+    res
+      .status(503)
+      .json({ error: "Authentication service temporarily unavailable" });
+    return;
+  }
+
+  if (blacklisted) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  req.user = payload;
+  next();
 }

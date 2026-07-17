@@ -2,14 +2,15 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
+import { getPrismaClient } from "@starter-kit/shared";
 import { app } from "./app";
-import { initializeDatabase } from "./src/lib/db";
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
 async function start(): Promise<void> {
   try {
-    await initializeDatabase();
+    await getPrismaClient().$connect();
+    console.info("Database connection established");
 
     app.listen(PORT, () => {
       console.info(`API server running on http://localhost:${PORT}`);

@@ -1,45 +1,128 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
 import {
+  getPrismaClient,
   hashPassword,
   verifyPassword,
   generateTokenPair,
   verifyRefreshToken,
+  blacklistToken,
+  isJtiBlacklisted,
+  type AuthUser,
 } from "@starter-kit/shared";
-import { User, Session, RefreshToken } from "../models";
+import { Prisma, type User } from "@prisma/client";
 import { createError } from "../middleware/error-handler";
 
-interface RegisterInput {
-  email: string;
-  password: string;
-  name: string;
-}
+const prisma = getPrismaClient();
 
 interface LoginInput {
   email: string;
   password: string;
-  userAgent?: string;
-  ipAddress?: string;
+}
+
+interface AcceptInvitationInput {
+  invitationToken: string;
+  fullName: string;
+  password: string;
+}
+
+function toPublicUser(user: User): AuthUser {
+  return {
+    id: user.id,
+    organizationId: user.organizationId,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
+  };
+}
+
+function hashToken(rawToken: string): string {
+  return crypto.createHash("sha256").update(rawToken).digest("hex");
 }
 
 export class AuthService {
-  async register(input: RegisterInput) {
-    const existing = await User.findOne({ where: { email: input.email } });
-    if (existing) {
-      throw createError("Email already in use", 409);
+  /**
+   * There is no public self-registration in Clausio (BR-3/BR-17 — the only
+   * way to join an Organization is by Invitation). This replaces the old
+   * open "register" endpoint with the flow the Domain & Business Rules
+   * actually define: a pending Invitation, validated and consumed, turns
+   * into an ACTIVE User.
+   */
+  async acceptInvitation(input: AcceptInvitationInput) {
+    const tokenHash = hashToken(input.invitationToken);
+    const invitation = await prisma.invitation.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!invitation) {
+      throw createError("Invalid invitation", 400);
+    }
+    if (invitation.status === "ACCEPTED") {
+      throw createError("This invitation has already been used", 409);
+    }
+    if (invitation.status === "REVOKED") {
+      throw createError("This invitation has been revoked", 400);
+    }
+    if (invitation.status === "EXPIRED" || invitation.expiresAt < new Date()) {
+      if (invitation.status !== "EXPIRED") {
+        await prisma.invitation.update({
+          where: { id: invitation.id },
+          data: { status: "EXPIRED" },
+        });
+      }
+      throw createError("This invitation has expired", 400);
     }
 
     const passwordHash = await hashPassword(input.password);
-    const user = await User.create({
-      email: input.email,
-      passwordHash,
-      name: input.name,
+
+    let user: User;
+    try {
+      user = await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            organizationId: invitation.organizationId,
+            invitationId: invitation.id,
+            email: invitation.email,
+            passwordHash,
+            fullName: input.fullName,
+            role: invitation.role,
+            status: "ACTIVE",
+          },
+        });
+
+        await tx.invitation.update({
+          where: { id: invitation.id },
+          data: { status: "ACCEPTED", acceptedAt: new Date() },
+        });
+
+        return created;
+      });
+    } catch (err) {
+      // Two concurrent requests can both pass the status checks above before
+      // either commits — the second one's unique-constraint violation
+      // (email or invitationId already claimed) means someone else won the
+      // race, not a server error.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        throw createError("This invitation has already been used", 409);
+      }
+      throw err;
+    }
+
+    const tokens = generateTokenPair({
+      userId: user.id,
+      orgId: user.organizationId,
+      role: user.role,
     });
 
-    return { id: user.id, email: user.email, name: user.name, role: user.role };
+    return { user: toPublicUser(user), ...tokens };
   }
 
   async login(input: LoginInput) {
-    const user = await User.findOne({ where: { email: input.email } });
+    const user = await prisma.user.findUnique({
+      where: { email: input.email },
+    });
     if (!user) {
       throw createError("Invalid credentials", 401);
     }
@@ -48,100 +131,64 @@ export class AuthService {
     if (!valid) {
       throw createError("Invalid credentials", 401);
     }
+    if (user.status !== "ACTIVE") {
+      throw createError("This account is not active", 401);
+    }
 
-    const session = await Session.create({
-      userId: user.id,
-      userAgent: input.userAgent,
-      ipAddress: input.ipAddress,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000), // 7 days
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
     });
 
     const tokens = generateTokenPair({
       userId: user.id,
-      email: user.email,
+      orgId: user.organizationId,
       role: user.role,
-      sessionId: session.id,
     });
 
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(tokens.refreshToken)
-      .digest("hex");
-
-    await RefreshToken.create({
-      userId: user.id,
-      sessionId: session.id,
-      tokenHash,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
-    });
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-      ...tokens,
-    };
+    return { user: toPublicUser(user), ...tokens };
   }
 
-  async refresh(rawToken: string) {
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
-
-    const stored = await RefreshToken.findOne({ where: { tokenHash } });
-    if (!stored || !stored.isValid) {
+  async refresh(rawRefreshToken: string) {
+    let payload;
+    try {
+      payload = verifyRefreshToken(rawRefreshToken);
+    } catch {
       throw createError("Invalid or expired refresh token", 401);
     }
 
-    const payload = verifyRefreshToken(rawToken);
-    const user = await User.findByPk(payload.userId);
-    if (!user) throw createError("User not found", 404);
+    if (await isJtiBlacklisted(payload.jti)) {
+      throw createError("Invalid or expired refresh token", 401);
+    }
 
-    // Rotate token
-    await stored.update({ revokedAt: new Date() });
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+    });
+    if (!user || user.status !== "ACTIVE") {
+      throw createError("Invalid or expired refresh token", 401);
+    }
 
-    const session = await Session.findByPk(stored.sessionId);
-    if (!session) throw createError("Session not found", 401);
+    // Rotation: the token just used can never be presented again.
+    await blacklistToken(rawRefreshToken);
 
-    const tokens = generateTokenPair({
+    return generateTokenPair({
       userId: user.id,
-      email: user.email,
+      orgId: user.organizationId,
       role: user.role,
-      sessionId: session.id,
     });
-
-    const newHash = crypto
-      .createHash("sha256")
-      .update(tokens.refreshToken)
-      .digest("hex");
-    await RefreshToken.create({
-      userId: user.id,
-      sessionId: session.id,
-      tokenHash: newHash,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
-    });
-
-    return tokens;
   }
 
-  async logout(sessionId: string) {
-    await RefreshToken.update(
-      { revokedAt: new Date() },
-      { where: { sessionId } },
-    );
-    await Session.destroy({ where: { id: sessionId } });
+  async logout(accessToken?: string, refreshToken?: string): Promise<void> {
+    await Promise.all([
+      accessToken ? blacklistToken(accessToken) : Promise.resolve(),
+      refreshToken ? blacklistToken(refreshToken) : Promise.resolve(),
+    ]);
   }
 
-  async getProfile(userId: string) {
-    const user = await User.findByPk(userId, {
-      attributes: ["id", "email", "name", "role", "emailVerified", "createdAt"],
-    });
+  async getProfile(userId: string): Promise<AuthUser> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw createError("User not found", 404);
-    return user;
+    return toPublicUser(user);
   }
 }
 

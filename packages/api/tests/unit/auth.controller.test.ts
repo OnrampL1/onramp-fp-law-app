@@ -1,15 +1,9 @@
 import request from "supertest";
 import { app } from "../../app";
 
-// Mock the DB so we don't need a real database in unit tests
-jest.mock("../../src/lib/db", () => ({
-  initializeDatabase: jest.fn().mockResolvedValue(undefined),
-  getDatabase: jest.fn(),
-}));
-
 jest.mock("../../src/services/auth.service", () => ({
   authService: {
-    register: jest.fn(),
+    acceptInvitation: jest.fn(),
     login: jest.fn(),
     refresh: jest.fn(),
     logout: jest.fn(),
@@ -20,43 +14,46 @@ jest.mock("../../src/services/auth.service", () => ({
 import { authService } from "../../src/services/auth.service";
 const mockAuthService = authService as jest.Mocked<typeof authService>;
 
-// ─── POST /api/auth/register ──────────────────────────────────────────────────
+// ─── POST /api/auth/accept-invitation ─────────────────────────────────────────
 
-describe("POST /api/auth/register", () => {
+describe("POST /api/auth/accept-invitation", () => {
   it("returns 201 with user data on success", async () => {
-    mockAuthService.register.mockResolvedValue({
-      id: "uuid-1",
-      email: "alice@example.com",
-      name: "Alice",
-      role: "user",
+    mockAuthService.acceptInvitation.mockResolvedValue({
+      user: {
+        id: "uuid-1",
+        organizationId: "org-uuid-1",
+        email: "alice@example.com",
+        fullName: "Alice",
+        role: "INTERNAL",
+      },
+      accessToken: "access.token.here",
+      refreshToken: "refresh.token.here",
     });
 
-    const res = await request(app).post("/api/auth/register").send({
-      email: "alice@example.com",
+    const res = await request(app).post("/api/auth/accept-invitation").send({
+      invitationToken: "raw-invitation-token",
+      fullName: "Alice",
       password: "SecurePass1",
-      name: "Alice",
     });
 
     expect(res.status).toBe(201);
-    expect(res.body.data.email).toBe("alice@example.com");
+    expect(res.body.data.user.email).toBe("alice@example.com");
   });
 
-  it("returns 422 when email is invalid", async () => {
-    const res = await request(app).post("/api/auth/register").send({
-      email: "not-an-email",
+  it("returns 422 when the invitation token is missing", async () => {
+    const res = await request(app).post("/api/auth/accept-invitation").send({
+      fullName: "Alice",
       password: "SecurePass1",
-      name: "Alice",
     });
 
     expect(res.status).toBe(422);
-    expect(res.body.errors[0].field).toBe("email");
   });
 
   it("returns 422 when password is too weak", async () => {
-    const res = await request(app).post("/api/auth/register").send({
-      email: "alice@example.com",
+    const res = await request(app).post("/api/auth/accept-invitation").send({
+      invitationToken: "raw-invitation-token",
+      fullName: "Alice",
       password: "short",
-      name: "Alice",
     });
 
     expect(res.status).toBe(422);
@@ -70,9 +67,10 @@ describe("POST /api/auth/login", () => {
     mockAuthService.login.mockResolvedValue({
       user: {
         id: "uuid-1",
+        organizationId: "org-uuid-1",
         email: "alice@example.com",
-        name: "Alice",
-        role: "user",
+        fullName: "Alice",
+        role: "OWNER",
       },
       accessToken: "access.token.here",
       refreshToken: "refresh.token.here",
@@ -83,8 +81,13 @@ describe("POST /api/auth/login", () => {
       .send({ email: "alice@example.com", password: "SecurePass1" });
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveProperty("accessToken");
-    expect(res.body.data).toHaveProperty("refreshToken");
+    expect(res.body.data).toHaveProperty("user");
+    expect(res.body.data.user.email).toBe("alice@example.com");
+
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies).toBeDefined();
+    expect(cookies.some((c) => c.startsWith("accessToken="))).toBe(true);
+    expect(cookies.some((c) => c.startsWith("refreshToken="))).toBe(true);
   });
 
   it("returns 422 when body is missing", async () => {

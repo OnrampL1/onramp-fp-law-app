@@ -10,7 +10,10 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "npm run db:migrate:deploy --workspace=@starter-kit/shared",
+    "db:seed": "npm run db:seed --workspace=@starter-kit/shared"
   },
   "devDependencies": {
     "turbo": "^2.3.0"

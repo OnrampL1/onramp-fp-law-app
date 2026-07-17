@@ -1,0 +1,1490 @@
+openapi: 3.1.0
+
+info:
+  title: Starter Kit API
+  version: 1.0.0
+  description: REST API for the Starter Kit application
+
+servers:
+  - url: /api
+    description: Default server
+
+tags:
+  - name: Auth
+    description: Authentication and session management
+  - name: Contracts
+    description: Contract upload, metadata, notes, and audit history
+  - name: AI
+    description: AI-generated contract summaries, risk analysis, and chat
+  - name: Users
+    description: User and witness-link management
+
+# ─── Reusable components ───────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+      description: HttpOnly access token cookie set on login
+
+  parameters:
+    ContractId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+    ContractIdParam:
+      name: contractId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+
+  schemas:
+    AcceptInvitationBody:
+      type: object
+      required: [invitationToken, fullName, password]
+      properties:
+        invitationToken:
+          type: string
+          description: Raw invitation token from the invite email link
+          example: 3f1e9c2b7a8d4f6e9c0b1a2d3e4f5061
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Jane Doe
+        password:
+          type: string
+          minLength: 8
+          description: Must contain at least one uppercase letter and one number
+          example: Password1
+
+    LoginBody:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          minLength: 1
+          example: Password1
+
+    CreateNoteBody:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          example: Confirmed the termination clause with the counterparty's counsel.
+        parentNoteId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Set to reply to an existing note.
+          example: null
+
+    AIChatBody:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          example: What happens if we terminate early?
+
+    CreateUserBody:
+      type: object
+      required: [email, name, role]
+      properties:
+        email:
+          type: string
+          format: email
+          example: new.lawyer@acmelegal.com
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Jordan Lee
+        role:
+          type: string
+          enum: [admin, lawyer, paralegal, user]
+          example: lawyer
+
+    UpdateUserRoleBody:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [admin, lawyer, paralegal, user]
+          example: paralegal
+
+    WitnessLinkBody:
+      type: object
+      required: [contractId, witnessEmail]
+      properties:
+        contractId:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        witnessEmail:
+          type: string
+          format: email
+          example: witness@example.com
+        witnessName:
+          type: string
+          nullable: true
+          example: Jordan Smith
+        expiresInHours:
+          type: integer
+          minimum: 1
+          maximum: 720
+          default: 72
+          example: 72
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        name:
+          type: string
+          example: Jane Doe
+        role:
+          type: string
+          enum: [admin, lawyer, paralegal, user]
+          example: user
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid credentials
+
+    MessageResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+              example: Success
+
+    ValidationError:
+      type: object
+      properties:
+        field:
+          type: string
+          example: email
+        message:
+          type: string
+          example: Invalid email address
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Validation failed
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationError"
+
+    SuccessResponse:
+      type: object
+      description: Generic acknowledgement envelope for actions with no meaningful payload (e.g. deletes).
+      properties:
+        data:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 87
+        totalPages:
+          type: integer
+          example: 5
+
+    # ─── Contract Management System ────────────────────────────────────────────
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 8b6b3f2e-1c1a-4a2b-9c3d-0f6a2e8b7a10
+        name:
+          type: string
+          example: Acme Legal LLP
+        domain:
+          type: string
+          nullable: true
+          example: acmelegal.com
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+
+    ContractMetadata:
+      type: object
+      description: Editable metadata fields for a contract.
+      required: [title, counterparty, contractType]
+      properties:
+        title:
+          type: string
+          example: Master Services Agreement - Acme Corp
+        counterparty:
+          type: string
+          example: Acme Corp
+        contractType:
+          type: string
+          example: msa
+        status:
+          type: string
+          enum: [draft, active, expired, terminated]
+          example: active
+        effectiveDate:
+          type: string
+          format: date
+          nullable: true
+          example: "2024-02-01"
+        expirationDate:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-02-01"
+        tags:
+          type: array
+          items:
+            type: string
+          example: [vendor, saas]
+
+    Contract:
+      allOf:
+        - $ref: "#/components/schemas/ContractMetadata"
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+            organizationId:
+              type: string
+              format: uuid
+              example: 8b6b3f2e-1c1a-4a2b-9c3d-0f6a2e8b7a10
+            uploadedBy:
+              $ref: "#/components/schemas/User"
+            fileName:
+              type: string
+              nullable: true
+              example: msa-acme-corp.pdf
+            fileSize:
+              type: integer
+              nullable: true
+              description: File size in bytes
+              example: 245678
+            createdAt:
+              type: string
+              format: date-time
+              example: "2024-01-15T10:30:00.000Z"
+            updatedAt:
+              type: string
+              format: date-time
+              example: "2024-01-15T10:30:00.000Z"
+
+    ContractNote:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 6c9a2b1e-4f3d-4e5a-8b6c-7d8e9f0a1b2c
+        contractId:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        author:
+          $ref: "#/components/schemas/User"
+        parentNoteId:
+          type: string
+          format: uuid
+          nullable: true
+          example: null
+        body:
+          type: string
+          example: Confirmed the termination clause with the counterparty's counsel.
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-16T09:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-16T09:00:00.000Z"
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 1a2b3c4d-5e6f-4a5b-8c9d-0e1f2a3b4c5d
+        contractId:
+          type: string
+          format: uuid
+          nullable: true
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        user:
+          allOf:
+            - $ref: "#/components/schemas/User"
+          nullable: true
+        action:
+          type: string
+          example: contract.status_changed
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          example: { from: draft, to: active }
+        ipAddress:
+          type: string
+          nullable: true
+          example: 203.0.113.42
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-16T09:05:00.000Z"
+
+    AIAnalysis:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 9d8c7b6a-5f4e-4d3c-2b1a-0f9e8d7c6b5a
+        contractId:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        type:
+          type: string
+          enum: [summary, risk, chat]
+          example: risk
+        prompt:
+          type: string
+          nullable: true
+          description: User-supplied question, present for `chat` analyses.
+          example: What happens if we terminate early?
+        result:
+          type: object
+          additionalProperties: true
+          description: Structured AI output; shape depends on `type`.
+          example:
+            riskScore: 62
+            findings:
+              - title: Auto-renewal clause
+                severity: Medium
+                explanation: Contract renews automatically unless cancelled 60 days prior.
+        model:
+          type: string
+          nullable: true
+          example: claude-sonnet-5
+        requestedBy:
+          $ref: "#/components/schemas/User"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-17T12:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-17T12:00:00.000Z"
+
+    WitnessToken:
+      type: object
+      description: >
+        The raw `token` is only ever returned once, at creation time
+        (`POST /users/witness-link`); only its hash is persisted.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 4b3a2c1d-6e5f-4a3b-9c8d-7e6f5a4b3c2d
+        contractId:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        token:
+          type: string
+          nullable: true
+          description: Only present in the create-witness-link response.
+          example: wv_8f3a1c2e9b4d4a6f8c1e2b3a4d5e6f7a
+        witnessEmail:
+          type: string
+          format: email
+          example: witness@example.com
+        witnessName:
+          type: string
+          nullable: true
+          example: Jordan Smith
+        status:
+          type: string
+          description: Derived from `expiresAt` / `usedAt` / `revokedAt`.
+          enum: [pending, used, expired, revoked]
+          example: pending
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2024-01-20T00:00:00.000Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-17T12:00:00.000Z"
+
+# ─── Paths ─────────────────────────────────────────────────────────────────────
+paths:
+  /auth/accept-invitation:
+    post:
+      tags: [Auth]
+      summary: Accept an invitation and activate a user account
+      operationId: acceptInvitation
+      description: >
+        Clausio has no public self-registration (BR-3/BR-17) — organization
+        membership is always granted through an Invitation. This endpoint
+        validates a pending invitation token and creates the corresponding
+        User account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptInvitationBody"
+      responses:
+        "201":
+          description: Invitation accepted, user activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+        "400":
+          description: Invalid, expired, or revoked invitation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Invitation has already been used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and receive auth cookies
+      operationId: login
+      description: >
+        On success, sets two HttpOnly cookies: `accessToken` (15 min) and
+        `refreshToken` (7 days). Include `credentials: "include"` in fetch calls.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: accessToken=...; HttpOnly; Path=/api
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh the access token
+      operationId: refreshToken
+      description: Reads the `refreshToken` cookie and issues new auth cookies.
+      responses:
+        "200":
+          description: Tokens refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Missing or invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout and clear auth cookies
+      operationId: logout
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the current authenticated user
+      operationId: getMe
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/witness/{token}:
+    post:
+      tags: [Auth]
+      summary: Redeem a witness access link
+      operationId: redeemWitnessToken
+      description: >
+        Validates a witness link token (issued via `POST /users/witness-link`)
+        and, on success, sets an HttpOnly `witnessAccessToken` cookie scoped to
+        the associated contract. Does not require a user account or `cookieAuth`.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          example: wv_8f3a1c2e9b4d4a6f8c1e2b3a4d5e6f7a
+      responses:
+        "200":
+          description: Token accepted; witness session cookie set
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: witnessAccessToken=...; HttpOnly; Path=/api
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      contract:
+                        $ref: "#/components/schemas/Contract"
+                      witnessToken:
+                        $ref: "#/components/schemas/WitnessToken"
+        "404":
+          description: Token not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Token expired or revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /contracts:
+    get:
+      tags: [Contracts]
+      summary: List contracts
+      operationId: listContracts
+      description: Returns contracts belonging to the current user's organization.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, active, expired, terminated]
+        - name: search
+          in: query
+          description: Free-text search over title and counterparty.
+          schema: { type: string }
+          example: acme
+      responses:
+        "200":
+          description: Paginated list of contracts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Contract"
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags: [Contracts]
+      summary: Upload a new contract
+      operationId: createContract
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, title, counterparty, contractType]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                title:
+                  type: string
+                  example: Master Services Agreement - Acme Corp
+                counterparty:
+                  type: string
+                  example: Acme Corp
+                contractType:
+                  type: string
+                  example: msa
+                effectiveDate:
+                  type: string
+                  format: date
+                expirationDate:
+                  type: string
+                  format: date
+                tags:
+                  type: array
+                  items: { type: string }
+      responses:
+        "201":
+          description: Contract created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Contract"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /contracts/{id}:
+    get:
+      tags: [Contracts]
+      summary: Get a contract by id
+      operationId: getContract
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractId"
+      responses:
+        "200":
+          description: Contract found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Contract"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [Contracts]
+      summary: Delete a contract
+      operationId: deleteContract
+      description: >
+        Permanently deletes the contract along with its notes, AI analyses,
+        and witness tokens. Associated audit log entries are retained.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractId"
+      responses:
+        "200":
+          description: Contract deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /contracts/{id}/metadata:
+    put:
+      tags: [Contracts]
+      summary: Update contract metadata
+      operationId: updateContractMetadata
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContractMetadata"
+      responses:
+        "200":
+          description: Metadata updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Contract"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /contracts/{id}/file:
+    get:
+      tags: [Contracts]
+      summary: Download the contract's source file
+      operationId: getContractFile
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractId"
+      responses:
+        "200":
+          description: Binary file stream
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract or file not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /contracts/{id}/notes:
+    get:
+      tags: [Contracts]
+      summary: List notes on a contract
+      operationId: listContractNotes
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractId"
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Paginated list of notes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContractNote"
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags: [Contracts]
+      summary: Add a note to a contract
+      operationId: createContractNote
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNoteBody"
+      responses:
+        "201":
+          description: Note created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ContractNote"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /contracts/{id}/audit:
+    get:
+      tags: [Contracts]
+      summary: List audit log entries for a contract
+      operationId: listContractAuditLog
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractId"
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Paginated list of audit log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLog"
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/{contractId}/summary:
+    post:
+      tags: [AI]
+      summary: Generate an AI summary of the contract
+      operationId: createAiSummary
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractIdParam"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                forceRegenerate:
+                  type: boolean
+                  default: false
+      responses:
+        "201":
+          description: Summary generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AIAnalysis"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/{contractId}/risk:
+    post:
+      tags: [AI]
+      summary: Generate an AI risk analysis of the contract
+      operationId: createAiRiskAnalysis
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractIdParam"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                forceRegenerate:
+                  type: boolean
+                  default: false
+      responses:
+        "201":
+          description: Risk analysis generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AIAnalysis"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/{contractId}/chat:
+    post:
+      tags: [AI]
+      summary: Ask a question about the contract
+      operationId: createAiChatMessage
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AIChatBody"
+      responses:
+        "201":
+          description: Chat response generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AIAnalysis"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /ai/{contractId}/history:
+    get:
+      tags: [AI]
+      summary: List past AI analyses for a contract
+      operationId: listAiHistory
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ContractIdParam"
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [summary, risk, chat]
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Paginated list of AI analyses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AIAnalysis"
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List users in the current organization
+      operationId: listUsers
+      description: Requires the `admin` role.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Paginated list of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags: [Users]
+      summary: Create a user
+      operationId: createUser
+      description: Requires the `admin` role.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /users/{id}/role:
+    put:
+      tags: [Users]
+      summary: Change a user's role
+      operationId: updateUserRole
+      description: Requires the `admin` role.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 123e4567-e89b-12d3-a456-426614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRoleBody"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /users/{id}:
+    delete:
+      tags: [Users]
+      summary: Delete a user
+      operationId: deleteUser
+      description: Requires the `admin` role.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        "200":
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/witness-link:
+    post:
+      tags: [Users]
+      summary: Generate a witness access link for a contract
+      operationId: createWitnessLink
+      description: >
+        Creates a single-use witness token and returns the raw token once.
+        The token is delivered to `witnessEmail` and redeemed via
+        `POST /auth/witness/{token}`.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WitnessLinkBody"
+      responses:
+        "201":
+          description: Witness link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WitnessToken"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"

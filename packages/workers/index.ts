@@ -1,13 +1,13 @@
 import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+import { getPrismaClient } from "@starter-kit/shared";
 import { createWorkers } from "./src/queues";
-import { initializeDatabase } from "./src/lib/db";
 
 async function main(): Promise<void> {
   console.info("Starting workers...");
 
-  await initializeDatabase();
+  await getPrismaClient().$connect();
   const workers = createWorkers();
 
   console.info(
