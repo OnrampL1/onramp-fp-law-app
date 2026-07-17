@@ -25,12 +25,18 @@ const statusStyles: Record<UserAccountStatus, string> = {
   pending:
     "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
   disabled: "border-border bg-muted text-muted-foreground",
+  expired:
+    "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300",
+  revoked:
+    "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
 };
 
 const statusDotStyles: Record<UserAccountStatus, string> = {
   active: "bg-emerald-500",
   pending: "bg-amber-500",
   disabled: "bg-muted-foreground",
+  expired: "bg-orange-500",
+  revoked: "bg-red-500",
 };
 
 export function UserRoleBadge({ role }: { role: BackendUserRole }) {

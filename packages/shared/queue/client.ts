@@ -4,6 +4,7 @@ import {
   QUEUE_NAMES,
   type EmailJobData,
   type EmbeddingsJobData,
+  type InvitationExpiryJobData,
 } from "./types";
 
 let redisConnection: IORedis | null = null;
@@ -33,4 +34,7 @@ function createQueue<T>(name: string): Queue<T> {
 export const emailQueue = createQueue<EmailJobData>(QUEUE_NAMES.EMAIL);
 export const embeddingsQueue = createQueue<EmbeddingsJobData>(
   QUEUE_NAMES.EMBEDDINGS,
+);
+export const invitationExpiryQueue = createQueue<InvitationExpiryJobData>(
+  QUEUE_NAMES.INVITATION_EXPIRY,
 );

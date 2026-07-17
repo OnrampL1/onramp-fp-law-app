@@ -32,5 +32,10 @@ router.post(
   authorize(...ADMIN_ROLES),
   invitationController.resend,
 );
+router.post(
+  "/:id/revoke",
+  authorize(...ADMIN_ROLES),
+  invitationController.revoke,
+);
 
 export { router as invitationRouter };

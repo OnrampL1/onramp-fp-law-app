@@ -54,4 +54,20 @@ export const invitationController = {
       next(err);
     }
   },
+
+  async revoke(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const invitation = await invitationService.revokeInvitation(
+        actorFrom(req.user!),
+        req.params.id as string,
+      );
+      res.json({ data: invitation });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

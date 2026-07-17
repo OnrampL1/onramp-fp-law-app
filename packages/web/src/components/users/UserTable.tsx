@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   UserCheck,
   UserCog,
+  UserX,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -36,6 +37,7 @@ type UserTableProps = {
   onDisableUser: (user: TeamMember) => void;
   onReactivateUser: (user: TeamMember) => void;
   onResendInvite: (user: TeamMember) => void;
+  onRevokeInvite: (user: TeamMember) => void;
   onChangeRole: (user: TeamMember) => void;
   canChangeRole: (user: TeamMember) => boolean;
   canManageAccess: (user: TeamMember) => boolean;
@@ -59,6 +61,7 @@ export function UserTable({
   onDisableUser,
   onReactivateUser,
   onResendInvite,
+  onRevokeInvite,
   onChangeRole,
   canChangeRole,
   canManageAccess,
@@ -176,10 +179,20 @@ export function UserTable({
                         Review permissions
                       </DropdownMenuItem>
                       {user.source === "invitation" && canManageAccess(user) && (
-                        <DropdownMenuItem onClick={() => onResendInvite(user)}>
-                          <RotateCcw className="size-4" />
-                          Resend invite
-                        </DropdownMenuItem>
+                        <>
+                          <DropdownMenuItem onClick={() => onResendInvite(user)}>
+                            <RotateCcw className="size-4" />
+                            Resend invite
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => onRevokeInvite(user)}
+                          >
+                            <UserX className="size-4" />
+                            Revoke invite
+                          </DropdownMenuItem>
+                        </>
                       )}
                       {user.source === "user" &&
                         canManageAccess(user) &&

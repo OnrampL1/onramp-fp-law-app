@@ -16,7 +16,9 @@ import { isAdminRole, roleLabels, type BackendUserRole } from "@/lib/permissions
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCreateInvitation,
+  useInvitationHistory,
   useResendInvitation,
+  useRevokeInvitation,
   useTeamMembers,
   useUpdateUserRole,
   useUpdateUserStatus,
@@ -25,6 +27,8 @@ import {
 import {
   ChangeRoleSheet,
   InviteUserSheet,
+  InvitationHistory,
+  RevokeInvitationDialog,
   UserDetailSheet,
   UserStats,
   UserTable,
@@ -48,10 +52,14 @@ export function UserManagement() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [roleChangeUser, setRoleChangeUser] = useState<TeamMember | null>(null);
   const [roleChangeOpen, setRoleChangeOpen] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<TeamMember | null>(null);
+  const [revokeOpen, setRevokeOpen] = useState(false);
 
   const { members, isLoading, isError } = useTeamMembers();
+  const { invitations: expiredInvitations } = useInvitationHistory();
   const createInvitation = useCreateInvitation();
   const resendInvitationMutation = useResendInvitation();
+  const revokeInvitationMutation = useRevokeInvitation();
   const updateUserStatus = useUpdateUserStatus();
   const updateUserRole = useUpdateUserRole();
 
@@ -99,6 +107,25 @@ export function UserManagement() {
       return;
     }
     resendInvitationMutation.mutate(user.id);
+  }
+
+  function handleResendExpiredInvite(invitationId: string) {
+    if (!isCurrentUserAdmin) {
+      return;
+    }
+    resendInvitationMutation.mutate(invitationId);
+  }
+
+  function handleOpenRevokeInvite(user: TeamMember) {
+    if (!canManageUserAccess(user) || user.source !== "invitation") {
+      return;
+    }
+    setRevokeTarget(user);
+    setRevokeOpen(true);
+  }
+
+  function handleConfirmRevokeInvite(user: TeamMember) {
+    revokeInvitationMutation.mutate(user.id);
   }
 
   function handleDisableUser(user: TeamMember) {
@@ -327,9 +354,17 @@ export function UserManagement() {
           onDisableUser={handleDisableUser}
           onReactivateUser={handleReactivateUser}
           onResendInvite={handleResendInvite}
+          onRevokeInvite={handleOpenRevokeInvite}
           onChangeRole={handleOpenRoleChange}
           canChangeRole={canChangeUserRole}
           canManageAccess={canManageUserAccess}
+        />
+      )}
+
+      {isCurrentUserAdmin && (
+        <InvitationHistory
+          invitations={expiredInvitations}
+          onResendInvite={handleResendExpiredInvite}
         />
       )}
 
@@ -350,6 +385,13 @@ export function UserManagement() {
         open={roleChangeOpen}
         onOpenChange={setRoleChangeOpen}
         onSave={handleSaveRole}
+      />
+
+      <RevokeInvitationDialog
+        invitation={revokeTarget}
+        open={revokeOpen}
+        onOpenChange={setRevokeOpen}
+        onConfirm={handleConfirmRevokeInvite}
       />
     </div>
   );

@@ -1515,11 +1515,15 @@ paths:
 
     get:
       tags: [Users]
-      summary: List pending invitations for the current organization
+      summary: List pending and expired invitations for the current organization
       operationId: listInvitations
       description: >
-        Available to any authenticated member of the organization, matching
-        `GET /users`. Creating or resending invitations is admin-only.
+        Returns invitations with status `PENDING` or `EXPIRED` — actionable
+        ones an admin can still resend. `ACCEPTED` invitations become Users
+        (see `GET /users`) and `REVOKED` ones are terminal, so neither is
+        included. Available to any authenticated member of the organization,
+        matching `GET /users`. Creating, resending, or revoking invitations
+        is admin-only.
       security:
         - cookieAuth: []
       parameters:
@@ -1531,7 +1535,7 @@ paths:
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
       responses:
         "200":
-          description: Paginated list of pending invitations
+          description: Paginated list of pending and expired invitations
           content:
             application/json:
               schema:
@@ -1606,6 +1610,57 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Invitation already accepted or revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /invitations/{id}/revoke:
+    post:
+      tags: [Users]
+      summary: Revoke a pending invitation
+      operationId: revokeInvitation
+      description: >
+        Requires the `OWNER` or `ADMIN` role. Only a `PENDING` invitation can
+        be revoked; a revoked invitation can never be accepted.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 7c8b9a2e-4d3f-4e5a-8b6c-7d8e9f0a1b2c
+      responses:
+        "200":
+          description: Invitation revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Invitation"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Only a pending invitation can be revoked
           content:
             application/json:
               schema:

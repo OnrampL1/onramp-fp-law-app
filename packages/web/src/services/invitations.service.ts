@@ -46,3 +46,12 @@ export async function resendInvitation(
   );
   return data.data;
 }
+
+export async function revokeInvitation(
+  invitationId: string,
+): Promise<ApiInvitation> {
+  const { data } = await apiClient.post<{ data: ApiInvitation }>(
+    `/invitations/${invitationId}/revoke`,
+  );
+  return data.data;
+}

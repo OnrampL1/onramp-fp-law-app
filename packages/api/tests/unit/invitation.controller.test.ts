@@ -10,6 +10,7 @@ jest.mock("../../src/services/invitation.service", () => ({
     createInvitation: jest.fn(),
     listInvitations: jest.fn(),
     resendInvitation: jest.fn(),
+    revokeInvitation: jest.fn(),
   },
 }));
 
@@ -125,5 +126,35 @@ describe("POST /api/invitations/:id/resend", () => {
       .set("Cookie", cookieFor("ADMIN"));
 
     expect(res.status).toBe(200);
+  });
+});
+
+// ─── POST /api/invitations/:id/revoke ──────────────────────────────────────────
+
+describe("POST /api/invitations/:id/revoke", () => {
+  it("returns 403 for an INTERNAL caller", async () => {
+    const res = await request(app)
+      .post("/api/invitations/inv-1/revoke")
+      .set("Cookie", cookieFor("INTERNAL"));
+
+    expect(res.status).toBe(403);
+    expect(mockInvitationService.revokeInvitation).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 on success for an ADMIN caller", async () => {
+    mockInvitationService.revokeInvitation.mockResolvedValue({
+      id: "inv-1",
+      status: "REVOKED",
+    } as never);
+
+    const res = await request(app)
+      .post("/api/invitations/inv-1/revoke")
+      .set("Cookie", cookieFor("ADMIN"));
+
+    expect(res.status).toBe(200);
+    expect(mockInvitationService.revokeInvitation).toHaveBeenCalledWith(
+      { id: "user-1", organizationId: "org-1" },
+      "inv-1",
+    );
   });
 });
