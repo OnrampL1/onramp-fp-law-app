@@ -7,12 +7,7 @@ import {
   ExpiringContractsList,
 } from "../../components/dashboard";
 
-import {
-  FileText,
-  FileCheck2,
-  CalendarClock,
-  ShieldAlert,
-} from "lucide-react";
+import { FileText, FileCheck2, CalendarClock, ShieldAlert } from "lucide-react";
 import { KpiCards, type KpiCardItem } from "@/components/dashboard/KPICard";
 import { RecentContracts } from "@/components/dashboard/RecentContractsTable";
 import { ContractStatusOverview } from "@/components/dashboard/ContractStatusOverview";
@@ -50,7 +45,7 @@ const kpiItems: KpiCardItem[] = kpis.map((kpi) => {
  */
 export function Dashboard() {
   const { user } = useAuth();
-  const userName = user?.name ?? "Alex";
+  const userName = user?.fullName ?? "Alex";
 
   return (
     <div className="space-y-6 pb-10">

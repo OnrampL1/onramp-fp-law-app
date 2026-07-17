@@ -56,7 +56,7 @@ function getInitials(name?: string) {
 export function Sidebar() {
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const userName = user?.name ?? "Alex Whitfield";
+  const userName = user?.fullName ?? "Alex Whitfield";
 
   return (
     <SidebarRoot collapsible="icon">
