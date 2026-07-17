@@ -188,6 +188,12 @@ export function UserManagement() {
     );
   }
 
+  function sanitizeCsvCell(value: string): string {
+    // Prefix values that a spreadsheet app would interpret as a formula
+    // (=, +, -, @) with a single quote so they're treated as plain text.
+    return /^[=+\-@]/.test(value) ? `'${value}` : value;
+  }
+
   function handleExportUsers() {
     const headers = [
       "Name",
@@ -217,7 +223,10 @@ export function UserManagement() {
 
     const csv = [headers, ...rows]
       .map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+        row
+          .map((cell) => sanitizeCsvCell(String(cell)))
+          .map((cell) => `"${cell.replace(/"/g, '""')}"`)
+          .join(","),
       )
       .join("\n");
 

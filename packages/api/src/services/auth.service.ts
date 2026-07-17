@@ -9,7 +9,7 @@ import {
   isJtiBlacklisted,
   type AuthUser,
 } from "@starter-kit/shared";
-import type { User } from "@prisma/client";
+import { Prisma, type User } from "@prisma/client";
 import { createError } from "../middleware/error-handler";
 
 const prisma = getPrismaClient();
@@ -74,26 +74,41 @@ export class AuthService {
 
     const passwordHash = await hashPassword(input.password);
 
-    const user = await prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          organizationId: invitation.organizationId,
-          invitationId: invitation.id,
-          email: invitation.email,
-          passwordHash,
-          fullName: input.fullName,
-          role: invitation.role,
-          status: "ACTIVE",
-        },
-      });
+    let user: User;
+    try {
+      user = await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            organizationId: invitation.organizationId,
+            invitationId: invitation.id,
+            email: invitation.email,
+            passwordHash,
+            fullName: input.fullName,
+            role: invitation.role,
+            status: "ACTIVE",
+          },
+        });
 
-      await tx.invitation.update({
-        where: { id: invitation.id },
-        data: { status: "ACCEPTED", acceptedAt: new Date() },
-      });
+        await tx.invitation.update({
+          where: { id: invitation.id },
+          data: { status: "ACCEPTED", acceptedAt: new Date() },
+        });
 
-      return created;
-    });
+        return created;
+      });
+    } catch (err) {
+      // Two concurrent requests can both pass the status checks above before
+      // either commits — the second one's unique-constraint violation
+      // (email or invitationId already claimed) means someone else won the
+      // race, not a server error.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        throw createError("This invitation has already been used", 409);
+      }
+      throw err;
+    }
 
     const tokens = generateTokenPair({
       userId: user.id,

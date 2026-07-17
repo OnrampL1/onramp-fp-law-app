@@ -23,17 +23,30 @@ export async function authenticate(
     return;
   }
 
+  let payload: AccessTokenPayload;
   try {
-    const payload = verifyAccessToken(token);
-
-    if (await isJtiBlacklisted(payload.jti)) {
-      res.status(401).json({ error: "Invalid or expired token" });
-      return;
-    }
-
-    req.user = payload;
-    next();
+    payload = verifyAccessToken(token);
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
+    return;
   }
+
+  let blacklisted: boolean;
+  try {
+    blacklisted = await isJtiBlacklisted(payload.jti);
+  } catch (err) {
+    console.error("[authenticate] Token blacklist check failed:", err);
+    res
+      .status(503)
+      .json({ error: "Authentication service temporarily unavailable" });
+    return;
+  }
+
+  if (blacklisted) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  req.user = payload;
+  next();
 }
