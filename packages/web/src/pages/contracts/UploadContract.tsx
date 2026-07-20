@@ -1,5 +1,5 @@
-import { useState, type ElementType, type ReactNode } from "react";
-import { CheckCircle2, ClipboardType, FileUp, XCircle } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { UploadContractActionBar } from "../../components/layout/UploadContractActionBar";
 import { ContractFileDropzone } from "../../components/shared/ContractFileDropzone";
 import { ContractMetadataForm } from "../../components/shared/ContractMetadataForm";
@@ -13,33 +13,23 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
-import { Textarea } from "../../components/ui/textarea";
 import {
   type ContractUploadStatus,
   useContractUpload,
 } from "../../hooks/useContractUpload";
-import {
-  MIN_PASTED_CONTRACT_TEXT_LENGTH,
-  type ContractMetadata,
-} from "../../types/contracts";
-
-type UploadInputMode = "file" | "paste";
+import { type ContractMetadata } from "../../types/contracts";
 
 const initialMetadata: ContractMetadata = {
   title: "",
   counterparty: "",
-  contractType: "",
   tags: [],
-  effectiveDate: "",
   expirationDate: "",
-  status: "draft",
+  legalState: "",
 };
 
 export function UploadContract() {
   const [metadata, setMetadata] = useState<ContractMetadata>(initialMetadata);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [inputMode, setInputMode] = useState<UploadInputMode>("file");
-  const [pastedText, setPastedText] = useState("");
 
   const {
     selectedFile,
@@ -53,15 +43,11 @@ export function UploadContract() {
     removeFile,
     setIsDragging,
     uploadSelectedFile,
-    uploadPastedText,
     resetUpload,
   } = useContractUpload();
 
   const metadataIsValid = isMetadataValid(metadata);
-  const pastedTextIsValid =
-    pastedText.trim().length >= MIN_PASTED_CONTRACT_TEXT_LENGTH;
-  const sourceIsValid =
-    inputMode === "file" ? Boolean(selectedFile) : pastedTextIsValid;
+  const sourceIsValid = Boolean(selectedFile);
   const canSubmit = sourceIsValid && metadataIsValid && !isUploading;
 
   async function handleSubmit() {
@@ -69,39 +55,24 @@ export function UploadContract() {
       return;
     }
 
-    if (inputMode === "file" && !selectedFile) {
+    if (!selectedFile) {
       setSubmitError("Select a contract file before uploading.");
       return;
     }
 
-    if (inputMode === "paste" && !pastedTextIsValid) {
-      setSubmitError("Paste at least 40 characters of contract text.");
-      return;
-    }
-
     if (!metadataIsValid) {
-      setSubmitError(
-        "Add a contract title, counterparty, and contract type before uploading.",
-      );
+      setSubmitError("Add a contract title and counterparty before uploading.");
       return;
     }
 
     setSubmitError(null);
-
-    if (inputMode === "file") {
-      await uploadSelectedFile();
-      return;
-    }
-
-    await uploadPastedText(pastedText.trim(), metadata.title.trim());
+    await uploadSelectedFile(metadata);
   }
 
   function handleReset() {
     resetUpload();
     setMetadata(initialMetadata);
     setSubmitError(null);
-    setInputMode("file");
-    setPastedText("");
   }
 
   if (status === "success" && uploadResult) {
@@ -118,22 +89,24 @@ export function UploadContract() {
                 Contract uploaded
               </h1>
               <p className="text-muted-foreground">
-                {metadata.title || uploadResult.fileName} has been uploaded
-                successfully.
+                {uploadResult.title} has been uploaded successfully.
               </p>
             </div>
 
             <dl className="grid w-full min-w-0 grid-cols-1 gap-3 text-left sm:grid-cols-2">
+              <SummaryItem label="Source" value="File" />
+              <SummaryItem label="Contract" value={uploadResult.title} />
               <SummaryItem
-                label="Source"
-                value={inputMode === "file" ? "File" : "Pasted text"}
+                label="Counterparty"
+                value={uploadResult.counterparty}
               />
-              <SummaryItem label="File" value={uploadResult.fileName} />
-              <SummaryItem label="Counterparty" value={metadata.counterparty} />
-              <SummaryItem label="Status" value={metadata.status} />
+              <SummaryItem
+                label="Legal State"
+                value={uploadResult.legalState ?? "Not specified"}
+              />
               <SummaryItem
                 label="Uploaded"
-                value={new Date(uploadResult.uploadedAt).toLocaleString()}
+                value={new Date(uploadResult.createdAt).toLocaleString()}
               />
             </dl>
 
@@ -163,88 +136,35 @@ export function UploadContract() {
                 <div>
                   <CardTitle className="text-base">Contract Document</CardTitle>
                   <CardDescription>
-                    Upload a file or paste contract text.
+                    Upload a contract file for secure storage and analysis.
                   </CardDescription>
-                </div>
-
-                <div
-                  className="inline-flex rounded-md border border-border p-1"
-                  aria-label="Contract input mode"
-                >
-                  <ModeButton
-                    active={inputMode === "file"}
-                    disabled={isUploading}
-                    icon={FileUp}
-                    onClick={() => {
-                      setInputMode("file");
-                      setSubmitError(null);
-                    }}
-                  >
-                    File
-                  </ModeButton>
-
-                  <ModeButton
-                    active={inputMode === "paste"}
-                    disabled={isUploading}
-                    icon={ClipboardType}
-                    onClick={() => {
-                      setInputMode("paste");
-                      setSubmitError(null);
-                    }}
-                  >
-                    Paste
-                  </ModeButton>
                 </div>
               </div>
             </CardHeader>
 
             <CardContent className="min-w-0 space-y-4">
-              {inputMode === "file" ? (
-                selectedFile ? (
-                  <SelectedFileSummary
-                    file={selectedFile}
-                    disabled={isUploading}
-                    onRemove={removeFile}
-                    onReplace={removeFile}
-                  />
-                ) : (
-                  <ContractFileDropzone
-                    isDragging={isDragging}
-                    error={validationError}
-                    disabled={isUploading}
-                    onSelectFile={(file) => {
-                      setSubmitError(null);
-                      selectFile(file);
-                    }}
-                    onDraggingChange={setIsDragging}
-                  />
-                )
+              {selectedFile ? (
+                <SelectedFileSummary
+                  file={selectedFile}
+                  disabled={isUploading}
+                  onRemove={removeFile}
+                  onReplace={removeFile}
+                />
               ) : (
-                <div className="space-y-2">
-                  <Textarea
-                    value={pastedText}
-                    disabled={isUploading}
-                    placeholder="Paste the full contract text here..."
-                    className="min-h-44 resize-y font-mono text-xs leading-relaxed"
-                    onChange={(event) => {
-                      setSubmitError(null);
-                      setPastedText(event.target.value);
-                    }}
-                  />
-                  <p
-                    className="text-sm text-muted-foreground"
-                    aria-live="polite"
-                  >
-                    {pastedText.trim().length.toLocaleString()} characters
-                    {pastedText.length > 0 && !pastedTextIsValid
-                      ? " - paste at least 40 characters."
-                      : ""}
-                  </p>
-                </div>
+                <ContractFileDropzone
+                  isDragging={isDragging}
+                  error={validationError}
+                  disabled={isUploading}
+                  onSelectFile={(file) => {
+                    setSubmitError(null);
+                    selectFile(file);
+                  }}
+                  onDraggingChange={setIsDragging}
+                />
               )}
 
               <p className="text-sm text-muted-foreground" aria-live="polite">
-                {getStatusMessage(status, inputMode, Boolean(selectedFile))}
+                {getStatusMessage(status, Boolean(selectedFile))}
               </p>
             </CardContent>
           </Card>
@@ -287,11 +207,7 @@ export function UploadContract() {
       <UploadContractActionBar
         canSubmit={canSubmit}
         isUploading={isUploading}
-        statusMessage={getActionStatusMessage(
-          sourceIsValid,
-          metadataIsValid,
-          inputMode,
-        )}
+        statusMessage={getActionStatusMessage(sourceIsValid, metadataIsValid)}
         onReset={handleReset}
         onSubmit={handleSubmit}
       />
@@ -301,21 +217,16 @@ export function UploadContract() {
 
 function isMetadataValid(metadata: ContractMetadata): boolean {
   return (
-    metadata.title.trim().length > 0 &&
-    metadata.counterparty.trim().length > 0 &&
-    metadata.contractType.length > 0
+    metadata.title.trim().length > 0 && metadata.counterparty.trim().length > 0
   );
 }
 
 function getActionStatusMessage(
   sourceIsValid: boolean,
   metadataIsValid: boolean,
-  inputMode: UploadInputMode,
 ): string {
   if (!sourceIsValid) {
-    return inputMode === "file"
-      ? "Select a contract file to continue."
-      : "Paste contract text to continue.";
+    return "Select a contract file to continue.";
   }
 
   if (!metadataIsValid) {
@@ -327,11 +238,10 @@ function getActionStatusMessage(
 
 function getStatusMessage(
   status: ContractUploadStatus,
-  inputMode: UploadInputMode,
   hasSelectedFile: boolean,
 ): string {
   if (status === "error") {
-    return inputMode === "file" && !hasSelectedFile
+    return !hasSelectedFile
       ? "Choose another file to continue."
       : "Resolve the upload error before continuing.";
   }
@@ -348,42 +258,7 @@ function getStatusMessage(
     return "Contract uploaded successfully.";
   }
 
-  return inputMode === "file"
-    ? "No contract file selected yet."
-    : "No contract text pasted yet.";
-}
-
-interface ModeButtonProps {
-  active: boolean;
-  disabled: boolean;
-  icon: ElementType;
-  children: ReactNode;
-  onClick: () => void;
-}
-
-function ModeButton({
-  active,
-  disabled,
-  icon: Icon,
-  children,
-  onClick,
-}: ModeButtonProps) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      className={
-        active
-          ? "inline-flex items-center gap-2 rounded-sm bg-secondary px-3 py-1.5 text-sm font-medium text-secondary-foreground"
-          : "inline-flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-      }
-      aria-pressed={active}
-      onClick={onClick}
-    >
-      <Icon className="h-4 w-4" aria-hidden="true" />
-      {children}
-    </button>
-  );
+  return "No contract file selected yet.";
 }
 
 function SummaryItem({ label, value }: { label: string; value: string }) {
