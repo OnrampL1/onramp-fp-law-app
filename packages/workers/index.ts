@@ -2,13 +2,14 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 import { getPrismaClient } from "@starter-kit/shared";
-import { createWorkers } from "./src/queues";
+import { createWorkers, scheduleInvitationExpirySweep } from "./src/queues";
 
 async function main(): Promise<void> {
   console.info("Starting workers...");
 
   await getPrismaClient().$connect();
   const workers = createWorkers();
+  await scheduleInvitationExpirySweep();
 
   console.info(
     `Started ${workers.length} worker(s): ${workers.map((w) => w.name).join(", ")}`,

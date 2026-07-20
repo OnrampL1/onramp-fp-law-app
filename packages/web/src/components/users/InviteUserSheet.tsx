@@ -19,22 +19,21 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import {
+  assignableRoles,
   getPermissionKeysForRole,
   roleLabels,
-  type UserAccessRole,
-} from "@/lib/users";
+  type BackendUserRole,
+} from "@/lib/permissions";
 
 import { PermissionBadge } from "./UserBadges";
+
+type AssignableRole = Extract<BackendUserRole, "ADMIN" | "INTERNAL">;
 
 export type InviteUserPayload = {
   email: string;
   name: string;
-  title: string;
-  team: string;
-  role: UserAccessRole;
-  message: string;
+  role: AssignableRole;
 };
 
 type InviteUserSheetProps = {
@@ -50,33 +49,20 @@ export function InviteUserSheet({
 }: InviteUserSheetProps) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [title, setTitle] = useState("");
-  const [team, setTeam] = useState("");
-  const [role, setRole] = useState<UserAccessRole>("viewer");
-  const [message, setMessage] = useState("");
+  const [role, setRole] = useState<AssignableRole>("INTERNAL");
 
   const permissions = useMemo(() => getPermissionKeysForRole(role), [role]);
 
   function resetForm() {
     setEmail("");
     setName("");
-    setTitle("");
-    setTeam("");
-    setRole("viewer");
-    setMessage("");
+    setRole("INTERNAL");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    onInvite?.({
-      email,
-      name,
-      title,
-      team,
-      role,
-      message,
-    });
+    onInvite?.({ email, name, role });
 
     resetForm();
     onOpenChange(false);
@@ -91,7 +77,8 @@ export function InviteUserSheet({
           </div>
           <SheetTitle>Invite user</SheetTitle>
           <SheetDescription>
-            Add a team member and choose the access level they should receive.
+            Send an invitation email. The account is created once they accept
+            and set a password.
           </SheetDescription>
         </SheetHeader>
 
@@ -120,41 +107,19 @@ export function InviteUserSheet({
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="invite-title">Title</Label>
-                <Input
-                  id="invite-title"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="Contract reviewer"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="invite-team">Team</Label>
-                <Input
-                  id="invite-team"
-                  value={team}
-                  onChange={(event) => setTeam(event.target.value)}
-                  placeholder="Legal"
-                />
-              </div>
-            </div>
-
             <div className="space-y-2">
               <Label>Role</Label>
               <Select
                 value={role}
-                onValueChange={(value) => setRole(value as UserAccessRole)}
+                onValueChange={(value) => setRole(value as AssignableRole)}
               >
                 <SelectTrigger className="w-full" aria-label="Invite role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(roleLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
+                  {assignableRoles.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {roleLabels[r]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -171,16 +136,6 @@ export function InviteUserSheet({
                   <PermissionBadge key={permission} permission={permission} />
                 ))}
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="invite-message">Invite message</Label>
-              <Textarea
-                id="invite-message"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Optional note for the invitation email"
-              />
             </div>
           </div>
 

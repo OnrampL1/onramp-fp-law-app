@@ -103,32 +103,15 @@ components:
           minLength: 1
           example: What happens if we terminate early?
 
-    CreateUserBody:
-      type: object
-      required: [email, name, role]
-      properties:
-        email:
-          type: string
-          format: email
-          example: new.lawyer@acmelegal.com
-        name:
-          type: string
-          minLength: 2
-          maxLength: 100
-          example: Jordan Lee
-        role:
-          type: string
-          enum: [admin, lawyer, paralegal, user]
-          example: lawyer
-
     UpdateUserRoleBody:
       type: object
       required: [role]
       properties:
         role:
           type: string
-          enum: [admin, lawyer, paralegal, user]
-          example: paralegal
+          description: OWNER is not assignable through this endpoint.
+          enum: [ADMIN, INTERNAL]
+          example: INTERNAL
 
     WitnessLinkBody:
       type: object
@@ -160,17 +143,35 @@ components:
           type: string
           format: uuid
           example: 123e4567-e89b-12d3-a456-426614174000
+        organizationId:
+          type: string
+          format: uuid
+          example: 8b6b3f2e-1c1a-4a2b-9c3d-0f6a2e8b7a10
         email:
           type: string
           format: email
           example: user@example.com
-        name:
+        fullName:
           type: string
           example: Jane Doe
         role:
           type: string
-          enum: [admin, lawyer, paralegal, user]
-          example: user
+          description: >
+            OWNER and ADMIN both have full User Management access; INTERNAL
+            is read-only. OWNER cannot be assigned via the role-change
+            endpoint — it is only ever set through organization ownership
+            assignment/transfer.
+          enum: [OWNER, ADMIN, INTERNAL]
+          example: ADMIN
+        status:
+          type: string
+          enum: [INVITED, ACTIVE, SUSPENDED, DEACTIVATED]
+          example: ACTIVE
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-01-01T00:00:00.000Z"
         createdAt:
           type: string
           format: date-time
@@ -179,6 +180,61 @@ components:
           type: string
           format: date-time
           example: "2024-01-01T00:00:00.000Z"
+
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 7c8b9a2e-4d3f-4e5a-8b6c-7d8e9f0a1b2c
+        email:
+          type: string
+          format: email
+          example: new.hire@acmelegal.com
+        role:
+          type: string
+          enum: [ADMIN, INTERNAL]
+          example: INTERNAL
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, EXPIRED, REVOKED]
+          example: PENDING
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2024-01-08T00:00:00.000Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+
+    CreateInvitationBody:
+      type: object
+      required: [email, fullName, role]
+      properties:
+        email:
+          type: string
+          format: email
+          example: new.hire@acmelegal.com
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Jordan Lee
+        role:
+          type: string
+          enum: [ADMIN, INTERNAL]
+          example: INTERNAL
+
+    UpdateUserStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED]
+          example: SUSPENDED
 
     ErrorResponse:
       type: object
@@ -1269,7 +1325,9 @@ paths:
       tags: [Users]
       summary: List users in the current organization
       operationId: listUsers
-      description: Requires the `admin` role.
+      description: >
+        Available to any authenticated member of the organization — viewing
+        the roster is not admin-only, only the mutating endpoints below are.
       security:
         - cookieAuth: []
       parameters:
@@ -1309,60 +1367,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-    post:
-      tags: [Users]
-      summary: Create a user
-      operationId: createUser
-      description: Requires the `admin` role.
-      security:
-        - cookieAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateUserBody"
-      responses:
-        "201":
-          description: User created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    $ref: "#/components/schemas/User"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Insufficient permissions
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Email already in use
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "422":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValidationErrorResponse"
-
   /users/{id}/role:
     put:
       tags: [Users]
       summary: Change a user's role
       operationId: updateUserRole
-      description: Requires the `admin` role.
+      description: >
+        Requires the `OWNER` or `ADMIN` role. `OWNER` cannot be assigned
+        through this endpoint, cannot be changed itself, and callers cannot
+        change their own role.
       security:
         - cookieAuth: []
       parameters:
@@ -1406,18 +1419,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "422":
-          description: Validation error
+          description: Validation error, or an OWNER-related rule was violated
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
 
-  /users/{id}:
-    delete:
+  /users/{id}/status:
+    put:
       tags: [Users]
-      summary: Delete a user
-      operationId: deleteUser
-      description: Requires the `admin` role.
+      summary: Suspend or reactivate a user (soft-disable)
+      operationId: updateUserStatus
+      description: >
+        Requires the `OWNER` or `ADMIN` role. This is the disable/enable
+        flow — users are never hard-deleted. Callers cannot change their own
+        status, and the organization `OWNER`'s status cannot be changed here.
       security:
         - cookieAuth: []
       parameters:
@@ -1426,13 +1442,22 @@ paths:
           required: true
           schema: { type: string, format: uuid }
           example: 123e4567-e89b-12d3-a456-426614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserStatusBody"
       responses:
         "200":
-          description: User deleted
+          description: Status updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessResponse"
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
         "401":
           description: Unauthorized
           content:
@@ -1447,6 +1472,218 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error, or an OWNER/self-target rule was violated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /invitations:
+    post:
+      tags: [Users]
+      summary: Invite a new user
+      operationId: createInvitation
+      description: >
+        Requires the `OWNER` or `ADMIN` role. Creates a pending Invitation
+        and emails an accept-invitation link; no User row is created until
+        the invitation is accepted (see `POST /auth/accept-invitation`).
+        `role` cannot be `OWNER`.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvitationBody"
+      responses:
+        "201":
+          description: Invitation created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Invitation"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: A user or pending invitation already exists for this email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+    get:
+      tags: [Users]
+      summary: List pending and expired invitations for the current organization
+      operationId: listInvitations
+      description: >
+        Returns invitations with status `PENDING` or `EXPIRED` — actionable
+        ones an admin can still resend. `ACCEPTED` invitations become Users
+        (see `GET /users`) and `REVOKED` ones are terminal, so neither is
+        included. Available to any authenticated member of the organization,
+        matching `GET /users`. Creating, resending, or revoking invitations
+        is admin-only.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Paginated list of pending and expired invitations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Invitation"
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /invitations/{id}/resend:
+    post:
+      tags: [Users]
+      summary: Resend a pending invitation
+      operationId: resendInvitation
+      description: >
+        Requires the `OWNER` or `ADMIN` role. Issues a new token and
+        expiry, invalidating the previous one, and re-sends the invitation
+        email. Also revives an `EXPIRED` invitation back to `PENDING`.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 7c8b9a2e-4d3f-4e5a-8b6c-7d8e9f0a1b2c
+      responses:
+        "200":
+          description: Invitation resent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Invitation"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Invitation already accepted or revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /invitations/{id}/revoke:
+    post:
+      tags: [Users]
+      summary: Revoke a pending invitation
+      operationId: revokeInvitation
+      description: >
+        Requires the `OWNER` or `ADMIN` role. Only a `PENDING` invitation can
+        be revoked; a revoked invitation can never be accepted.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 7c8b9a2e-4d3f-4e5a-8b6c-7d8e9f0a1b2c
+      responses:
+        "200":
+          description: Invitation revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Invitation"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Only a pending invitation can be revoked
           content:
             application/json:
               schema:
