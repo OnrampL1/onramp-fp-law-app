@@ -49,6 +49,14 @@ const DISCLAIMER =
   "DISCLAIMER: This is an AI-generated summary for informational purposes only and does not constitute legal advice.";
 
 async function main(): Promise<void> {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Refusing to run the demo seed against a production environment — " +
+        "it creates users with a publicly-known password (see DEMO_PASSWORD " +
+        "above). Seed only local or demo databases.",
+    );
+  }
+
   console.info("Seeding Clausio demo data...");
 
   const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
