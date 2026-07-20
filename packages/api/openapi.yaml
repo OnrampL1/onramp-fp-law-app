@@ -755,29 +755,38 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file, title, counterparty, contractType]
+              required: [file, title, counterparty]
               properties:
                 file:
                   type: string
                   format: binary
+                  description: Contract source file. Allowed types are PDF, DOC, DOCX, and TXT.
                 title:
                   type: string
+                  maxLength: 500
                   example: Master Services Agreement - Acme Corp
                 counterparty:
                   type: string
+                  maxLength: 500
                   example: Acme Corp
-                contractType:
-                  type: string
-                  example: msa
-                effectiveDate:
-                  type: string
-                  format: date
+                tags:
+                  oneOf:
+                    - type: string
+                      description: JSON array string or comma-separated list.
+                      example: '["msa","vendor"]'
+                    - type: array
+                      items:
+                        type: string
+                  description: Optional tags. Maximum 20 tags, 50 characters each.
                 expirationDate:
                   type: string
                   format: date
-                tags:
-                  type: array
-                  items: { type: string }
+                  nullable: true
+                  example: "2027-12-31"
+                legalState:
+                  type: string
+                  enum: [DRAFT, ACTIVE, EXPIRED, TERMINATED]
+                  example: ACTIVE
       responses:
         "201":
           description: Contract created

@@ -16,19 +16,11 @@ export const MAX_CONTRACT_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 export const MIN_PASTED_CONTRACT_TEXT_LENGTH = 40;
 
-export const CONTRACT_TYPE_OPTIONS = [
-  { value: "msa", label: "Master Services Agreement" },
-  { value: "nda", label: "Non-Disclosure Agreement" },
-  { value: "saas", label: "SaaS Subscription" },
-  { value: "employment", label: "Employment Agreement" },
-  { value: "lease", label: "Lease Agreement" },
-  { value: "vendor", label: "Vendor / Supply" },
-  { value: "other", label: "Other" },
-] as const;
-
-export const CONTRACT_STATUS_OPTIONS = [
-  { value: "draft", label: "Draft" },
-  { value: "active", label: "Active" },
+export const CONTRACT_LEGAL_STATE_OPTIONS = [
+  { value: "DRAFT", label: "Draft" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "EXPIRED", label: "Expired" },
+  { value: "TERMINATED", label: "Terminated" },
 ] as const;
 
 export type AcceptedContractFileExtension =
@@ -37,18 +29,15 @@ export type AcceptedContractFileExtension =
 export type AcceptedContractMimeType =
   (typeof ACCEPTED_CONTRACT_MIME_TYPES)[number];
 
-export type ContractType = (typeof CONTRACT_TYPE_OPTIONS)[number]["value"];
-
-export type ContractStatus = (typeof CONTRACT_STATUS_OPTIONS)[number]["value"];
+export type ContractLegalState =
+  (typeof CONTRACT_LEGAL_STATE_OPTIONS)[number]["value"];
 
 export interface ContractMetadata {
   title: string;
   counterparty: string;
-  contractType: ContractType | "";
   tags: string[];
-  effectiveDate: string;
   expirationDate: string;
-  status: ContractStatus;
+  legalState: ContractLegalState | "";
 }
 
 export interface SelectedContractFile {
