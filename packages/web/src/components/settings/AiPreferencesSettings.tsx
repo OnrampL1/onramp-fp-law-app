@@ -1,9 +1,13 @@
-import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Bot, FileSearch, Languages, ShieldAlert } from "lucide-react";
+import {
+  Bot,
+  FileSearch,
+  Languages,
+  ShieldAlert,
+  Sparkles,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,30 +15,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { useOrganizationSettings } from "@/hooks/useSettings";
 
-const analysisModes = [
-  {
-    id: "focused",
-    label: "Focused",
-    description: "Surface the most important risks and summary points.",
-  },
-  {
-    id: "balanced",
-    label: "Balanced",
-    description: "Combine concise summaries with practical risk review.",
-  },
-  {
-    id: "detailed",
-    label: "Detailed",
-    description: "Review clauses with more explanation and supporting context.",
-  },
-] as const;
-
-const languageOptions = ["English", "French", "Arabic"] as const;
-
-type AnalysisMode = (typeof analysisModes)[number]["id"];
-type LanguageOption = (typeof languageOptions)[number];
+const languageLabels: Record<string, string> = {
+  en: "English",
+  fr: "French",
+  ar: "Arabic",
+};
 
 type AiPreferenceRowProps = {
   icon: LucideIcon;
@@ -68,61 +55,30 @@ function AiPreferenceRow({
 }
 
 export function AiPreferencesSettings() {
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("balanced");
-  const [language, setLanguage] = useState<LanguageOption>("English");
+  const settingsQuery = useOrganizationSettings();
 
-  const selectedMode = analysisModes.find((mode) => mode.id === analysisMode);
+  const languageCode = settingsQuery.data?.settings.language ?? "en";
+  const languageLabel = languageLabels[languageCode] ?? languageCode;
+
+  if (settingsQuery.isLoading) {
+    return (
+      <p className="text-sm text-muted-foreground">Loading AI preferences...</p>
+    );
+  }
+
+  if (settingsQuery.isError) {
+    return (
+      <p className="text-sm text-destructive">Unable to load AI preferences.</p>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Analysis style</CardTitle>
+          <CardTitle className="text-base">AI review capabilities</CardTitle>
           <CardDescription>
-            Choose how detailed AI contract review should be.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-3">
-            {analysisModes.map((mode) => {
-              const isSelected = mode.id === analysisMode;
-
-              return (
-                <button
-                  key={mode.id}
-                  type="button"
-                  onClick={() => setAnalysisMode(mode.id)}
-                  aria-pressed={isSelected}
-                  className={cn(
-                    "rounded-lg border p-4 text-left transition-colors hover:bg-accent",
-                    isSelected
-                      ? "border-primary bg-primary/5"
-                      : "border-border",
-                  )}
-                >
-                  <p className="text-sm font-medium">{mode.label}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {mode.description}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedMode && (
-            <p className="text-sm text-muted-foreground">
-              Selected: {selectedMode.description}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Review focus</CardTitle>
-          <CardDescription>
-            AI review emphasizes the areas most useful for contract work.
+            AI review behavior is controlled by the backend analysis workflow.
           </CardDescription>
         </CardHeader>
 
@@ -152,28 +108,41 @@ export function AiPreferencesSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Response language</CardTitle>
-          <CardDescription>
-            Select the preferred language for AI-generated explanations.
-          </CardDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <Languages className="size-4" />
+            </div>
+
+            <div>
+              <CardTitle className="text-base">Response language</CardTitle>
+              <CardDescription>
+                AI responses follow the organization language setting.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
 
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {languageOptions.map((option) => (
-              <Button
-                key={option}
-                type="button"
-                variant={option === language ? "default" : "outline"}
-                size="sm"
-                onClick={() => setLanguage(option)}
-              >
-                <Languages className="mr-2 size-4" />
-                {option}
-              </Button>
-            ))}
-          </div>
+          <Badge variant="secondary">{languageLabel}</Badge>
         </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <Sparkles className="size-4" />
+            </div>
+
+            <div>
+              <CardTitle className="text-base">Analysis style</CardTitle>
+              <CardDescription>
+                Configurable AI analysis style is not supported by the finalized
+                settings schema.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
       </Card>
     </div>
   );
