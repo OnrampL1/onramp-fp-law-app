@@ -8,6 +8,7 @@ jest.mock("@starter-kit/shared", () => ({
 jest.mock("../../src/services/settings.service", () => ({
   settingsService: {
     getOrganizationSettings: jest.fn(),
+    updateOrganizationSettings: jest.fn(),
   },
 }));
 
@@ -93,5 +94,112 @@ describe("GET /api/settings/organization", () => {
       "user-1",
       "org-1",
     );
+  });
+});
+
+describe("PUT /api/settings/organization", () => {
+  it("returns 401 with no session", async () => {
+    const res = await request(app)
+      .put("/api/settings/organization")
+      .send({ name: "New Name" });
+
+    expect(res.status).toBe(401);
+    expect(
+      mockSettingsService.updateOrganizationSettings,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for INTERNAL users", async () => {
+    const res = await request(app)
+      .put("/api/settings/organization")
+      .set("Cookie", cookieFor("INTERNAL"))
+      .send({ name: "New Name" });
+
+    expect(res.status).toBe(403);
+    expect(
+      mockSettingsService.updateOrganizationSettings,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 for unsupported fields", async () => {
+    const res = await request(app)
+      .put("/api/settings/organization")
+      .set("Cookie", cookieFor("ADMIN"))
+      .send({ contactEmail: "ops@example.com" });
+
+    expect(res.status).toBe(422);
+    expect(
+      mockSettingsService.updateOrganizationSettings,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 for invalid timezone", async () => {
+    const res = await request(app)
+      .put("/api/settings/organization")
+      .set("Cookie", cookieFor("ADMIN"))
+      .send({ timezone: "Not/AZone" });
+
+    expect(res.status).toBe(422);
+    expect(
+      mockSettingsService.updateOrganizationSettings,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("updates settings for ADMIN users using token organization scope", async () => {
+    mockSettingsService.updateOrganizationSettings.mockResolvedValue({
+      organization: {
+        id: "org-1",
+        name: "New Name",
+        slug: "acme-legal",
+        status: "ACTIVE",
+      },
+      settings: {
+        timezone: "Asia/Beirut",
+        language: "fr",
+        logoUrl: null,
+        notificationPreferences: {
+          contractUpdates: true,
+        },
+        branding: null,
+      },
+      permissions: {
+        canManageSettings: true,
+      },
+    });
+
+    const res = await request(app)
+      .put("/api/settings/organization?organizationId=other-org")
+      .set("Cookie", cookieFor("ADMIN"))
+      .set("User-Agent", "jest")
+      .send({
+        name: "New Name",
+        timezone: "Asia/Beirut",
+        language: "fr",
+        notificationPreferences: {
+          contractUpdates: true,
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockSettingsService.updateOrganizationSettings).toHaveBeenCalledWith(
+      {
+        userId: "user-1",
+        organizationId: "org-1",
+        role: "ADMIN",
+      },
+      {
+        name: "New Name",
+        timezone: "Asia/Beirut",
+        language: "fr",
+        notificationPreferences: {
+          contractUpdates: true,
+        },
+      },
+      expect.objectContaining({
+        ipAddress: expect.any(String),
+        userAgent: "jest",
+      }),
+    );
+    expect(res.body.data.organization.name).toBe("New Name");
   });
 });

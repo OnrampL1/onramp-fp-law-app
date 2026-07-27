@@ -18,4 +18,29 @@ export const settingsController = {
       next(err);
     }
   },
+
+  async updateOrganizationSettings(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const settings = await settingsService.updateOrganizationSettings(
+        {
+          userId: req.user!.userId,
+          organizationId: req.user!.orgId,
+          role: req.user!.role,
+        },
+        req.body,
+        {
+          ipAddress: req.ip,
+          userAgent: req.get("user-agent"),
+        },
+      );
+
+      res.json({ data: settings });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

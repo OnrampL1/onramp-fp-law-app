@@ -1,11 +1,23 @@
 const mockPrisma = {
   organization: {
     findFirst: jest.fn(),
+    findFirstOrThrow: jest.fn(),
+    update: jest.fn(),
   },
+  organizationSettings: {
+    upsert: jest.fn(),
+  },
+  auditLog: {
+    create: jest.fn(),
+  },
+  $transaction: jest.fn(async (cb: (tx: typeof mockPrisma) => unknown) =>
+    cb(mockPrisma),
+  ),
 };
 
 jest.mock("@starter-kit/shared", () => ({
   getPrismaClient: () => mockPrisma,
+  isAdminRole: (role: string) => role === "OWNER" || role === "ADMIN",
 }));
 
 import { settingsService } from "../../src/services/settings.service";
@@ -146,6 +158,143 @@ describe("SettingsService.getOrganizationSettings", () => {
 
     await expect(
       settingsService.getOrganizationSettings("user-1", "org-1"),
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
+describe("SettingsService.updateOrganizationSettings", () => {
+  const actor = {
+    userId: "admin-1",
+    organizationId: "org-1",
+    role: "ADMIN" as const,
+  };
+
+  it("rejects INTERNAL users", async () => {
+    await expect(
+      settingsService.updateOrganizationSettings(
+        { ...actor, role: "INTERNAL" },
+        { name: "New Name" },
+        {},
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(mockPrisma.organization.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("updates supported organization settings and writes an audit log", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue({
+      id: "org-1",
+      name: "Old Name",
+      slug: "old-name",
+      status: "ACTIVE",
+      settings: {
+        timezone: "UTC",
+        language: "en",
+        logoUrl: null,
+        notificationPreferences: null,
+        branding: null,
+      },
+      members: [{ role: "ADMIN" }],
+    });
+
+    mockPrisma.organization.findFirstOrThrow.mockResolvedValue({
+      id: "org-1",
+      name: "New Name",
+      slug: "old-name",
+      status: "ACTIVE",
+      settings: {
+        timezone: "Asia/Beirut",
+        language: "fr",
+        logoUrl: null,
+        notificationPreferences: {
+          contractUpdates: true,
+        },
+        branding: null,
+      },
+      members: [{ role: "ADMIN" }],
+    });
+
+    const result = await settingsService.updateOrganizationSettings(
+      actor,
+      {
+        name: "New Name",
+        timezone: "Asia/Beirut",
+        language: "fr",
+        notificationPreferences: {
+          contractUpdates: true,
+        },
+      },
+      {
+        ipAddress: "127.0.0.1",
+        userAgent: "jest",
+      },
+    );
+
+    expect(mockPrisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      data: { name: "New Name" },
+    });
+
+    expect(mockPrisma.organizationSettings.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: "org-1" },
+      }),
+    );
+
+    expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          actorType: "USER",
+          actorUserId: "admin-1",
+          action: "ORGANIZATION_SETTINGS_UPDATED",
+          targetEntityType: "Organization",
+          targetEntityId: "org-1",
+          oldValue: expect.objectContaining({
+            name: "Old Name",
+            timezone: "UTC",
+            language: "en",
+          }),
+          newValue: expect.objectContaining({
+            name: "New Name",
+            timezone: "Asia/Beirut",
+            language: "fr",
+          }),
+        }),
+      }),
+    );
+
+    expect(result.organization.name).toBe("New Name");
+  });
+
+  it("throws 404 when the active member organization cannot be found", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue(null);
+
+    await expect(
+      settingsService.updateOrganizationSettings(
+        actor,
+        { name: "New Name" },
+        {},
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("throws 403 when the organization is suspended", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue({
+      id: "org-1",
+      name: "Old Name",
+      slug: "old-name",
+      status: "SUSPENDED",
+      settings: null,
+      members: [{ role: "ADMIN" }],
+    });
+
+    await expect(
+      settingsService.updateOrganizationSettings(
+        actor,
+        { name: "New Name" },
+        {},
+      ),
     ).rejects.toMatchObject({ statusCode: 403 });
   });
 });
