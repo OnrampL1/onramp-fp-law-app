@@ -1,10 +1,56 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AuditLogActionBadge } from "./AuditLogActionBadge";
-import type { AuditLogEntry, FieldDiff, FieldChangeType } from "../../lib/data";
+import { AUDIT_ACTION_GROUP, AUDIT_ACTION_LABELS } from "../../types/audit";
+import type { AuditLogEntry } from "../../types/audit";
+
+type FieldChangeType = "changed" | "added" | "removed" | "unchanged";
+
+interface FieldDiff {
+  key: string;
+  changeType: FieldChangeType;
+  before: unknown;
+  after: unknown;
+}
 
 interface AuditLogViewChangesModalProps {
   entry: AuditLogEntry;
+  actor: { name: string; initials: string };
+  target: { name: string; detail: string; detailIsId?: boolean };
   onClose: () => void;
+}
+
+// Real oldValue/newValue are usually single-field changes (e.g. just
+// `{ role: "ADMIN" }`), not the rich multi-field diffs mock data had —
+// this derives whatever fields are actually present instead of assuming a
+// fixed shape.
+function computeFieldDiffs(
+  oldValue: Record<string, unknown> | null,
+  newValue: Record<string, unknown> | null,
+): FieldDiff[] {
+  const keys = new Set([
+    ...Object.keys(oldValue ?? {}),
+    ...Object.keys(newValue ?? {}),
+  ]);
+
+  return Array.from(keys).map((key) => {
+    const hasBefore = oldValue !== null && key in oldValue;
+    const hasAfter = newValue !== null && key in newValue;
+    const before = hasBefore ? oldValue![key] : undefined;
+    const after = hasAfter ? newValue![key] : undefined;
+
+    let changeType: FieldChangeType;
+    if (!hasBefore && hasAfter) {
+      changeType = "added";
+    } else if (hasBefore && !hasAfter) {
+      changeType = "removed";
+    } else if (JSON.stringify(before) !== JSON.stringify(after)) {
+      changeType = "changed";
+    } else {
+      changeType = "unchanged";
+    }
+
+    return { key, changeType, before, after };
+  });
 }
 
 // ─── Lock body scroll while modal is open ────────────────────────────────────
@@ -85,6 +131,14 @@ function FieldValue({ value, highlight }: { value: unknown; highlight?: "red" | 
     );
   }
 
+  if (typeof value === "object") {
+    return (
+      <span className={`text-sm font-semibold ${highlightClass}`}>
+        {JSON.stringify(value)}
+      </span>
+    );
+  }
+
   return (
     <span className={`text-sm font-semibold ${highlightClass}`}>
       {String(value)}
@@ -121,58 +175,46 @@ function FieldDiffCard({ field }: { field: FieldDiff }) {
 
 // ─── Main modal ──────────────────────────────────────────────────────────────
 
-/**
- * Full-screen modal for audit log diff view.
- *
- * Fix applied:
- *   - The backdrop is `fixed inset-0` at z-50, covering the ENTIRE viewport
- *     at all times regardless of scroll position. It never moves.
- *   - The modal panel sits ABOVE the backdrop at z-50 and handles its OWN
- *     internal scrolling via `overflow-y-auto` on the panel itself.
- *   - Body scroll is locked via useLockBodyScroll while the modal is open,
- *     so the page behind never moves or shows through.
- *   - This eliminates the thin unblurred strip at the top and the blur
- *     disappearing when the user scrolls down.
- */
-export function AuditLogViewChangesModal({ entry, onClose }: AuditLogViewChangesModalProps) {
+export function AuditLogViewChangesModal({ entry, actor, target, onClose }: AuditLogViewChangesModalProps) {
   useLockBodyScroll();
 
   const [showUnchanged, setShowUnchanged] = useState(false);
 
-  const changedFields   = entry.changedFields.filter((f) => f.changeType !== "unchanged");
-  const unchangedFields = entry.changedFields.filter((f) => f.changeType === "unchanged");
-  const changedCount    = entry.changedFields.filter((f) => f.changeType === "changed").length;
-  const addedCount      = entry.changedFields.filter((f) => f.changeType === "added").length;
-  const removedCount    = entry.changedFields.filter((f) => f.changeType === "removed").length;
+  const allFields = useMemo(
+    () => computeFieldDiffs(entry.oldValue, entry.newValue),
+    [entry.oldValue, entry.newValue],
+  );
 
-  const visibleFields = showUnchanged ? entry.changedFields : changedFields;
+  const changedFields   = allFields.filter((f) => f.changeType !== "unchanged");
+  const unchangedFields = allFields.filter((f) => f.changeType === "unchanged");
+  const changedCount    = allFields.filter((f) => f.changeType === "changed").length;
+  const addedCount      = allFields.filter((f) => f.changeType === "added").length;
+  const removedCount    = allFields.filter((f) => f.changeType === "removed").length;
+
+  const visibleFields = showUnchanged ? allFields : changedFields;
+  const group = AUDIT_ACTION_GROUP[entry.action];
+  const timestamp = new Date(entry.createdAt).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <>
-      {/*
-        ── Backdrop ──────────────────────────────────────────────────────────
-        fixed + inset-0 means it ALWAYS covers the full viewport.
-        It does not scroll. It does not move. z-50 keeps it above all page content.
-      */}
       <div
         className="fixed inset-0 z-50 bg-background/75 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/*
-        ── Modal panel ────────────────────────────────────────────────────────
-        Also fixed, sits above the backdrop at z-50.
-        overflow-y-auto means THIS element scrolls, not the page behind it.
-        The page is frozen by useLockBodyScroll.
-      */}
       <div
         className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto"
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <div className="w-full max-w-4xl space-y-5 px-4 py-10">
 
-          {/* Back button */}
           <button
             onClick={onClose}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -189,22 +231,26 @@ export function AuditLogViewChangesModal({ entry, onClose }: AuditLogViewChanges
               <div>
                 <div className="flex items-center gap-2.5">
                   <h2 className="text-xl font-bold text-foreground">View Changes</h2>
-                  <AuditLogActionBadge verb={entry.verb} />
+                  <AuditLogActionBadge group={group} />
                 </div>
                 <p className="mt-1.5 text-sm text-muted-foreground">
-                  {entry.actionLabel} on{" "}
-                  <span className="font-semibold text-foreground">{entry.resourceName}</span>{" "}
-                  <span className="text-muted-foreground">({entry.resourceType})</span>
+                  {AUDIT_ACTION_LABELS[entry.action]} on{" "}
+                  <span className="font-semibold text-foreground">{target.name}</span>{" "}
+                  <span
+                    className={target.detailIsId ? "font-mono text-muted-foreground" : "text-muted-foreground"}
+                  >
+                    ({target.detail})
+                  </span>
                 </p>
               </div>
 
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                  {entry.user.initials}
+                  {actor.initials}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{entry.user.name}</p>
-                  <p className="text-xs text-muted-foreground">{entry.timestamp}</p>
+                  <p className="text-sm font-semibold text-foreground">{actor.name}</p>
+                  <p className="text-xs text-muted-foreground">{timestamp}</p>
                 </div>
               </div>
             </div>
@@ -230,7 +276,7 @@ export function AuditLogViewChangesModal({ entry, onClose }: AuditLogViewChanges
                   <span className="text-muted-foreground">removed</span>
                 </div>
               </div>
-              <span className="font-mono text-xs text-muted-foreground">{entry.ipAddress}</span>
+              <span className="font-mono text-xs text-muted-foreground">{entry.ipAddress ?? "—"}</span>
             </div>
           </div>
 
@@ -248,8 +294,8 @@ export function AuditLogViewChangesModal({ entry, onClose }: AuditLogViewChanges
             </div>
           )}
 
-          {/* ── No changes ── */}
-          {entry.changedFields.length === 0 && (
+          {/* ── No changes recorded — degrade gracefully instead of assuming a rich diff ── */}
+          {allFields.length === 0 && (
             <div className="flex items-center justify-center rounded-lg border border-border bg-card py-10">
               <p className="text-sm text-muted-foreground">No field changes recorded for this event.</p>
             </div>

@@ -11,6 +11,7 @@ import {
 } from "@starter-kit/shared";
 import { Prisma, type User } from "@prisma/client";
 import { createError } from "../middleware/error-handler";
+import { auditService } from "./audit.service";
 
 const prisma = getPrismaClient();
 
@@ -23,6 +24,11 @@ interface AcceptInvitationInput {
   invitationToken: string;
   fullName: string;
   password: string;
+}
+
+interface RequestContext {
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 function toPublicUser(user: User): AuthUser {
@@ -43,7 +49,10 @@ export class AuthService {
    * actually define: a pending Invitation, validated and consumed, turns
    * into an ACTIVE User.
    */
-  async acceptInvitation(input: AcceptInvitationInput) {
+  async acceptInvitation(
+    input: AcceptInvitationInput,
+    requestContext: RequestContext = {},
+  ) {
     const tokenHash = hashToken(input.invitationToken);
     const invitation = await prisma.invitation.findUnique({
       where: { tokenHash },
@@ -88,6 +97,18 @@ export class AuthService {
         await tx.invitation.update({
           where: { id: invitation.id },
           data: { status: "ACCEPTED", acceptedAt: new Date() },
+        });
+
+        await auditService.logEvent(tx, {
+          organizationId: invitation.organizationId,
+          actorUserId: created.id,
+          action: "INVITATION_ACCEPTED",
+          targetEntityType: "Invitation",
+          targetEntityId: invitation.id,
+          oldValue: { status: "PENDING" },
+          newValue: { status: "ACCEPTED" },
+          ipAddress: requestContext.ipAddress,
+          userAgent: requestContext.userAgent,
         });
 
         return created;

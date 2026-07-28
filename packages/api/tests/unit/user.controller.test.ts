@@ -111,6 +111,7 @@ describe("PUT /api/users/:id/role", () => {
       { id: "user-1", organizationId: "org-1" },
       "target-1",
       "ADMIN",
+      expect.objectContaining({ ipAddress: expect.any(String) }),
     );
   });
 

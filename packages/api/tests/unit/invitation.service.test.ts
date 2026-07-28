@@ -96,7 +96,8 @@ describe("InvitationService.createInvitation", () => {
       expect.objectContaining({
         to: "new@example.com",
         variables: expect.objectContaining({
-          acceptUrl: expect.stringContaining("raw-token"),
+          token: "raw-token",
+          registerUrl: expect.stringContaining("/register"),
         }),
       }),
     );
