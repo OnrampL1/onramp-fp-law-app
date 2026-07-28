@@ -18,6 +18,8 @@ tags:
     description: AI-generated contract summaries, risk analysis, and chat
   - name: Users
     description: User and witness-link management
+  - name: Audit
+    description: Organization-wide audit trail (Owner/Admin oversight only)
 
 # ─── Reusable components ───────────────────────────────────────────────────────
 components:
@@ -45,6 +47,18 @@ components:
         type: string
         format: uuid
       example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+    OrganizationId:
+      name: id
+      in: path
+      required: true
+      description: >
+        Must match the authenticated user's organization — the org is
+        derived from the session, this path segment is only checked against
+        it, never trusted on its own.
+      schema:
+        type: string
+        format: uuid
+      example: 8b6b3f2e-1c1a-4a2b-9c3d-0f6a2e8b7a10
 
   schemas:
     AcceptInvitationBody:
@@ -422,6 +436,43 @@ components:
           format: date-time
           example: "2024-01-16T09:00:00.000Z"
 
+    AuditAction:
+      type: string
+      enum:
+        - ORGANIZATION_CREATED
+        - OWNER_ASSIGNED
+        - ORGANIZATION_ACTIVATED
+        - ORGANIZATION_SUSPENDED
+        - ORGANIZATION_ARCHIVED
+        - ORGANIZATION_SETTINGS_UPDATED
+        - OWNERSHIP_TRANSFERRED
+        - OWNERSHIP_RECOVERED
+        - USER_INVITED
+        - INVITATION_ACCEPTED
+        - INVITATION_REVOKED
+        - USER_SUSPENDED
+        - USER_REACTIVATED
+        - USER_DEACTIVATED
+        - USER_ROLE_CHANGED
+        - CONTRACT_UPLOADED
+        - CONTRACT_TEXT_EXTRACTED
+        - CONTRACT_METADATA_UPDATED
+        - CONTRACT_BUSINESS_STATUS_CHANGED
+        - CONTRACT_PROCESSING_STATUS_CHANGED
+        - CONTRACT_SOFT_DELETED
+        - NOTE_ADDED
+        - NOTE_EDITED
+        - NOTE_DELETED
+        - WITNESS_INVITATION_CREATED
+        - WITNESS_ACCESSED
+        - WITNESS_INVITATION_REVOKED
+        - AI_ANALYSIS_REQUESTED
+        - AI_ANALYSIS_COMPLETED
+        - AI_ANALYSIS_FAILED
+        - PLATFORM_SUPPORT_ACCESS_GRANTED
+        - PLATFORM_SUPPORT_ACCESS_REVOKED
+      example: USER_ROLE_CHANGED
+
     AuditLog:
       type: object
       properties:
@@ -429,27 +480,70 @@ components:
           type: string
           format: uuid
           example: 1a2b3c4d-5e6f-4a5b-8c9d-0e1f2a3b4c5d
-        contractId:
+        organizationId:
+          type: string
+          format: uuid
+          example: 8b6b3f2e-1c1a-4a2b-9c3d-0f6a2e8b7a10
+        actorType:
+          type: string
+          enum: [USER, PLATFORM_USER, SYSTEM]
+          example: USER
+        actorUserId:
           type: string
           format: uuid
           nullable: true
           example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-        user:
-          allOf:
-            - $ref: "#/components/schemas/User"
-          nullable: true
-        action:
+        actorPlatformUserId:
           type: string
-          example: contract.status_changed
-        metadata:
+          format: uuid
+          nullable: true
+          example: null
+        action:
+          $ref: "#/components/schemas/AuditAction"
+        targetEntityType:
+          type: string
+          example: User
+        targetEntityId:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        targetDisplayName:
+          type: string
+          nullable: true
+          description: >
+            Human-readable label for targetEntityType/targetEntityId,
+            resolved server-side where a resolver is registered (e.g.
+            User, Contract). Null when no resolver exists yet for that
+            entity type or the target no longer exists.
+          example: Marcus Chen
+        contractId:
+          type: string
+          format: uuid
+          nullable: true
+          example: null
+        witnessInvitationId:
+          type: string
+          format: uuid
+          nullable: true
+          example: null
+        oldValue:
           type: object
           nullable: true
           additionalProperties: true
-          example: { from: draft, to: active }
+          example: { role: INTERNAL }
+        newValue:
+          type: object
+          nullable: true
+          additionalProperties: true
+          example: { role: ADMIN }
         ipAddress:
           type: string
           nullable: true
           example: 203.0.113.42
+        userAgent:
+          type: string
+          nullable: true
+          example: Mozilla/5.0 (Windows NT 10.0; Win64; x64)
         createdAt:
           type: string
           format: date-time
@@ -1099,13 +1193,31 @@ paths:
 
   /contracts/{id}/audit:
     get:
-      tags: [Contracts]
+      tags: [Contracts, Audit]
       summary: List audit log entries for a contract
       operationId: listContractAuditLog
+      description: >
+        Thin wrapper over the org-wide audit trail with `contractId`
+        pre-filled from the path. Requires the `OWNER` or `ADMIN` role
+        (Domain & Business Rules, Section 10 — audit review is Owner/Admin
+        oversight, not available to internal members).
       security:
         - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/ContractId"
+        - name: actorUserId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: action
+          in: query
+          schema:
+            $ref: "#/components/schemas/AuditAction"
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date-time }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date-time }
         - name: page
           in: query
           schema: { type: integer, minimum: 1, default: 1 }
@@ -1135,8 +1247,81 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{id}/audit-logs:
+    get:
+      tags: [Audit]
+      summary: List audit log entries for the organization
+      operationId: listOrganizationAuditLogs
+      description: >
+        Primary audit access pattern (DDS: `audit_logs (organization_id,
+        created_at desc)`), with `contractId`/`actorUserId`/`action` as
+        filters on top. Requires the `OWNER` or `ADMIN` role (Domain &
+        Business Rules, Section 10 — audit review is Owner/Admin oversight,
+        not available to internal members).
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - name: contractId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: actorUserId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: action
+          in: query
+          schema:
+            $ref: "#/components/schemas/AuditAction"
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date-time }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date-time }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Paginated list of audit log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLog"
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: Contract not found
+          description: Organization not found
           content:
             application/json:
               schema:

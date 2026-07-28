@@ -394,5 +394,7 @@ model AuditLog {
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([action])
+  @@index([contractId])
+  @@index([actorUserId])
   @@map("audit_logs")
 }
