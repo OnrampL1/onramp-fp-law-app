@@ -56,7 +56,7 @@ export function Register() {
       navigate("/dashboard");
     } catch {
       setError(
-        "Invitation acceptance failed. Check your invitation and try again.",
+        "This invitation token is invalid, expired, or has already been used.",
       );
     }
   };
