@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, ShieldAlert } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -15,7 +15,12 @@ import { useContractsList } from "../hooks/useContractsList";
 import { useAuth } from "../hooks/useAuth";
 import { isAdminRole } from "../lib/permissions";
 import { listUsers } from "../services/users.service";
-import { AUDIT_ACTION_LABELS } from "../types/audit";
+import { fetchAuditLogList } from "../services/audit-log.service";
+import { AUDIT_ACTION_LABELS, type AuditLogEntry } from "../types/audit";
+
+// The audit-logs query schema's max page size (packages/api/src/schemas/audit.schemas.ts)
+// — used to minimize the number of requests when paging through everything for export.
+const EXPORT_PAGE_SIZE = 100;
 
 const RETENTION_YEARS = 7;
 
@@ -62,58 +67,96 @@ export function AuditLogPage() {
   const entries = data?.items ?? [];
   const pagination = data?.pagination;
 
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
   function sanitizeCsvCell(value: string): string {
     // Prefix values that a spreadsheet app would interpret as a formula
     // (=, +, -, @) with a single quote so they're treated as plain text.
     return /^[=+\-@]/.test(value) ? `'${value}` : value;
   }
 
-  function handleExport() {
-    const headers = [
-      "Timestamp",
-      "Actor",
-      "Action",
-      "Target",
-      "Target ID",
-      "Before",
-      "After",
-      "IP Address",
-    ];
+  // Exports every entry matching the current filters, not just the page
+  // currently loaded in the table — pages through the list endpoint at the
+  // schema's max page size until there's nothing left to fetch.
+  async function fetchAllMatchingEntries(organizationId: string): Promise<AuditLogEntry[]> {
+    const allEntries: AuditLogEntry[] = [];
+    let page = 1;
+    let totalPages = 1;
 
-    const rows = entries.map((entry) => {
-      const actor = getActorDisplay(entry, usersById);
-      const target = getTargetDisplay(entry, contractsById);
+    do {
+      const result = await fetchAuditLogList(organizationId, {
+        ...filters.queryParams,
+        page,
+        limit: EXPORT_PAGE_SIZE,
+      });
+      allEntries.push(...result.items);
+      totalPages = result.pagination.totalPages;
+      page += 1;
+    } while (page <= totalPages);
 
-      return [
-        entry.createdAt,
-        actor.name,
-        AUDIT_ACTION_LABELS[entry.action],
-        target.detailIsId ? humanizeTargetType(entry.targetEntityType) : target.name,
-        entry.targetEntityId,
-        entry.oldValue ? JSON.stringify(entry.oldValue) : "",
-        entry.newValue ? JSON.stringify(entry.newValue) : "",
-        entry.ipAddress ?? "",
+    return allEntries;
+  }
+
+  async function handleExport() {
+    if (!user?.organizationId || isExporting) return;
+
+    setIsExporting(true);
+    setExportError(null);
+
+    try {
+      const allEntries = await fetchAllMatchingEntries(user.organizationId);
+
+      const headers = [
+        "Timestamp",
+        "Actor",
+        "Action",
+        "Target",
+        "Target ID",
+        "Before",
+        "After",
+        "IP Address",
       ];
-    });
 
-    const csv = [headers, ...rows]
-      .map((row) =>
-        row
-          .map((cell) => sanitizeCsvCell(String(cell)))
-          .map((cell) => `"${cell.replace(/"/g, '""')}"`)
-          .join(","),
-      )
-      .join("\n");
+      const rows = allEntries.map((entry) => {
+        const actor = getActorDisplay(entry, usersById);
+        const target = getTargetDisplay(entry, contractsById);
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+        return [
+          entry.createdAt,
+          actor.name,
+          AUDIT_ACTION_LABELS[entry.action],
+          target.detailIsId ? humanizeTargetType(entry.targetEntityType) : target.name,
+          entry.targetEntityId,
+          entry.oldValue ? JSON.stringify(entry.oldValue) : "",
+          entry.newValue ? JSON.stringify(entry.newValue) : "",
+          entry.ipAddress ?? "",
+        ];
+      });
 
-    link.href = url;
-    link.download = "audit-logs.csv";
-    link.click();
+      const csv = [headers, ...rows]
+        .map((row) =>
+          row
+            .map((cell) => sanitizeCsvCell(String(cell)))
+            .map((cell) => `"${cell.replace(/"/g, '""')}"`)
+            .join(","),
+        )
+        .join("\n");
 
-    URL.revokeObjectURL(url);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "audit-logs.csv";
+      link.click();
+
+      URL.revokeObjectURL(url);
+    } catch {
+      setExportError("Couldn't export the audit log. Try again.");
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   if (!isAdminRole(user?.role)) {
@@ -137,16 +180,22 @@ export function AuditLogPage() {
             Immutable record of every contract and user action for compliance.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shrink-0 gap-1.5"
-          onClick={handleExport}
-        >
-          <Download className="size-4" aria-hidden="true" />
-          Export Logs
-        </Button>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExport}
+            disabled={isExporting}
+          >
+            <Download className="size-4" aria-hidden="true" />
+            {isExporting ? "Exporting…" : "Export Logs"}
+          </Button>
+          {exportError && (
+            <p className="text-xs text-destructive">{exportError}</p>
+          )}
+        </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card">
