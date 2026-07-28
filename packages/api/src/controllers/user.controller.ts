@@ -6,6 +6,10 @@ function actorFrom(payload: AccessTokenPayload) {
   return { id: payload.userId, organizationId: payload.orgId };
 }
 
+function requestContextFrom(req: Request) {
+  return { ipAddress: req.ip, userAgent: req.get("user-agent") };
+}
+
 export const userController = {
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -33,6 +37,7 @@ export const userController = {
         actorFrom(req.user!),
         req.params.id as string,
         req.body.role,
+        requestContextFrom(req),
       );
       res.json({ data: user });
     } catch (err) {
@@ -50,6 +55,7 @@ export const userController = {
         actorFrom(req.user!),
         req.params.id as string,
         req.body.status,
+        requestContextFrom(req),
       );
       res.json({ data: user });
     } catch (err) {

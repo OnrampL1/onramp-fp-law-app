@@ -5,6 +5,7 @@ import type {
   Prisma,
 } from "@prisma/client";
 import { getPrismaClient } from "@starter-kit/shared";
+import { auditService } from "../services/audit.service";
 
 const prisma = getPrismaClient();
 
@@ -56,28 +57,25 @@ export class ContractsRepository {
     contract: Contract,
     input: CreateUploadedContractInput,
   ): Promise<void> {
-    await tx.auditLog.create({
-      data: {
-        organizationId: input.organizationId,
-        actorType: "USER",
-        actorUserId: input.uploadedByUserId,
-        action: "CONTRACT_UPLOADED",
-        targetEntityType: "Contract",
-        targetEntityId: contract.id,
-        contractId: contract.id,
-        newValue: {
-          title: contract.title,
-          counterparty: contract.counterparty,
-          tags: contract.tags,
-          expirationDate: contract.expirationDate?.toISOString() ?? null,
-          legalState: contract.legalState,
-          businessStatus: contract.businessStatus,
-          processingStatus: contract.processingStatus,
-          version: contract.version,
-        },
-        ipAddress: input.ipAddress,
-        userAgent: input.userAgent,
+    await auditService.logEvent(tx, {
+      organizationId: input.organizationId,
+      actorUserId: input.uploadedByUserId,
+      action: "CONTRACT_UPLOADED",
+      targetEntityType: "Contract",
+      targetEntityId: contract.id,
+      contractId: contract.id,
+      newValue: {
+        title: contract.title,
+        counterparty: contract.counterparty,
+        tags: contract.tags,
+        expirationDate: contract.expirationDate?.toISOString() ?? null,
+        legalState: contract.legalState,
+        businessStatus: contract.businessStatus,
+        processingStatus: contract.processingStatus,
+        version: contract.version,
       },
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
     });
   }
 }

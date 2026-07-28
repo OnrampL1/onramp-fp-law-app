@@ -1,6 +1,7 @@
 import { getPrismaClient, isAssignableRole } from "@starter-kit/shared";
 import type { User, UserRole, UserStatus } from "@prisma/client";
 import { createError } from "../middleware/error-handler";
+import { auditService } from "./audit.service";
 
 const prisma = getPrismaClient();
 
@@ -12,6 +13,11 @@ interface PaginationInput {
 interface Actor {
   id: string;
   organizationId: string;
+}
+
+interface RequestContext {
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 function toPublicUser(user: User) {
@@ -46,7 +52,12 @@ export class UserService {
     };
   }
 
-  async updateRole(actor: Actor, targetUserId: string, role: UserRole) {
+  async updateRole(
+    actor: Actor,
+    targetUserId: string,
+    role: UserRole,
+    requestContext: RequestContext = {},
+  ) {
     if (!isAssignableRole(role)) {
       throw createError(
         "OWNER cannot be assigned through a role change",
@@ -70,17 +81,16 @@ export class UserService {
         data: { role },
       });
 
-      await tx.auditLog.create({
-        data: {
-          organizationId: actor.organizationId,
-          actorType: "USER",
-          actorUserId: actor.id,
-          action: "USER_ROLE_CHANGED",
-          targetEntityType: "User",
-          targetEntityId: target.id,
-          oldValue: { role: previousRole },
-          newValue: { role },
-        },
+      await auditService.logEvent(tx, {
+        organizationId: actor.organizationId,
+        actorUserId: actor.id,
+        action: "USER_ROLE_CHANGED",
+        targetEntityType: "User",
+        targetEntityId: target.id,
+        oldValue: { role: previousRole },
+        newValue: { role },
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
       });
 
       return user;
@@ -93,6 +103,7 @@ export class UserService {
     actor: Actor,
     targetUserId: string,
     status: Extract<UserStatus, "ACTIVE" | "SUSPENDED">,
+    requestContext: RequestContext = {},
   ) {
     const target = await this.getOrgMember(actor.organizationId, targetUserId);
 
@@ -112,17 +123,16 @@ export class UserService {
         data: { status },
       });
 
-      await tx.auditLog.create({
-        data: {
-          organizationId: actor.organizationId,
-          actorType: "USER",
-          actorUserId: actor.id,
-          action,
-          targetEntityType: "User",
-          targetEntityId: target.id,
-          oldValue: { status: previousStatus },
-          newValue: { status },
-        },
+      await auditService.logEvent(tx, {
+        organizationId: actor.organizationId,
+        actorUserId: actor.id,
+        action,
+        targetEntityType: "User",
+        targetEntityId: target.id,
+        oldValue: { status: previousStatus },
+        newValue: { status },
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
       });
 
       return user;
