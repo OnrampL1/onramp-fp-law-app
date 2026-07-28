@@ -6,6 +6,7 @@ import {
 } from "@starter-kit/shared";
 import type { InvitationStatus, UserRole } from "@prisma/client";
 import { createError } from "../middleware/error-handler";
+import { auditService } from "./audit.service";
 
 const prisma = getPrismaClient();
 
@@ -20,6 +21,11 @@ interface PaginationInput {
 interface Actor {
   id: string;
   organizationId: string;
+}
+
+interface RequestContext {
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 interface CreateInvitationInput {
@@ -82,13 +88,21 @@ async function sendInvitationEmail(params: {
       ...(params.fullName && { fullName: params.fullName }),
       ...(params.inviterName && { inviterName: params.inviterName }),
       ...(params.organizationName && { organizationName: params.organizationName }),
-      acceptUrl: `${APP_URL}/accept-invitation?token=${params.rawToken}`,
+      // The invitee types this into the general /register page themselves —
+      // no unique per-invitation link, so the token has to be visible text
+      // rather than embedded in a URL.
+      token: params.rawToken,
+      registerUrl: `${APP_URL}/register`,
     },
   });
 }
 
 export class InvitationService {
-  async createInvitation(actor: Actor, input: CreateInvitationInput) {
+  async createInvitation(
+    actor: Actor,
+    input: CreateInvitationInput,
+    requestContext: RequestContext = {},
+  ) {
     const [existingUser, existingInvitation] = await Promise.all([
       prisma.user.findUnique({ where: { email: input.email } }),
       prisma.invitation.findFirst({
@@ -120,16 +134,15 @@ export class InvitationService {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          organizationId: actor.organizationId,
-          actorType: "USER",
-          actorUserId: actor.id,
-          action: "USER_INVITED",
-          targetEntityType: "Invitation",
-          targetEntityId: created.id,
-          newValue: { email: input.email, role: input.role },
-        },
+      await auditService.logEvent(tx, {
+        organizationId: actor.organizationId,
+        actorUserId: actor.id,
+        action: "USER_INVITED",
+        targetEntityType: "Invitation",
+        targetEntityId: created.id,
+        newValue: { email: input.email, role: input.role },
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
       });
 
       return created;
@@ -218,7 +231,11 @@ export class InvitationService {
     return toPublicInvitation(updated);
   }
 
-  async revokeInvitation(actor: Actor, invitationId: string) {
+  async revokeInvitation(
+    actor: Actor,
+    invitationId: string,
+    requestContext: RequestContext = {},
+  ) {
     const invitation = await prisma.invitation.findFirst({
       where: { id: invitationId, organizationId: actor.organizationId },
     });
@@ -240,17 +257,16 @@ export class InvitationService {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          organizationId: actor.organizationId,
-          actorType: "USER",
-          actorUserId: actor.id,
-          action: "INVITATION_REVOKED",
-          targetEntityType: "Invitation",
-          targetEntityId: invitation.id,
-          oldValue: { status: "PENDING" },
-          newValue: { status: "REVOKED" },
-        },
+      await auditService.logEvent(tx, {
+        organizationId: actor.organizationId,
+        actorUserId: actor.id,
+        action: "INVITATION_REVOKED",
+        targetEntityType: "Invitation",
+        targetEntityId: invitation.id,
+        oldValue: { status: "PENDING" },
+        newValue: { status: "REVOKED" },
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
       });
 
       return revoked;

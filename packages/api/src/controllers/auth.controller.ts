@@ -35,6 +35,10 @@ function clearAuthCookies(res: Response): void {
   res.clearCookie(REFRESH_COOKIE, { path: "/api/auth/refresh" });
 }
 
+function requestContextFrom(req: Request) {
+  return { ipAddress: req.ip, userAgent: req.get("user-agent") };
+}
+
 export const authController = {
   async acceptInvitation(
     req: Request,
@@ -43,7 +47,7 @@ export const authController = {
   ): Promise<void> {
     try {
       const { user, accessToken, refreshToken } =
-        await authService.acceptInvitation(req.body);
+        await authService.acceptInvitation(req.body, requestContextFrom(req));
       setAuthCookies(res, accessToken, refreshToken);
       res.status(201).json({ data: { user } });
     } catch (err) {
