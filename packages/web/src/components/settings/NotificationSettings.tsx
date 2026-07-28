@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { BellRing, FileCheck2, ShieldAlert, Sparkles } from "lucide-react";
 
@@ -10,29 +9,41 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  useOrganizationSettings,
+  useUpdateOrganizationSettings,
+} from "@/hooks/useSettings";
+import type { NotificationPreferences } from "@/services/settings.service";
 
 const notificationOptions = [
   {
     id: "contractUpdates",
     title: "Contract updates",
-    description: "Receive updates when contract review activity changes.",
+    description: "Track workspace contract activity preferences.",
     icon: FileCheck2,
   },
   {
     id: "riskAlerts",
     title: "Risk alerts",
-    description: "Receive alerts when important contract risks are detected.",
+    description: "Track preferences for important contract risk updates.",
     icon: ShieldAlert,
   },
   {
     id: "aiInsights",
     title: "AI insights",
-    description: "Receive notifications about AI-generated review insights.",
+    description: "Track preferences for AI-generated review updates.",
     icon: Sparkles,
   },
 ] as const;
 
 type NotificationKey = (typeof notificationOptions)[number]["id"];
+
+function getPreferenceValue(
+  preferences: NotificationPreferences | null | undefined,
+  key: NotificationKey,
+) {
+  return preferences?.[key] ?? false;
+}
 
 type NotificationOptionProps = {
   id: NotificationKey;
@@ -40,6 +51,7 @@ type NotificationOptionProps = {
   description: string;
   icon: LucideIcon;
   enabled: boolean;
+  disabled: boolean;
   onToggle: (id: NotificationKey) => void;
 };
 
@@ -49,6 +61,7 @@ function NotificationOption({
   description,
   icon: Icon,
   enabled,
+  disabled,
   onToggle,
 }: NotificationOptionProps) {
   return (
@@ -69,6 +82,7 @@ function NotificationOption({
         variant={enabled ? "default" : "outline"}
         size="sm"
         onClick={() => onToggle(id)}
+        disabled={disabled}
         className="w-full sm:w-auto"
       >
         {enabled ? "Enabled" : "Disabled"}
@@ -78,19 +92,38 @@ function NotificationOption({
 }
 
 export function NotificationSettings() {
-  const [preferences, setPreferences] = useState<
-    Record<NotificationKey, boolean>
-  >({
-    contractUpdates: true,
-    riskAlerts: true,
-    aiInsights: false,
-  });
+  const settingsQuery = useOrganizationSettings();
+  const updateSettings = useUpdateOrganizationSettings();
+
+  const settings = settingsQuery.data;
+  const preferences = settings?.settings.notificationPreferences;
+  const canManageSettings = settings?.permissions.canManageSettings ?? false;
 
   function handleToggle(id: NotificationKey) {
-    setPreferences((currentPreferences) => ({
-      ...currentPreferences,
-      [id]: !currentPreferences[id],
-    }));
+    const nextPreferences = {
+      contractUpdates: getPreferenceValue(preferences, "contractUpdates"),
+      riskAlerts: getPreferenceValue(preferences, "riskAlerts"),
+      aiInsights: getPreferenceValue(preferences, "aiInsights"),
+      [id]: !getPreferenceValue(preferences, id),
+    };
+
+    updateSettings.mutate({ notificationPreferences: nextPreferences });
+  }
+
+  if (settingsQuery.isLoading) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Loading notification preferences...
+      </p>
+    );
+  }
+
+  if (settingsQuery.isError || !settings) {
+    return (
+      <p className="text-sm text-destructive">
+        Unable to load notification preferences.
+      </p>
+    );
   }
 
   return (
@@ -99,7 +132,7 @@ export function NotificationSettings() {
         <CardHeader>
           <CardTitle className="text-base">Notification preferences</CardTitle>
           <CardDescription>
-            Choose which workspace updates should notify you.
+            Organization-wide preferences for workspace update categories.
           </CardDescription>
         </CardHeader>
 
@@ -111,7 +144,8 @@ export function NotificationSettings() {
               title={option.title}
               description={option.description}
               icon={option.icon}
-              enabled={preferences[option.id]}
+              enabled={getPreferenceValue(preferences, option.id)}
+              disabled={!canManageSettings || updateSettings.isPending}
               onToggle={handleToggle}
             />
           ))}
@@ -128,12 +162,19 @@ export function NotificationSettings() {
             <div>
               <CardTitle className="text-base">Delivery</CardTitle>
               <CardDescription>
-                Notifications are shown inside the workspace experience.
+                Delivery infrastructure is not yet implemented; these saved
+                preferences only record workspace intent.
               </CardDescription>
             </div>
           </div>
         </CardHeader>
       </Card>
+
+      {updateSettings.isError && (
+        <p className="text-sm text-destructive">
+          Unable to save notification preferences.
+        </p>
+      )}
     </div>
   );
 }

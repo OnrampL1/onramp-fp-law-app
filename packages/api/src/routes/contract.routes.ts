@@ -4,11 +4,20 @@ import { auditController } from "../controllers/audit.controller";
 import { authenticate, withAuth } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { validate } from "../middleware/validate";
+import { parseContractUploadFile } from "../middleware/contract-upload.middleware";
 import { ADMIN_ROLES } from "@starter-kit/shared";
 import { listContractsQuerySchema } from "../schemas/contract.schemas";
 import { listContractAuditLogsQuerySchema } from "../schemas/audit.schemas";
 
 const router = Router();
+
+router.post(
+  "/",
+  authenticate,
+  authorize("OWNER", "ADMIN", "INTERNAL"),
+  parseContractUploadFile,
+  withAuth(contractController.upload),
+);
 
 router.get(
   "/",

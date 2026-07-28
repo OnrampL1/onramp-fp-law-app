@@ -20,6 +20,8 @@ tags:
     description: User and witness-link management
   - name: Audit
     description: Organization-wide audit trail (Owner/Admin oversight only)
+  - name: Settings
+    description: Organization settings and preferences
 
 # ─── Reusable components ───────────────────────────────────────────────────────
 components:
@@ -314,6 +316,102 @@ components:
         totalPages:
           type: integer
           example: 5
+
+    NotificationPreferences:
+      type: object
+      additionalProperties: false
+      properties:
+        contractUpdates:
+          type: boolean
+          example: true
+        riskAlerts:
+          type: boolean
+          example: true
+        aiInsights:
+          type: boolean
+          example: false
+
+    OrganizationSettingsData:
+      type: object
+      properties:
+        organization:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: 00000000-0000-4000-8000-000000000001
+            name:
+              type: string
+              example: Ridgeline & Voss LLP
+            slug:
+              type: string
+              example: ridgeline-voss
+            status:
+              type: string
+              enum: [CREATED, OWNER_ASSIGNED, ACTIVE, SUSPENDED, ARCHIVED]
+              example: ACTIVE
+        settings:
+          type: object
+          properties:
+            timezone:
+              type: string
+              example: Asia/Beirut
+            language:
+              type: string
+              enum: [en, fr, ar]
+              example: en
+            logoUrl:
+              type: string
+              format: uri
+              nullable: true
+              example: https://example.com/logo.png
+            notificationPreferences:
+              nullable: true
+              oneOf:
+                - $ref: "#/components/schemas/NotificationPreferences"
+                - type: "null"
+            branding:
+              nullable: true
+              description: Reserved organization branding JSON. Not currently edited by the settings UI.
+        permissions:
+          type: object
+          properties:
+            canManageSettings:
+              type: boolean
+              example: true
+
+    OrganizationSettingsResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/OrganizationSettingsData"
+
+    UpdateOrganizationSettingsBody:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: Ridgeline & Voss LLP
+        timezone:
+          type: string
+          description: Must be a valid IANA timezone.
+          example: Asia/Beirut
+        language:
+          type: string
+          enum: [en, fr, ar]
+          example: en
+        logoUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: https://example.com/logo.png
+        notificationPreferences:
+          $ref: "#/components/schemas/NotificationPreferences"
 
     # ─── Contract Management System ────────────────────────────────────────────
     Organization:
@@ -1504,6 +1602,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/organization:
+    get:
+      tags: [Settings]
+      summary: Get organization settings for the current authenticated user
+      operationId: getOrganizationSettings
+      description: >
+        Returns the authenticated user's organization profile, supported
+        organization settings, and whether the current role can manage settings.
+        The organization scope always comes from the authenticated session,
+        never from request parameters.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Current organization settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationSettingsResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Organization is not active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Organization settings not found for the authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags: [Settings]
+      summary: Update organization settings
+      operationId: updateOrganizationSettings
+      description: >
+        Updates supported organization-level settings for the authenticated
+        user's organization. Requires OWNER or ADMIN. The endpoint rejects
+        unsupported fields such as contactEmail, phone, website, address,
+        user-level notification settings, and AI analysis mode.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrganizationSettingsBody"
+      responses:
+        "200":
+          description: Updated organization settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationSettingsResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions or inactive organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Organization settings not found for the authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error or unsupported field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
 
   /users:
     get:
