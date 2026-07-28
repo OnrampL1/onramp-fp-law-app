@@ -1,4 +1,8 @@
-import type { ContractLegalState } from "@prisma/client";
+import type {
+  ContractBusinessStatus,
+  ContractLegalState,
+  ContractProcessingStatus,
+} from "@prisma/client";
 
 export type ContractSortField =
   | "title"
@@ -49,4 +53,18 @@ export interface PaginationMeta {
   pageSize: number;
   total: number;
   totalPages: number;
+}
+
+export interface ContractUploadResultDto {
+  id: string;
+  title: string;
+  counterparty: string;
+  businessStatus: ContractBusinessStatus;
+  processingStatus: ContractProcessingStatus;
+  legalState: ContractLegalState | null;
+  tags: string[];
+  expirationDate: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 }
