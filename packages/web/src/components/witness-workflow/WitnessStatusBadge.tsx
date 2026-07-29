@@ -1,5 +1,5 @@
 import { cn } from "../../lib/utils";
-import { WITNESS_STATUS_STYLES, WITNESS_STATUS_DOT } from "./types/styles";
+import { WITNESS_STATUS_STYLES, WITNESS_STATUS_DOT, WITNESS_STATUS_LABELS } from "./types/styles";
 import type { WitnessStatus } from "./types";
 
 interface WitnessStatusBadgeProps {
@@ -17,7 +17,7 @@ export function WitnessStatusBadge({ status, className }: WitnessStatusBadgeProp
       )}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", WITNESS_STATUS_DOT[status])} />
-      {status}
+      {WITNESS_STATUS_LABELS[status]}
     </span>
   );
 }

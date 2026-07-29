@@ -1,20 +1,43 @@
 import { useState } from "react";
+import { AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
 import type { ReviewStage, AccessActivityItem, ActivityEventType } from "./types";
+
+interface ActivityPaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
 
 interface WitnessReviewProgressProps {
   stages: ReviewStage[];
   activityItems: AccessActivityItem[];
+  activityIsLoading: boolean;
+  activityIsError: boolean;
+  onActivityRetry: () => void;
+  activityPagination?: ActivityPaginationMeta;
+  onActivityPageChange: (page: number) => void;
 }
 
 type Tab = "progress" | "activity";
 
 /**
  * Tabbed panel:
- * - Review Progress: completion funnel across active witness invitations
- * - Access Activity: chronological audit trail of witness access events
+ * - Review Progress: completion funnel across all witness invitations
+ * - Access Activity: real audit trail of witness access events, paged
+ *   through rather than rendered as one long list
  */
-export function WitnessReviewProgress({ stages, activityItems }: WitnessReviewProgressProps) {
+export function WitnessReviewProgress({
+  stages,
+  activityItems,
+  activityIsLoading,
+  activityIsError,
+  onActivityRetry,
+  activityPagination,
+  onActivityPageChange,
+}: WitnessReviewProgressProps) {
   const [activeTab, setActiveTab] = useState<Tab>("progress");
 
   return (
@@ -43,11 +66,11 @@ export function WitnessReviewProgress({ stages, activityItems }: WitnessReviewPr
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold">Witness Review Progress</CardTitle>
             <CardDescription>
-              Completion funnel across all active witness invitations.
+              Completion funnel across all witness invitations ever issued.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {stages.map((s) => (
                 <StageCard key={s.stage} stage={s} />
               ))}
@@ -59,15 +82,65 @@ export function WitnessReviewProgress({ stages, activityItems }: WitnessReviewPr
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold">Witness Access Activity</CardTitle>
             <CardDescription>
-              Chronological audit trail of witness access events.
+              Real audit trail of witness link creation, access, and revocation.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <ul className="divide-y divide-border">
-              {activityItems.map((item) => (
-                <ActivityRow key={item.id} item={item} />
-              ))}
-            </ul>
+            {activityIsLoading ? (
+              <p className="py-14 text-center text-sm text-muted-foreground">Loading activity...</p>
+            ) : activityIsError ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+                <AlertCircle className="size-6 text-destructive" />
+                <p className="text-sm text-muted-foreground">We couldn't load witness activity.</p>
+                <Button variant="outline" size="sm" onClick={onActivityRetry}>
+                  Retry
+                </Button>
+              </div>
+            ) : activityItems.length === 0 ? (
+              <p className="py-14 text-center text-sm text-muted-foreground">
+                No witness activity yet.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {activityItems.map((item) => (
+                  <ActivityRow key={item.id} item={item} />
+                ))}
+              </ul>
+            )}
+
+            {activityPagination && activityPagination.total > 0 && (
+              <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3">
+                <p className="text-xs text-muted-foreground">
+                  Page {activityPagination.page} of {activityPagination.totalPages}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => onActivityPageChange(Math.max(1, activityPagination.page - 1))}
+                    disabled={activityPagination.page === 1}
+                  >
+                    <ChevronLeft className="size-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() =>
+                      onActivityPageChange(
+                        Math.min(activityPagination.totalPages, activityPagination.page + 1),
+                      )
+                    }
+                    disabled={activityPagination.page === activityPagination.totalPages}
+                  >
+                    Next
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </>
       )}
@@ -97,33 +170,21 @@ function StageCard({ stage: s }: { stage: ReviewStage }) {
 // ─── Activity row ─────────────────────────────────────────────────────────────
 
 const ACTIVITY_ICON_STYLES: Record<ActivityEventType, string> = {
-  acknowledged:     "bg-green-50  text-green-600  dark:bg-green-900/20 dark:text-green-400",
-  review_completed: "bg-blue-50   text-blue-600   dark:bg-blue-900/20  dark:text-blue-400",
-  pdf_downloaded:   "bg-muted     text-muted-foreground",
-  contract_opened:  "bg-muted     text-muted-foreground",
-  link_generated:   "bg-muted     text-muted-foreground",
+  witness_accessed: "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400",
+  witness_revoked:  "bg-red-50   text-red-600   dark:bg-red-900/20   dark:text-red-400",
+  link_generated:   "bg-muted    text-muted-foreground",
 };
 
 function ActivityIcon({ type }: { type: ActivityEventType }) {
   const icons: Record<ActivityEventType, React.ReactNode> = {
-    acknowledged: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-      </svg>
-    ),
-    review_completed: (
+    witness_accessed: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
-    pdf_downloaded: (
+    witness_revoked: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-      </svg>
-    ),
-    contract_opened: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
       </svg>
     ),
     link_generated: (

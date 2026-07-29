@@ -1,31 +1,16 @@
 // ─── Witness-specific types ───────────────────────────────────────────────────
 
-export type WitnessStatus =
-  | "Viewed"
-  | "Acknowledged"
-  | "Pending"
-  | "Expired"
-  | "Revoked";
+// Matches the real backend model (WitnessLinkStatus in types/witness.ts /
+// deriveWitnessStatus in witness.service.ts) — there is no separate
+// "viewed" or "acknowledged" state, only pending/used/expired/revoked.
+export type WitnessStatus = "pending" | "used" | "expired" | "revoked";
 
-export type AccessType = "Review & Acknowledge" | "Review Only";
+// Single fixed value, not a real choice — every witness gets identical
+// read-only access regardless of anything selected in the generate form
+// (BR-8). Kept as a named type rather than inlining "Review Only" so its
+// call sites still read as intentional rather than a stray string literal.
+export type AccessType = "Review Only";
 export type AccessExpiry = "24h" | "48h" | "72h" | "7d";
-
-export interface WitnessInvitation {
-  id: string;
-  contractName: string;
-  contractId: string;
-  witnessName: string;
-  witnessEmail: string;
-  generatedBy: string;
-  created: string;
-  expires: string;
-  expiresLabel: string;
-  status: WitnessStatus;
-  accessType: AccessType;
-  lastAction: string;
-  generatedDate: string;
-  url: string;
-}
 
 export interface ReviewStage {
   stage: number;
@@ -43,13 +28,6 @@ export interface SecurityFeature {
   badgeVariant: "secure" | "active" | "enforced" | "verified";
 }
 
-export interface ExpiringLink {
-  contractName: string;
-  contractId: string;
-  witnessName: string;
-  expirationTime: string;
-}
-
 export interface WitnessStatCard {
   icon: React.ReactNode;
   delta: string;
@@ -62,19 +40,25 @@ export interface WitnessStatCard {
 // ─── NEW: generated link state ────────────────────────────────────────────────
 
 export interface GeneratedLink {
+  id: string;
+  contractId: string;
   url: string;
   expirationDate: string;
   accessType: AccessType;
+  witnessEmail: string;
+  witnessName: string | null;
+  // "Sent" means handed off to the mail queue, not confirmed delivered.
+  emailSentAt: string | null;
 }
 
 // ─── NEW: access activity timeline ───────────────────────────────────────────
 
+// The 3 audit events witness.service.ts actually emits — no per-action
+// granular log (page views, downloads) exists behind this.
 export type ActivityEventType =
-  | "acknowledged"
-  | "review_completed"
-  | "pdf_downloaded"
-  | "contract_opened"
-  | "link_generated";
+  | "link_generated"
+  | "witness_accessed"
+  | "witness_revoked";
 
 export interface AccessActivityItem {
   id: string;
