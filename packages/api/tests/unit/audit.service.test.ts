@@ -127,6 +127,25 @@ describe("AuditService.listAuditLogs", () => {
     );
   });
 
+  it("filters on multiple actions at once via an 'in' clause when action is an array", async () => {
+    await auditService.listAuditLogs(
+      "org-1",
+      { action: ["WITNESS_INVITATION_CREATED", "WITNESS_ACCESSED", "WITNESS_INVITATION_REVOKED"] },
+      { page: 1, limit: 20 },
+    );
+
+    expect(mockDb.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: "org-1",
+          action: {
+            in: ["WITNESS_INVITATION_CREATED", "WITNESS_ACCESSED", "WITNESS_INVITATION_REVOKED"],
+          },
+        },
+      }),
+    );
+  });
+
   it("builds a createdAt range from dateFrom/dateTo, independently or combined", async () => {
     const dateFrom = new Date("2026-01-01T00:00:00.000Z");
     const dateTo = new Date("2026-01-31T23:59:59.000Z");

@@ -3,7 +3,12 @@ import { z } from "zod";
 
 const auditListBaseShape = {
   actorUserId: z.string().uuid().optional(),
-  action: z.nativeEnum(AuditAction).optional(),
+  // Accepts either one action (?action=X) or several (?action=X&action=Y,
+  // which express/qs parses as an array) — e.g. the Witness Workflow page's
+  // Access Activity tab filtering to its 3 witness-related actions at once.
+  action: z
+    .union([z.nativeEnum(AuditAction), z.array(z.nativeEnum(AuditAction))])
+    .optional(),
   dateFrom: z.coerce.date().optional(),
   dateTo: z.coerce.date().optional(),
   page: z.coerce.number().int().min(1).default(1),

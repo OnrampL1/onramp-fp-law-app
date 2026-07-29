@@ -6,7 +6,7 @@ const prisma = getPrismaClient();
 interface AuditLogFilters {
   contractId?: string;
   actorUserId?: string;
-  action?: AuditAction;
+  action?: AuditAction | AuditAction[];
   dateFrom?: Date;
   dateTo?: Date;
 }
@@ -74,6 +74,17 @@ const TARGET_RESOLVERS: Partial<Record<string, TargetResolver>> = {
     });
     return new Map(contracts.map((c) => [c.id, c.title]));
   },
+  // WitnessInvitation has no organizationId of its own — it's scoped to the
+  // org through its Contract, same as every other witness query.
+  WitnessInvitation: async (ids, organizationId) => {
+    const invitations = await prisma.witnessInvitation.findMany({
+      where: { id: { in: ids }, contract: { organizationId } },
+      select: { id: true, witnessEmail: true, witnessName: true },
+    });
+    return new Map(
+      invitations.map((w) => [w.id, w.witnessName ?? w.witnessEmail]),
+    );
+  },
 };
 
 export class AuditService {
@@ -109,7 +120,9 @@ export class AuditService {
       organizationId,
       ...(filters.contractId && { contractId: filters.contractId }),
       ...(filters.actorUserId && { actorUserId: filters.actorUserId }),
-      ...(filters.action && { action: filters.action }),
+      ...(filters.action && {
+        action: Array.isArray(filters.action) ? { in: filters.action } : filters.action,
+      }),
       ...((filters.dateFrom || filters.dateTo) && {
         createdAt: {
           ...(filters.dateFrom && { gte: filters.dateFrom }),
