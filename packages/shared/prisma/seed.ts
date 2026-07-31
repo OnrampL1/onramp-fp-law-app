@@ -309,6 +309,8 @@ async function main(): Promise<void> {
   interface WitnessSeed {
     id: string;
     issuedByUserId: string;
+    witnessEmail: string;
+    witnessName?: string;
     status: "ISSUED" | "USED" | "EXPIRED" | "REVOKED";
     expiresAt: Date;
     usedAt?: Date;
@@ -396,6 +398,8 @@ async function main(): Promise<void> {
         {
           id: "00000000-0000-4000-8000-000000000331",
           issuedByUserId: USER_OWNER_ID,
+          witnessEmail: "counsel@acmerobotics.com",
+          witnessName: "Reg Halloway",
           status: "EXPIRED",
           expiresAt: daysFromNow(-100),
           createdAt: daysFromNow(-110),
@@ -429,6 +433,8 @@ async function main(): Promise<void> {
         {
           id: "00000000-0000-4000-8000-000000000332",
           issuedByUserId: USER_OPS_ID,
+          witnessEmail: "procurement@blackwoodmfg.com",
+          witnessName: "Dana Ferreira",
           status: "ISSUED",
           expiresAt: daysFromNow(2),
           createdAt: daysFromNow(-5),
@@ -492,6 +498,8 @@ async function main(): Promise<void> {
         {
           id: "00000000-0000-4000-8000-000000000333",
           issuedByUserId: USER_LEGAL_ID,
+          witnessEmail: "landlord@harrowfinch.com",
+          witnessName: "Owen Harrow",
           status: "USED",
           expiresAt: daysFromNow(-85),
           usedAt: daysFromNow(-89),
@@ -637,6 +645,8 @@ async function main(): Promise<void> {
         {
           id: "00000000-0000-4000-8000-000000000334",
           issuedByUserId: USER_ADMIN_ID,
+          witnessEmail: "outside.counsel@vantagecapital.com",
+          witnessName: "Priya Malhotra",
           status: "REVOKED",
           expiresAt: daysFromNow(-60),
           isRevoked: true,
@@ -784,6 +794,8 @@ async function main(): Promise<void> {
           id: witness.id,
           contractId: c.id,
           issuedByUserId: witness.issuedByUserId,
+          witnessEmail: witness.witnessEmail,
+          witnessName: witness.witnessName,
           tokenHash: tokenHash(witness.id),
           status: witness.status,
           expiresAt: witness.expiresAt,

@@ -6,7 +6,7 @@ import { createError } from "../middleware/error-handler";
 interface OrgAuditListQuery {
   contractId?: string;
   actorUserId?: string;
-  action?: AuditAction;
+  action?: AuditAction | AuditAction[];
   dateFrom?: Date;
   dateTo?: Date;
   page: number;

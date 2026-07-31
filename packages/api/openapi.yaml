@@ -31,6 +31,15 @@ components:
       in: cookie
       name: accessToken
       description: HttpOnly access token cookie set on login
+    witnessSessionAuth:
+      type: apiKey
+      in: cookie
+      name: witnessAccessToken
+      description: >
+        HttpOnly witness session cookie set by POST /auth/witness/{token}.
+        Carries only the witnessInvitationId; every request is re-validated
+        against the invitation's isRevoked/expiresAt in the database, so
+        revocation takes effect immediately, not just on next token refresh.
 
   parameters:
     ContractId:
@@ -151,6 +160,14 @@ components:
           maximum: 720
           default: 72
           example: 72
+        sendEmail:
+          type: boolean
+          default: true
+          description: >
+            Whether to email the witness the link (reuses the same
+            Resend/BullMQ pattern as user invitations). If false, the raw
+            link is still returned in the response for the admin to share
+            directly.
 
     User:
       type: object
@@ -711,6 +728,15 @@ components:
           nullable: true
           description: Only present in the create-witness-link response.
           example: wv_8f3a1c2e9b4d4a6f8c1e2b3a4d5e6f7a
+        witnessUrl:
+          type: string
+          nullable: true
+          description: >
+            The full link to hand to the witness (`{APP_URL}/witness/{token}`).
+            Only present alongside `token`, i.e. only in the create-witness-link
+            response — never reconstructable afterwards since the raw token
+            isn't persisted.
+          example: http://localhost:5173/witness/wv_8f3a1c2e9b4d4a6f8c1e2b3a4d5e6f7a
         witnessEmail:
           type: string
           format: email
@@ -732,6 +758,165 @@ components:
           type: string
           format: date-time
           example: "2024-01-17T12:00:00.000Z"
+        emailSentAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            When the invitation email was handed off to the mail queue —
+            not confirmed delivered, since there's no delivery webhook.
+            Null if `sendEmail` was false or no send was attempted.
+          example: null
+
+    WitnessLinkListItem:
+      type: object
+      description: >
+        Shape returned by `GET /users/witness-link`. Never carries `token`/
+        `witnessUrl` — those only exist in the create response, since the raw
+        token is never persisted and can't be recovered for a listed row.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 4b3a2c1d-6e5f-4a3b-9c8d-7e6f5a4b3c2d
+        contractId:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        contractTitle:
+          type: string
+          example: Master Services Agreement
+        witnessEmail:
+          type: string
+          format: email
+          example: witness@example.com
+        witnessName:
+          type: string
+          nullable: true
+          example: Jordan Smith
+        issuedBy:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            fullName:
+              type: string
+              example: Alex Whitfield
+        status:
+          type: string
+          description: Derived live from `isRevoked` / `status` / `expiresAt` — expiry is never swept back into the stored status column.
+          enum: [pending, used, expired, revoked]
+          example: pending
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2024-01-20T00:00:00.000Z"
+        usedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-17T12:00:00.000Z"
+        emailSentAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+
+    WitnessLinkStats:
+      type: object
+      description: >
+        Real, org-scoped aggregate counts backing the Witness Workflow
+        page's KPI cards and review-progress funnel. No historical
+        snapshotting exists, so the `*NewLast7Days` fields are
+        new-occurrence counts (created/used/newly-expired within the last 7
+        days), not true before/after deltas. Uses the same isRevoked-before-
+        status precedence as the `status` field elsewhere (e.g. a
+        used-then-revoked invitation counts under `revoked`, not `used`).
+      properties:
+        total:
+          type: integer
+          description: All witness invitations ever created for the organization.
+          example: 50
+        totalNewLast7Days:
+          type: integer
+          example: 5
+        active:
+          type: integer
+          description: Currently pending + used (not expired, not revoked).
+          example: 39
+        pending:
+          type: integer
+          example: 9
+        used:
+          type: integer
+          example: 30
+        usedThisMonth:
+          type: integer
+          description: Used, with usedAt within the current calendar month.
+          example: 12
+        usedLast7Days:
+          type: integer
+          example: 4
+        expired:
+          type: integer
+          example: 8
+        expiredNewLast7Days:
+          type: integer
+          example: 2
+        revoked:
+          type: integer
+          example: 3
+
+    WitnessScopedContract:
+      type: object
+      description: >
+        The read-only contract view returned by `GET /witness/contract` (BR-8).
+        Deliberately excludes organizationId, uploadedByUserId, notes, and AI
+        analyses — a witness only ever sees the fields listed here.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Master Services Agreement
+        counterparty:
+          type: string
+          example: Northwind Logistics Inc.
+        businessStatus:
+          type: string
+        legalState:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items: { type: string }
+        effectiveDate:
+          type: string
+          format: date-time
+          nullable: true
+        expirationDate:
+          type: string
+          format: date-time
+          nullable: true
+        extractedText:
+          type: string
+          nullable: true
+        fileUrl:
+          type: string
+          description: >
+            Short-lived presigned S3 URL for the contract file, generated
+            server-side via the same getPresignedUrl() mechanism internal
+            users use — scoped to a much shorter TTL since it's handed to an
+            unauthenticated external party.
+        fileUrlExpiresInSeconds:
+          type: integer
+          example: 900
 
 # ─── Paths ─────────────────────────────────────────────────────────────────────
 paths:
@@ -1308,8 +1493,15 @@ paths:
           schema: { type: string, format: uuid }
         - name: action
           in: query
+          explode: true
+          description: >
+            One action, or several at once (repeat the param, e.g.
+            `?action=WITNESS_ACCESSED&action=WITNESS_INVITATION_REVOKED`) —
+            matched with an `IN` clause when more than one is given.
           schema:
-            $ref: "#/components/schemas/AuditAction"
+            type: array
+            items:
+              $ref: "#/components/schemas/AuditAction"
         - name: dateFrom
           in: query
           schema: { type: string, format: date-time }
@@ -1375,8 +1567,15 @@ paths:
           schema: { type: string, format: uuid }
         - name: action
           in: query
+          explode: true
+          description: >
+            One action, or several at once (repeat the param, e.g.
+            `?action=WITNESS_ACCESSED&action=WITNESS_INVITATION_REVOKED`) —
+            matched with an `IN` clause when more than one is given.
           schema:
-            $ref: "#/components/schemas/AuditAction"
+            type: array
+            items:
+              $ref: "#/components/schemas/AuditAction"
         - name: dateFrom
           in: query
           schema: { type: string, format: date-time }
@@ -2060,6 +2259,55 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /users/witness-link:
+    get:
+      tags: [Users]
+      summary: List witness access links for the organization
+      operationId: listWitnessLinks
+      description: >
+        Requires the `OWNER` or `ADMIN` role — witness link management is an
+        Admin/Owner responsibility, same as GET /contracts/{id}/audit.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: contractId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Paginated list of witness links
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WitnessLinkListItem"
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
     post:
       tags: [Users]
       summary: Generate a witness access link for a contract
@@ -2104,3 +2352,128 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /users/witness-link/stats:
+    get:
+      tags: [Users]
+      summary: Real aggregate counts for the organization's witness links
+      operationId: getWitnessLinkStats
+      description: >
+        Requires the `OWNER` or `ADMIN` role, same as the rest of witness
+        link management. Backs the Witness Workflow page's KPI cards and
+        review-progress funnel.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The organization's witness link stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WitnessLinkStats"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/witness-link/{id}/revoke:
+    post:
+      tags: [Users]
+      summary: Revoke a witness access link
+      operationId: revokeWitnessLink
+      description: >
+        Requires the `OWNER` or `ADMIN` role. Guards on `isRevoked` rather
+        than `status`, so a `USED` link remains revocable, not just an
+        `ISSUED` one — a witness may still be mid-session, and revocation
+        must cut that off immediately (checked on every request by
+        witnessSessionMiddleware, not just at redemption). Only an
+        already-revoked link is rejected.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 4b3a2c1d-6e5f-4a3b-9c8d-7e6f5a4b3c2d
+      responses:
+        "200":
+          description: Witness link revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WitnessToken"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Witness invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: This witness invitation has already been revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /witness/contract:
+    get:
+      tags: [Users]
+      summary: Get the single contract scoped to the current witness session
+      operationId: getWitnessScopedContract
+      description: >
+        Read-only view for an external witness (BR-8) — there is no
+        contract id in the path; the one allowed contract always comes from
+        the witness session, never from a client-supplied value. Gated by
+        witnessSessionMiddleware rather than authenticate/authorize, since a
+        witness has no User account (BR-4).
+      security:
+        - witnessSessionAuth: []
+      responses:
+        "200":
+          description: The witness's scoped contract view
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WitnessScopedContract"
+        "401":
+          description: Missing, invalid, expired, or revoked witness session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"

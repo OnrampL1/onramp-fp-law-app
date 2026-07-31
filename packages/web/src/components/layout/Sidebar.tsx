@@ -38,7 +38,7 @@ const workspaceNav = [
 // in sync with what each route actually enforces, not just cosmetic hiding.
 const adminNav = [
   { title: "User Management", href: "/users", icon: Users },
-  { title: "Witness Workflow", href: "/witness", icon: PenLine },
+  { title: "Witness Workflow", href: "/witness", icon: PenLine, requiresAdmin: true },
   { title: "Audit Logging", href: "/audit", icon: ScrollText, requiresAdmin: true },
   { title: "Settings", href: "/settings", icon: Settings },
 ];

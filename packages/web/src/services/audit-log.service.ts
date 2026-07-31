@@ -12,7 +12,7 @@ export async function fetchAuditLogList(
   organizationId: string,
   params: AuditLogListParams,
 ): Promise<AuditLogListResult> {
-  const query: Record<string, string | number> = {
+  const query: Record<string, string | number | string[]> = {
     page: params.page,
     limit: params.limit,
   };
