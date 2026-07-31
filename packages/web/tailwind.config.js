@@ -1,6 +1,8 @@
-/** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: ["class"],
+
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+
   theme: {
     extend: {
       colors: {
@@ -46,6 +48,8 @@ export default {
           "accent-foreground": "var(--sidebar-accent-foreground)",
           border: "var(--sidebar-border)",
           ring: "var(--sidebar-ring)",
+          active: "var(--sidebar-active)",
+          "active-foreground": "var(--sidebar-active-foreground)",
         },
       },
       borderRadius: {
@@ -55,5 +59,6 @@ export default {
       },
     },
   },
+
   plugins: [],
 };

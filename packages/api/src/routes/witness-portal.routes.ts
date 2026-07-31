@@ -1,0 +1,22 @@
+import { Router } from "express";
+import { witnessController } from "../controllers/witness.controller";
+import {
+  witnessSessionMiddleware,
+  withWitnessSession,
+} from "../middleware/witness-session.middleware";
+
+const router = Router();
+
+// Separate from witness.routes.ts (admin-gated link creation, mounted under
+// /users) and auth.routes.ts (public redemption, mounted under /auth) —
+// this is the witness's own read-only view, gated by witnessSessionMiddleware
+// rather than authenticate/authorize, since a witness has no User/role.
+// No :contractId in the path — there is deliberately nowhere for a client
+// to supply one; the single allowed contract always comes from the session.
+router.get(
+  "/contract",
+  witnessSessionMiddleware,
+  withWitnessSession(witnessController.getContract),
+);
+
+export { router as witnessPortalRouter };

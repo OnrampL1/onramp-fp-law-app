@@ -6,10 +6,8 @@ import {
   PenLine,
   Scale,
   ScrollText,
-  Search,
   Settings,
   ShieldCheck,
-  Sparkles,
   Upload,
   Users,
 } from "lucide-react";
@@ -27,19 +25,21 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { isAdminRole } from "@/lib/permissions";
 
 const workspaceNav = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Contracts", href: "/contracts", icon: FileText },
-  { title: "AI Analysis", href: "/ai-analysis", icon: Sparkles },
-  { title: "Clause Investigator", href: "/investigator", icon: Search },
   { title: "Contract Upload", href: "/upload", icon: Upload },
 ];
 
+// requiresAdmin marks items the backend actually 403s for non-Owner/Admin
+// roles (Domain & Business Rules, Section 10, for Audit Logging) — keep this
+// in sync with what each route actually enforces, not just cosmetic hiding.
 const adminNav = [
   { title: "User Management", href: "/users", icon: Users },
-  { title: "Witness Workflow", href: "/witness", icon: PenLine },
-  { title: "Audit Logging", href: "/audit", icon: ScrollText },
+  { title: "Witness Workflow", href: "/witness", icon: PenLine, requiresAdmin: true },
+  { title: "Audit Logging", href: "/audit", icon: ScrollText, requiresAdmin: true },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -60,7 +60,10 @@ function getInitials(name?: string) {
 export function Sidebar() {
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const userName = user?.name ?? "Alex Whitfield";
+  const userName = user?.fullName ?? "Alex Whitfield";
+  const visibleAdminNav = adminNav.filter(
+    (item) => !item.requiresAdmin || isAdminRole(user?.role),
+  );
 
   return (
     <SidebarRoot collapsible="icon">
@@ -101,6 +104,7 @@ export function Sidebar() {
                     }
                     isActive={pathname === item.href}
                     tooltip={item.title}
+                    className="my-[2px]"
                   />
                 </SidebarMenuItem>
               ))}
@@ -108,34 +112,37 @@ export function Sidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {adminNav.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    render={
-                      <Link to={item.href}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    }
-                    isActive={pathname === item.href}
-                    tooltip={item.title}
-                  />
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {visibleAdminNav.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleAdminNav.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      render={
+                        <Link to={item.href}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      }
+                      isActive={pathname === item.href}
+                      tooltip={item.title}
+                      className="my-[2px]"
+                    />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" tooltip={userName}>
-              <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-xs font-medium">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-xs font-medium p-2">
                 {getInitials(userName)}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">

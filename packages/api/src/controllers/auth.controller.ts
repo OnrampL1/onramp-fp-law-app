@@ -35,15 +35,21 @@ function clearAuthCookies(res: Response): void {
   res.clearCookie(REFRESH_COOKIE, { path: "/api/auth/refresh" });
 }
 
+function requestContextFrom(req: Request) {
+  return { ipAddress: req.ip, userAgent: req.get("user-agent") };
+}
+
 export const authController = {
-  async register(
+  async acceptInvitation(
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
     try {
-      const user = await authService.register(req.body);
-      res.status(201).json({ data: user });
+      const { user, accessToken, refreshToken } =
+        await authService.acceptInvitation(req.body, requestContextFrom(req));
+      setAuthCookies(res, accessToken, refreshToken);
+      res.status(201).json({ data: { user } });
     } catch (err) {
       next(err);
     }
@@ -51,11 +57,9 @@ export const authController = {
 
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { user, accessToken, refreshToken } = await authService.login({
-        ...req.body,
-        userAgent: req.headers["user-agent"],
-        ipAddress: req.ip,
-      });
+      const { user, accessToken, refreshToken } = await authService.login(
+        req.body,
+      );
       setAuthCookies(res, accessToken, refreshToken);
       res.json({ data: { user } });
     } catch (err) {
@@ -84,9 +88,9 @@ export const authController = {
 
   async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (req.user?.sessionId) {
-        await authService.logout(req.user.sessionId);
-      }
+      const accessToken = req.cookies?.[ACCESS_COOKIE] as string | undefined;
+      const refreshToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+      await authService.logout(accessToken, refreshToken);
       clearAuthCookies(res);
       res.json({ data: { message: "Logged out successfully" } });
     } catch (err) {

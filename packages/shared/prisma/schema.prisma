@@ -1,0 +1,409 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Organization domain ─────────────────────────────────────────────────
+
+enum OrganizationStatus {
+  CREATED
+  OWNER_ASSIGNED
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+model Organization {
+  id     String             @id @default(uuid()) @db.Uuid
+  name   String
+  slug   String             @unique
+  status OrganizationStatus @default(CREATED)
+
+  ownerUserId     String?   @unique @map("owner_user_id") @db.Uuid
+  ownerAssignedAt DateTime? @map("owner_assigned_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ownerUser   User?                 @relation("OrganizationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  settings    OrganizationSettings?
+  members     User[]                @relation("OrganizationMembers")
+  invitations Invitation[]
+  contracts   Contract[]
+  auditLogs   AuditLog[]
+
+  @@map("organizations")
+}
+
+model OrganizationSettings {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @unique @map("organization_id") @db.Uuid
+
+  timezone String  @default("UTC")
+  language String  @default("en")
+  logoUrl  String? @map("logo_url")
+
+  notificationPreferences Json? @map("notification_preferences")
+  branding                Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@map("organization_settings")
+}
+
+// ─── Platform domain ──────────────────────────────────────────────────────
+
+enum PlatformUserRole {
+  SUPER_ADMIN
+  SUPPORT_ENGINEER
+}
+
+enum PlatformUserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+model PlatformUser {
+  id           String             @id @default(uuid()) @db.Uuid
+  email        String             @unique
+  passwordHash String             @map("password_hash")
+  fullName     String             @map("full_name")
+  role         PlatformUserRole
+  status       PlatformUserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?          @map("last_login_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  auditLogs AuditLog[]
+
+  @@map("platform_users")
+}
+
+// ─── User domain ──────────────────────────────────────────────────────────
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  INTERNAL
+}
+
+model User {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  email          String     @unique
+  passwordHash   String     @map("password_hash")
+  fullName       String     @map("full_name")
+  role           UserRole
+  status         UserStatus @default(INVITED)
+  lastLoginAt    DateTime?  @map("last_login_at")
+
+  invitationId String? @unique @map("invitation_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization       Organization  @relation("OrganizationMembers", fields: [organizationId], references: [id], onDelete: Restrict)
+  ownedOrganization  Organization? @relation("OrganizationOwner")
+  acceptedInvitation Invitation?   @relation("InvitationAcceptedUser", fields: [invitationId], references: [id], onDelete: Restrict)
+
+  invitationsSent    Invitation[]        @relation("InvitationInviter")
+  invitationsRevoked Invitation[]        @relation("InvitationRevokedBy")
+  uploadedContracts  Contract[]          @relation("ContractUploadedBy")
+  contractNotes      ContractNote[]
+  witnessInvitations WitnessInvitation[]
+  aiAnalyses         AIAnalysis[]
+  auditLogs          AuditLog[]
+
+  @@index([organizationId, role])
+  @@map("users")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+model Invitation {
+  id              String @id @default(uuid()) @db.Uuid
+  organizationId  String @map("organization_id") @db.Uuid
+  invitedByUserId String @map("invited_by_user_id") @db.Uuid
+
+  email  String
+  role   UserRole
+  status InvitationStatus @default(PENDING)
+
+  tokenHash       String    @unique @map("token_hash")
+  expiresAt       DateTime  @map("expires_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  revokedAt       DateTime? @map("revoked_at")
+  revokedByUserId String?   @map("revoked_by_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invitedBy    User         @relation("InvitationInviter", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  revokedBy    User?        @relation("InvitationRevokedBy", fields: [revokedByUserId], references: [id], onDelete: Restrict)
+  acceptedUser User?        @relation("InvitationAcceptedUser")
+
+  @@index([organizationId, email])
+  @@map("invitations")
+}
+
+// ─── Contract domain ──────────────────────────────────────────────────────
+
+enum ContractBusinessStatus {
+  DRAFT
+  UNDER_REVIEW
+  COMPLETED
+  ARCHIVED
+}
+
+enum ContractProcessingStatus {
+  PENDING_EXTRACTION
+  EXTRACTION_COMPLETED
+  AI_PENDING
+  AI_COMPLETED
+  FAILED
+}
+
+enum ContractLegalState {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+model Contract {
+  id               String @id @default(uuid()) @db.Uuid
+  organizationId   String @map("organization_id") @db.Uuid
+  uploadedByUserId String @map("uploaded_by_user_id") @db.Uuid
+
+  title            String
+  counterparty     String
+  businessStatus   ContractBusinessStatus   @default(DRAFT) @map("business_status")
+  processingStatus ContractProcessingStatus @default(PENDING_EXTRACTION) @map("processing_status")
+  legalState       ContractLegalState?      @map("legal_state")
+
+  tags           String[]
+  effectiveDate  DateTime? @map("effective_date") @db.Date
+  expirationDate DateTime? @map("expiration_date") @db.Date
+
+  fileKey       String  @map("file_key")
+  fileChecksum  String  @map("file_checksum")
+  extractedText String? @map("extracted_text") @db.Text
+
+  version Int @default(1)
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  uploadedBy         User                @relation("ContractUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  notes              ContractNote[]
+  aiAnalyses         AIAnalysis[]
+  witnessInvitations WitnessInvitation[]
+  auditLogs          AuditLog[]
+
+  @@index([organizationId, businessStatus])
+  @@index([organizationId, processingStatus])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, expirationDate])
+  @@index([tags], type: Gin)
+  @@map("contracts")
+}
+
+model ContractNote {
+  id         String @id @default(uuid()) @db.Uuid
+  contractId String @map("contract_id") @db.Uuid
+  authorId   String @map("author_id") @db.Uuid
+
+  content String @db.Text
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([contractId, createdAt])
+  @@map("contract_notes")
+}
+
+// ─── Witness domain ───────────────────────────────────────────────────────
+
+enum WitnessStatus {
+  ISSUED
+  USED
+  EXPIRED
+  REVOKED
+}
+
+model WitnessInvitation {
+  id             String @id @default(uuid()) @db.Uuid
+  contractId     String @map("contract_id") @db.Uuid
+  issuedByUserId String @map("issued_by_user_id") @db.Uuid
+
+  witnessEmail String  @map("witness_email")
+  witnessName  String? @map("witness_name")
+
+  tokenHash String        @unique @map("token_hash")
+  status    WitnessStatus @default(ISSUED)
+  expiresAt DateTime      @map("expires_at")
+  usedAt    DateTime?     @map("used_at")
+  isRevoked Boolean       @default(false) @map("is_revoked")
+
+  // When the invitation email was successfully handed off to the mail queue —
+  // there's no delivery webhook anywhere in this codebase, so this is "sent",
+  // not "confirmed delivered" (same caveat as everywhere else). Null means
+  // either the admin opted out (sendEmail: false) or none was ever attempted.
+  emailSentAt DateTime? @map("email_sent_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  contract  Contract   @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  issuedBy  User       @relation(fields: [issuedByUserId], references: [id], onDelete: Restrict)
+  auditLogs AuditLog[]
+
+  @@map("witness_tokens")
+}
+
+// ─── AI domain ─────────────────────────────────────────────────────────────
+
+enum AIAnalysisType {
+  SUMMARY
+  RISK
+  CLAUSE_QUERY
+}
+
+enum AIAnalysisStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model AIAnalysis {
+  id              String @id @default(uuid()) @db.Uuid
+  contractId      String @map("contract_id") @db.Uuid
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+
+  type         AIAnalysisType
+  status       AIAnalysisStatus @default(PENDING)
+  promptUsed   String           @map("prompt_used") @db.Text
+  response     String?          @db.Text
+  modelVersion String?          @map("model_version")
+  tokensUsed   Int?             @map("tokens_used")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  contract  Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  createdBy User     @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([contractId, type])
+  @@map("ai_analyses")
+}
+
+// ─── Audit domain ──────────────────────────────────────────────────────────
+
+enum AuditActorType {
+  USER
+  PLATFORM_USER
+  SYSTEM
+}
+
+enum AuditAction {
+  ORGANIZATION_CREATED
+  OWNER_ASSIGNED
+  ORGANIZATION_ACTIVATED
+  ORGANIZATION_SUSPENDED
+  ORGANIZATION_ARCHIVED
+  ORGANIZATION_SETTINGS_UPDATED
+  OWNERSHIP_TRANSFERRED
+  OWNERSHIP_RECOVERED
+
+  USER_INVITED
+  INVITATION_ACCEPTED
+  INVITATION_REVOKED
+  USER_SUSPENDED
+  USER_REACTIVATED
+  USER_DEACTIVATED
+  USER_ROLE_CHANGED
+
+  CONTRACT_UPLOADED
+  CONTRACT_TEXT_EXTRACTED
+  CONTRACT_METADATA_UPDATED
+  CONTRACT_BUSINESS_STATUS_CHANGED
+  CONTRACT_PROCESSING_STATUS_CHANGED
+  CONTRACT_SOFT_DELETED
+
+  NOTE_ADDED
+  NOTE_EDITED
+  NOTE_DELETED
+
+  WITNESS_INVITATION_CREATED
+  WITNESS_ACCESSED
+  WITNESS_INVITATION_REVOKED
+
+  AI_ANALYSIS_REQUESTED
+  AI_ANALYSIS_COMPLETED
+  AI_ANALYSIS_FAILED
+
+  PLATFORM_SUPPORT_ACCESS_GRANTED
+  PLATFORM_SUPPORT_ACCESS_REVOKED
+}
+
+model AuditLog {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+
+  actorType           AuditActorType @map("actor_type")
+  actorUserId         String?        @map("actor_user_id") @db.Uuid
+  actorPlatformUserId String?        @map("actor_platform_user_id") @db.Uuid
+
+  action              AuditAction
+  targetEntityType    String      @map("target_entity_type")
+  targetEntityId      String      @map("target_entity_id") @db.Uuid
+  contractId          String?     @map("contract_id") @db.Uuid
+  witnessInvitationId String?     @map("witness_invitation_id") @db.Uuid
+
+  oldValue Json? @map("old_value")
+  newValue Json? @map("new_value")
+
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  actorUser         User?              @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorPlatformUser PlatformUser?      @relation(fields: [actorPlatformUserId], references: [id], onDelete: SetNull)
+  contract          Contract?          @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  witnessInvitation WitnessInvitation? @relation(fields: [witnessInvitationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([action])
+  @@index([contractId])
+  @@index([actorUserId])
+  @@map("audit_logs")
+}
