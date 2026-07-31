@@ -70,6 +70,7 @@ describe("POST /api/invitations", () => {
     expect(mockInvitationService.createInvitation).toHaveBeenCalledWith(
       { id: "user-1", organizationId: "org-1" },
       { email: "new@example.com", fullName: "Jordan Lee", role: "INTERNAL" },
+      expect.objectContaining({ ipAddress: expect.any(String) }),
     );
   });
 });
@@ -155,6 +156,7 @@ describe("POST /api/invitations/:id/revoke", () => {
     expect(mockInvitationService.revokeInvitation).toHaveBeenCalledWith(
       { id: "user-1", organizationId: "org-1" },
       "inv-1",
+      expect.objectContaining({ ipAddress: expect.any(String) }),
     );
   });
 });

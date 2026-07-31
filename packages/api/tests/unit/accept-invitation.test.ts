@@ -11,6 +11,9 @@ const mockDb = {
   user: {
     create: jest.fn(),
   },
+  auditLog: {
+    create: jest.fn(),
+  },
   $transaction: jest.fn(async (cb: (tx: unknown) => unknown) => cb(mockDb)),
 };
 
@@ -145,5 +148,32 @@ describe("AuthService.acceptInvitation", () => {
     );
     expect(result.user.email).toBe("invitee@example.com");
     expect(result.accessToken).toBe("access.token");
+
+    // BR-14: registering through the new token-entry flow must still
+    // produce an INVITATION_ACCEPTED audit row, scoped to the right org,
+    // invitation, and newly created actor — not just "some audit call".
+    expect(mockDb.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        organizationId: "org-1",
+        actorType: "USER",
+        actorUserId: "user-1",
+        actorPlatformUserId: undefined,
+        action: "INVITATION_ACCEPTED",
+        targetEntityType: "Invitation",
+        targetEntityId: "inv-1",
+        oldValue: { status: "PENDING" },
+        newValue: { status: "ACCEPTED" },
+      }),
+    });
+  });
+
+  it("does not write an audit log when the invitation is rejected", async () => {
+    mockDb.invitation.findUnique.mockResolvedValue(null);
+
+    await expect(
+      authService.acceptInvitation(baseInput),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(mockDb.auditLog.create).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,7 @@ import {
   type ContractProcessingStatus,
 } from "@prisma/client";
 import { getPrismaClient } from "@starter-kit/shared";
+import { auditService } from "../services/audit.service";
 
 import {
   ContractListFilters,
@@ -89,20 +90,18 @@ const createUploadedContract = async (
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        organizationId: audit.organizationId,
-        actorType: audit.actorType,
-        actorUserId: audit.actorUserId,
-        action: audit.action,
-        targetEntityType: "Contract",
-        targetEntityId: contract.id,
-        contractId: contract.id,
-        oldValue: audit.oldValue as Prisma.InputJsonValue | undefined,
-        newValue: audit.newValue as Prisma.InputJsonValue | undefined,
-        ipAddress: audit.ipAddress,
-        userAgent: audit.userAgent,
-      },
+    await auditService.logEvent(tx, {
+      organizationId: audit.organizationId,
+      actorType: audit.actorType,
+      actorUserId: audit.actorUserId,
+      action: audit.action,
+      targetEntityType: "Contract",
+      targetEntityId: contract.id,
+      contractId: contract.id,
+      oldValue: audit.oldValue as Prisma.InputJsonValue | undefined,
+      newValue: audit.newValue as Prisma.InputJsonValue | undefined,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
     });
 
     return contract;

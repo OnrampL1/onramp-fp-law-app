@@ -4,7 +4,6 @@ import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
-import { AcceptInvitation } from "../pages/auth/AcceptInvitation";
 import { Dashboard } from "../pages/dashboard/Dashboard";
 import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
@@ -27,7 +26,6 @@ export function AppRoutes() {
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/accept-invitation" element={<AcceptInvitation />} />
       </Route>
 
       <Route path="/witness-review" element={<WitnessReview />} />

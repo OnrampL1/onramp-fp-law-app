@@ -6,6 +6,10 @@ function actorFrom(payload: AccessTokenPayload) {
   return { id: payload.userId, organizationId: payload.orgId };
 }
 
+function requestContextFrom(req: Request) {
+  return { ipAddress: req.ip, userAgent: req.get("user-agent") };
+}
+
 export const invitationController = {
   async create(
     req: Request,
@@ -16,6 +20,7 @@ export const invitationController = {
       const invitation = await invitationService.createInvitation(
         actorFrom(req.user!),
         req.body,
+        requestContextFrom(req),
       );
       res.status(201).json({ data: invitation });
     } catch (err) {
@@ -64,6 +69,7 @@ export const invitationController = {
       const invitation = await invitationService.revokeInvitation(
         actorFrom(req.user!),
         req.params.id as string,
+        requestContextFrom(req),
       );
       res.json({ data: invitation });
     } catch (err) {
