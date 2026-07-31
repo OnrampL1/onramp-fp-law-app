@@ -16,6 +16,7 @@
     "db:seed": "npm run db:seed --workspace=@starter-kit/shared"
   },
   "devDependencies": {
+    "@types/node": "^26.1.2",
     "turbo": "^2.3.0"
   },
   "engines": {

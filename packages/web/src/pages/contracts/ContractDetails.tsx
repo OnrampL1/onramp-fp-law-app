@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badges";
 import {
@@ -30,34 +30,69 @@ import {
   ScrollText,
   Search,
   MoreHorizontal,
+  Loader2,
 } from "lucide-react";
 import { ContractMetadata } from "@/components/contracts/ContractMetaData";
-import { PdfViewer } from "@/components/contracts/PdfViewer";
+import { ContractContentViewer } from "@/components/contracts/ContractContentViewer";
 import { ContractInsights } from "@/components/contracts/ContractInsights";
 import { ContractTimeline } from "@/components/contracts/ContractTimeline";
+import { useContractDetail } from "@/hooks/useContractDetail";
 
 const statuses: ContractStatus[] = ["Draft", "Active", "Expired", "Terminated"];
 
-// Temporary: mock detail data only exists for a handful of contract ids;
-// unknown ids fall back to the default contract below.
-// When the backend is ready, replace this with an API call:
-//   const { data } = useQuery(['contract', id], () => api.getContract(id));
-const DEFAULT_CONTRACT_ID = "CTR-10470";
+const LEGAL_STATE_TO_STATUS: Record<string, ContractStatus> = {
+  DRAFT: "Draft",
+  ACTIVE: "Active",
+  EXPIRED: "Expired",
+  TERMINATED: "Terminated",
+};
 
-function useContractData(id: string | undefined) {
-  const key = id && contractDetails[id] ? id : DEFAULT_CONTRACT_ID;
-  return {
-    contract: contractDetails[key],
-    pages: contractPagesById[key],
-    timeline: contractTimelineById[key],
-    notes: internalNotesById[key],
-  };
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
+
+// Insights/Timeline/Notes are not backed by a real API yet (no AI analysis
+// or audit-log read endpoint for the frontend) — still sourced from mock
+// fixtures until those features exist. Everything else on this page (title,
+// counterparty, status, dates, tags, uploader, document content) is real.
+const MOCK_DATA_KEY = "CTR-10470";
 
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { contract: c, pages, timeline, notes } = useContractData(id);
+  const { data: contract, isLoading, isError } = useContractDetail(id);
+
+  const pages = contractPagesById[MOCK_DATA_KEY];
+  const timeline = contractTimelineById[MOCK_DATA_KEY];
+  const notes = internalNotesById[MOCK_DATA_KEY];
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center gap-3 text-sm text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" />
+        Loading contract…
+      </div>
+    );
+  }
+
+  if (isError || !contract || !id) {
+    return (
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">Contract not found</p>
+        <Link to="/contracts" className="text-primary hover:underline">
+          Back to Contracts
+        </Link>
+      </div>
+    );
+  }
+
+  const status = contract.legalState
+    ? LEGAL_STATE_TO_STATUS[contract.legalState]
+    : null;
 
   return (
     <div className="space-y-6">
@@ -80,7 +115,9 @@ export default function ContractDetailPage() {
           Contracts
         </Link>
         <ChevronRight className="size-3.5" />
-        <span className="truncate font-medium text-foreground">{c.name}</span>
+        <span className="truncate font-medium text-foreground">
+          {contract.title}
+        </span>
       </nav>
 
       {/* Page header */}
@@ -88,26 +125,27 @@ export default function ContractDetailPage() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
-              {c.name}
+              {contract.title}
             </h1>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <FileText className="size-3.5" />
-              {c.id} · {c.type}
+              {contract.fileName}
             </span>
             <span className="flex items-center gap-1.5">
               <CircleDot className="size-3.5" />
-              {c.counterparty}
+              {contract.counterparty}
             </span>
             <span className="flex items-center gap-1.5">
               <Clock className="size-3.5" />
-              Last updated {c.lastUpdated}
+              Last updated {formatDate(contract.updatedAt)}
             </span>
           </div>
         </div>
 
-        {/* Action buttons */}
+        {/* Action buttons — AI Tools / Edit / Download / Witness Link stay
+            non-functional placeholders until those features are built */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -128,17 +166,11 @@ export default function ContractDetailPage() {
               <DropdownMenuGroup>
                 <DropdownMenuLabel>AI Tools</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="gap-2"
-                  onClick={() => navigate(`/contracts/${c.id}/analysis`)}
-                >
+                <DropdownMenuItem className="gap-2">
                   <ScrollText className="size-4 text-muted-foreground" />
                   Analyze Contract
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="gap-2"
-                  onClick={() => navigate(`/contracts/${c.id}/investigator`)}
-                >
+                <DropdownMenuItem className="gap-2">
                   <Search className="size-4 text-muted-foreground" />
                   Clause Investigator
                 </DropdownMenuItem>
@@ -157,7 +189,11 @@ export default function ContractDetailPage() {
             >
               <span className="flex items-center gap-2">
                 Status
-                <StatusBadge status={c.status} />
+                {status ? (
+                  <StatusBadge status={status} />
+                ) : (
+                  <span className="text-muted-foreground">Not set</span>
+                )}
                 <ChevronDown className="size-4 text-muted-foreground" />
               </span>
             </DropdownMenuTrigger>
@@ -168,7 +204,7 @@ export default function ContractDetailPage() {
                 {statuses.map((s) => (
                   <DropdownMenuItem key={s} className="gap-2">
                     <StatusBadge status={s} />
-                    {s === c.status && (
+                    {s === status && (
                       <span className="ml-auto text-xs text-muted-foreground">
                         Current
                       </span>
@@ -210,13 +246,20 @@ export default function ContractDetailPage() {
       {/* 3-column workspace */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="lg:col-span-3">
-          <ContractMetadata contract={c} />
+          <ContractMetadata contract={contract} />
         </div>
         <div className="lg:col-span-6">
-          <PdfViewer contract={c} pages={pages} />
+          <ContractContentViewer
+            contractId={contract.id}
+            processingStatus={contract.processingStatus}
+            processingError={contract.processingError}
+          />
         </div>
         <div className="lg:col-span-3">
-          <ContractInsights contract={c} notes={notes} />
+          <ContractInsights
+            contract={contractDetails[MOCK_DATA_KEY]}
+            notes={notes}
+          />
         </div>
       </div>
 

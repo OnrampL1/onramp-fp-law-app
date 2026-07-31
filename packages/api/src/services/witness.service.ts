@@ -4,9 +4,9 @@ import {
   generateRawToken,
   signWitnessSessionToken,
   emailQueue,
+  getPresignedUrl,
 } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
-import { getPresignedUrl } from "../lib/storage";
 import { WITNESS_CONTRACT_SELECT } from "../repositories/selects/contract.select";
 import { auditService } from "./audit.service";
 

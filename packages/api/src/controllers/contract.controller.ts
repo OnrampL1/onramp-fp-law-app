@@ -2,7 +2,10 @@ import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../types/express.types";
 import { contractService } from "../services/contract.service";
 import { createContractMetadataSchema } from "../schemas/contract.schemas";
-import type { ListContractsQuery } from "../schemas/contract.schemas";
+import type {
+  ContractIdParam,
+  ListContractsQuery,
+} from "../schemas/contract.schemas";
 
 async function upload(
   req: AuthenticatedRequest,
@@ -65,7 +68,46 @@ async function list(
   }
 }
 
+async function getById(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as unknown as ContractIdParam;
+    const organizationId = req.user.orgId;
+
+    const contract = await contractService.getContractById(id, organizationId);
+
+    res.json({ data: contract });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getContent(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as unknown as ContractIdParam;
+    const organizationId = req.user.orgId;
+
+    const content = await contractService.getContractContent(
+      id,
+      organizationId,
+    );
+
+    res.json({ data: content });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export const contractController = {
   upload,
   list,
+  getById,
+  getContent,
 };

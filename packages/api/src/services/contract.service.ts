@@ -1,16 +1,19 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import type { ContractLegalState } from "@prisma/client";
-import { getPrismaClient } from "@starter-kit/shared";
+import { extractionQueue, getPrismaClient } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
-import { uploadFile } from "../lib/storage";
+import { uploadFile } from "@starter-kit/shared";
 import {
   contractRepository,
+  type ContractDetailRow,
   type ContractListRow,
   type CreateUploadedContractInput,
 } from "../repositories/contract.repository";
 import type { CreateContractMetadataInput } from "../schemas/contract.schemas";
 import type {
+  ContractContentDto,
+  ContractDetailDto,
   ContractListFilters,
   ContractListItemDto,
   ContractListPagination,
@@ -36,7 +39,10 @@ export interface UploadContractInput {
   };
 }
 
-async function getActiveOrganizationUser(userId: string, organizationId: string) {
+async function getActiveOrganizationUser(
+  userId: string,
+  organizationId: string,
+) {
   const user = await prisma.user.findFirst({
     where: { id: userId, organizationId },
     include: { organization: true },
@@ -66,10 +72,6 @@ function validateUploadedFile(file: Express.Multer.File): void {
 
   if (extension === ".pdf" && !hasPdfSignature(file.buffer)) {
     throw createError("Uploaded PDF file is invalid", 422);
-  }
-
-  if (extension === ".doc" && !hasOleDocumentSignature(file.buffer)) {
-    throw createError("Uploaded DOC file is invalid", 422);
   }
 
   if (extension === ".docx" && !hasZipSignature(file.buffer)) {
@@ -113,11 +115,6 @@ function hasPdfSignature(buffer: Buffer): boolean {
   return buffer.subarray(0, 4).toString("utf8") === "%PDF";
 }
 
-function hasOleDocumentSignature(buffer: Buffer): boolean {
-  const oleSignature = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
-  return buffer.subarray(0, oleSignature.length).equals(oleSignature);
-}
-
 function hasZipSignature(buffer: Buffer): boolean {
   return buffer.subarray(0, 2).toString("utf8") === "PK";
 }
@@ -143,7 +140,8 @@ function toContractUploadResultDto(contract: {
     id: contract.id,
     title: contract.title,
     counterparty: contract.counterparty,
-    businessStatus: contract.businessStatus as ContractUploadResultDto["businessStatus"],
+    businessStatus:
+      contract.businessStatus as ContractUploadResultDto["businessStatus"],
     processingStatus:
       contract.processingStatus as ContractUploadResultDto["processingStatus"],
     legalState: contract.legalState as ContractLegalState | null,
@@ -176,7 +174,11 @@ async function uploadContract(
     fileName: sanitizedFileName,
   });
 
-  await uploadFile(fileKey, input.file.buffer, input.file.mimetype);
+  try {
+    await uploadFile(fileKey, input.file.buffer, input.file.mimetype);
+  } catch {
+    throw createError("Could not store contract file", 502);
+  }
 
   const createInput: CreateUploadedContractInput = {
     organizationId: user.organizationId,
@@ -192,21 +194,36 @@ async function uploadContract(
     processingStatus: "PENDING_EXTRACTION",
   };
 
-  const contract = await contractRepository.createUploadedContract(createInput, {
-    action: "CONTRACT_UPLOADED",
-    actorType: "USER",
-    actorUserId: user.id,
-    organizationId: user.organizationId,
-    newValue: {
-      title: createInput.title,
-      counterparty: createInput.counterparty,
-      tags: createInput.tags,
-      expirationDate: createInput.expirationDate?.toISOString() ?? null,
-      legalState: createInput.legalState ?? null,
+  const contract = await contractRepository.createUploadedContract(
+    createInput,
+    {
+      action: "CONTRACT_UPLOADED",
+      actorType: "USER",
+      actorUserId: user.id,
+      organizationId: user.organizationId,
+      newValue: {
+        title: createInput.title,
+        counterparty: createInput.counterparty,
+        tags: createInput.tags,
+        expirationDate: createInput.expirationDate?.toISOString() ?? null,
+        legalState: createInput.legalState ?? null,
+      },
+      ipAddress: input.requestContext.ipAddress,
+      userAgent: input.requestContext.userAgent,
     },
-    ipAddress: input.requestContext.ipAddress,
-    userAgent: input.requestContext.userAgent,
-  });
+  );
+
+  try {
+    await extractionQueue.add("extract", {
+      contractId: contract.id,
+      fileKey: contract.fileKey,
+    });
+  } catch {
+    throw createError(
+      "Contract was uploaded but could not be queued for processing",
+      502,
+    );
+  }
 
   return toContractUploadResultDto(contract);
 }
@@ -252,7 +269,66 @@ async function listContracts(
   };
 }
 
+// Get by ID
+const UUID_PREFIX_LENGTH = 37; // 36-char UUID + 1 hyphen separtaor
+
+function extractFileNameFromKey(fileKey: string): string {
+  const baseName = fileKey.split("/").pop() ?? fileKey;
+  return baseName.slice(UUID_PREFIX_LENGTH) || baseName;
+}
+
+function toContractDetailDto(row: ContractDetailRow): ContractDetailDto {
+  return {
+    id: row.id,
+    title: row.title,
+    counterparty: row.counterparty,
+    businessStatus: row.businessStatus,
+    processingStatus: row.processingStatus,
+    processingError: row.processingError,
+    legalState: row.legalState,
+    tags: row.tags,
+    effectiveDate: row.effectiveDate?.toISOString().slice(0, 10) ?? null,
+    expirationDate: row.expirationDate?.toISOString().slice(0, 10) ?? null,
+    fileName: extractFileNameFromKey(row.fileKey),
+    version: row.version,
+    uploadedByName: row.uploadedBy.fullName,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+async function getContractById(
+  id: string,
+  organizationId: string,
+): Promise<ContractDetailDto> {
+  const contract = await contractRepository.findById(id, organizationId);
+
+  if (!contract) {
+    throw createError("Contract not found", 404);
+  }
+
+  return toContractDetailDto(contract);
+}
+
+async function getContractContent(
+  id: string,
+  organizationId: string,
+): Promise<ContractContentDto> {
+  const contract = await contractRepository.findContentById(id, organizationId);
+
+  if (!contract) {
+    throw createError("Contract not found", 404);
+  }
+
+  return {
+    processingStatus: contract.processingStatus,
+    extractedText: contract.extractedText,
+  };
+}
+
 export const contractService = {
   uploadContract,
   listContracts,
+  getContractById,
+  getContractContent,
 };

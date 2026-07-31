@@ -3,6 +3,7 @@ export const QUEUE_NAMES = {
   EMAIL: "email",
   EMBEDDINGS: "embeddings",
   INVITATION_EXPIRY: "invitation-expiry",
+  EXTRACTION: "extraction",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -25,7 +26,16 @@ export interface EmbeddingsJobData {
 // "now". The (empty) data shape only exists so the queue can be typed.
 export type InvitationExpiryJobData = Record<string, never>;
 
-export type JobData = EmailJobData | EmbeddingsJobData | InvitationExpiryJobData;
+export interface ExtractionJobData {
+  contractId: string;
+  fileKey: string;
+}
+
+export type JobData =
+  | EmailJobData
+  | EmbeddingsJobData
+  | InvitationExpiryJobData
+  | ExtractionJobData;
 
 // ─── Job result shapes ─────────────────────────────────────────────────────────
 export interface EmailJobResult {
@@ -38,4 +48,8 @@ export interface EmbeddingsJobResult {
 
 export interface InvitationExpiryJobResult {
   expiredCount: number;
+}
+
+export interface ExtractionJobResult {
+  status: "EXTRACTION_COMPLETED" | "EXTRACTION_FAILED";
 }

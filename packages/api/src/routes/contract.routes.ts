@@ -6,7 +6,10 @@ import { authorize } from "../middleware/authorize";
 import { validate } from "../middleware/validate";
 import { parseContractUploadFile } from "../middleware/contract-upload.middleware";
 import { ADMIN_ROLES } from "@starter-kit/shared";
-import { listContractsQuerySchema } from "../schemas/contract.schemas";
+import {
+  contractIdParamSchema,
+  listContractsQuerySchema,
+} from "../schemas/contract.schemas";
 import { listContractAuditLogsQuerySchema } from "../schemas/audit.schemas";
 
 const router = Router();
@@ -24,6 +27,20 @@ router.get(
   authenticate,
   validate(listContractsQuerySchema, "query"),
   withAuth(contractController.list),
+);
+
+router.get(
+  "/:id",
+  authenticate,
+  validate(contractIdParamSchema, "params"),
+  withAuth(contractController.getById),
+);
+
+router.get(
+  "/:id/content",
+  authenticate,
+  validate(contractIdParamSchema, "params"),
+  withAuth(contractController.getContent),
 );
 
 // Thin wrapper over the same org-wide audit service, contractId pre-filled

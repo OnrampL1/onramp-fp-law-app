@@ -127,3 +127,10 @@ export const listContractsQuerySchema = z
   }));
 
 export type ListContractsQuery = z.infer<typeof listContractsQuerySchema>;
+
+// Get by ID
+export const contractIdParamSchema = z.object({
+  id: z.string().uuid("Invalid contract id"),
+});
+
+export type ContractIdParam = z.infer<typeof contractIdParamSchema>;

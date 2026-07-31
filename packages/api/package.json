@@ -13,8 +13,6 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.3.4",
-    "@aws-sdk/client-s3": "^3.1087.0",
-    "@aws-sdk/s3-request-presigner": "^3.1087.0",
     "@starter-kit/shared": "*",
     "@types/cookie-parser": "^1.4.10",
     "bullmq": "^5.12.0",

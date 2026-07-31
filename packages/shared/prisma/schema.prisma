@@ -180,9 +180,10 @@ enum ContractBusinessStatus {
 enum ContractProcessingStatus {
   PENDING_EXTRACTION
   EXTRACTION_COMPLETED
+  EXTRACTION_FAILED
   AI_PENDING
   AI_COMPLETED
-  FAILED
+  AI_FAILED
 }
 
 enum ContractLegalState {
@@ -201,6 +202,7 @@ model Contract {
   counterparty     String
   businessStatus   ContractBusinessStatus   @default(DRAFT) @map("business_status")
   processingStatus ContractProcessingStatus @default(PENDING_EXTRACTION) @map("processing_status")
+  processingError  String?                  @map("processing_error") @db.Text
   legalState       ContractLegalState?      @map("legal_state")
 
   tags           String[]
@@ -311,7 +313,7 @@ model AIAnalysis {
   type         AIAnalysisType
   status       AIAnalysisStatus @default(PENDING)
   promptUsed   String           @map("prompt_used") @db.Text
-  response     String?          @db.Text
+  result     Json?          
   modelVersion String?          @map("model_version")
   tokensUsed   Int?             @map("tokens_used")
 

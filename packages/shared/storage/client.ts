@@ -4,7 +4,6 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createError } from "../middleware/error-handler";
 
 export interface UploadResult {
   key: string;
@@ -17,7 +16,7 @@ function getRequiredEnv(name: string): string {
   const value = process.env[name];
 
   if (!value) {
-    throw createError(`${name} is not configured`, 500);
+    throw new Error(`${name} is not configured`);
   }
 
   return value;
@@ -64,13 +63,37 @@ export async function uploadFile(
       }),
     );
   } catch {
-    throw createError("Could not store contract file", 502);
+    throw new Error("Could not store contract file");
   }
 
   return {
     key,
     url: null,
   };
+}
+
+export async function downloadFile(key: string): Promise<Buffer> {
+  const bucket = getRequiredEnv("S3_BUCKET");
+
+  let response;
+  try {
+    response = await getS3Client().send(
+      new GetObjectCommand({ Bucket: bucket, Key: key }),
+    );
+  } catch (error) {
+    throw new Error("Could not retrieve contract file");
+  }
+
+  if (!response.Body) {
+    throw new Error("Could not retrieve contract file");
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+    chunks.push(Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks);
 }
 
 export async function getPresignedUrl(
