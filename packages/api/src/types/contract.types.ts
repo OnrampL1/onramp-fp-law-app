@@ -68,3 +68,26 @@ export interface ContractUploadResultDto {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ContractDetailDto {
+  id: string;
+  title: string;
+  counterparty: string;
+  businessStatus: ContractBusinessStatus;
+  processingStatus: ContractProcessingStatus;
+  processingError: string | null;
+  legalState: ContractLegalState | null;
+  tags: string[];
+  effectiveDate: string | null;
+  expirationDate: string | null;
+  fileName: string;
+  version: number;
+  uploadedByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractContentDto {
+  processingStatus: ContractProcessingStatus;
+  extractedText: string | null;
+}

@@ -4,7 +4,10 @@ import { authenticate, withAuth } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { validate } from "../middleware/validate";
 import { parseContractUploadFile } from "../middleware/contract-upload.middleware";
-import { listContractsQuerySchema } from "../schemas/contract.schemas";
+import {
+  contractIdParamSchema,
+  listContractsQuerySchema,
+} from "../schemas/contract.schemas";
 
 const router = Router();
 
@@ -21,6 +24,20 @@ router.get(
   authenticate,
   validate(listContractsQuerySchema, "query"),
   withAuth(contractController.list),
+);
+
+router.get(
+  "/:id",
+  authenticate,
+  validate(contractIdParamSchema, "params"),
+  withAuth(contractController.getById),
+);
+
+router.get(
+  "/:id/content",
+  authenticate,
+  validate(contractIdParamSchema, "params"),
+  withAuth(contractController.getContent),
 );
 
 export { router as contractRouter };

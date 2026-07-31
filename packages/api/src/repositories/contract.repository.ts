@@ -13,7 +13,11 @@ import {
   ContractListPagination,
   ContractListSort,
 } from "../types/contract.types";
-import { CONTRACT_LIST_SELECT } from "./selects/contract.select";
+import {
+  CONTRACT_CONTENT_SELECT,
+  CONTRACT_DETAIL_SELECT,
+  CONTRACT_LIST_SELECT,
+} from "./selects/contract.select";
 
 const prisma = getPrismaClient();
 
@@ -21,6 +25,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type ContractListRow = Prisma.ContractGetPayload<{
   select: typeof CONTRACT_LIST_SELECT;
+}>;
+
+export type ContractDetailRow = Prisma.ContractGetPayload<{
+  select: typeof CONTRACT_DETAIL_SELECT;
+}>;
+
+export type ContractContentRow = Prisma.ContractGetPayload<{
+  select: typeof CONTRACT_CONTENT_SELECT;
 }>;
 
 // ─── Create (upload) ────────────────────────────────────────────────────
@@ -180,8 +192,30 @@ const count = async (
   });
 };
 
+const findById = async (
+  id: string,
+  organizationId: string,
+): Promise<ContractDetailRow | null> => {
+  return prisma.contract.findFirst({
+    where: { id, organizationId, deletedAt: null },
+    select: CONTRACT_DETAIL_SELECT,
+  });
+};
+
+const findContentById = async (
+  id: string,
+  organizationId: string,
+): Promise<ContractContentRow | null> => {
+  return prisma.contract.findFirst({
+    where: { id, organizationId, deletedAt: null },
+    select: CONTRACT_CONTENT_SELECT,
+  });
+};
+
 export const contractRepository = {
   createUploadedContract,
   findMany,
   count,
+  findById,
+  findContentById,
 };

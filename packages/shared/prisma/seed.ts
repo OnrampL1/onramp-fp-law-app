@@ -301,7 +301,7 @@ async function main(): Promise<void> {
     type: "SUMMARY" | "RISK" | "CLAUSE_QUERY";
     status: "PENDING" | "COMPLETED" | "FAILED";
     promptUsed: string;
-    response?: string;
+    result?: Record<string, unknown>;
     modelVersion?: string;
     tokensUsed?: number;
     createdAt: Date;
@@ -325,9 +325,11 @@ async function main(): Promise<void> {
     processingStatus:
       | "PENDING_EXTRACTION"
       | "EXTRACTION_COMPLETED"
+      | "EXTRACTION_FAILED"
       | "AI_PENDING"
       | "AI_COMPLETED"
-      | "FAILED";
+      | "AI_FAILED";
+    processingError?: string;
     legalState?: "DRAFT" | "ACTIVE" | "EXPIRED" | "TERMINATED";
     tags: string[];
     expirationDate?: Date;
@@ -369,7 +371,9 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Analyze the following contract and answer: obligations, payment terms, termination conditions.",
-          response: `Obligations: Acme Robotics Inc. will deliver hardware integration services per the attached statement of work. Payment: Net-30 from invoice date, milestone-based billing. Termination: Either party may terminate with 90 days' written notice; immediate termination permitted for material breach uncured after 30 days.\n\n${DISCLAIMER}`,
+          result: {
+            text: `Obligations: Acme Robotics Inc. will deliver hardware integration services per the attached statement of work. Payment: Net-30 from invoice date, milestone-based billing. Termination: Either party may terminate with 90 days' written notice; immediate termination permitted for material breach uncured after 30 days.\n\n${DISCLAIMER}`,
+          },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 1840,
           createdAt: daysFromNow(-149),
@@ -380,7 +384,9 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Scan this contract for auto-renewal, uncapped liability, indemnification, IP assignment, non-compete, and clawback risks.",
-          response: `Auto-renewal: Contract auto-renews annually unless either party gives 90 days' notice — MEDIUM severity, easy to miss. Liability: Capped at 12 months' fees paid — LOW severity. No unusual IP assignment or non-compete clauses detected.\n\n${DISCLAIMER}`,
+          result: {
+            text: `Auto-renewal: Contract auto-renews annually unless either party gives 90 days' notice — MEDIUM severity, easy to miss. Liability: Capped at 12 months' fees paid — LOW severity. No unusual IP assignment or non-compete clauses detected.\n\n${DISCLAIMER}`,
+          },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 2210,
           createdAt: daysFromNow(-149),
@@ -474,7 +480,9 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Scan this contract for auto-renewal, uncapped liability, indemnification, IP assignment, non-compete, and clawback risks.",
-          response: `Auto-renewal: Lease renews for successive 12-month terms unless either party gives 120 days' written notice before expiration — HIGH severity, notice window already passed once before. No uncapped liability or unusual indemnification detected.\n\n${DISCLAIMER}`,
+          result: {
+            text: `Auto-renewal: Lease renews for successive 12-month terms unless either party gives 120 days' written notice before expiration — HIGH severity, notice window already passed once before. No uncapped liability or unusual indemnification detected.\n\n${DISCLAIMER}`,
+          },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 1650,
           createdAt: daysFromNow(-95),
@@ -552,7 +560,9 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Analyze the following contract and answer: obligations, payment terms, termination conditions.",
-          response: `Obligations: Northstar Logistics LLC to provide freight and warehousing services against agreed SLAs. Payment: Monthly invoicing, net-15. Termination: For cause with 15 days' cure period, or for convenience with 60 days' notice.\n\n${DISCLAIMER}`,
+          result: {
+            text: `Obligations: Northstar Logistics LLC to provide freight and warehousing services against agreed SLAs. Payment: Monthly invoicing, net-15. Termination: For cause with 15 days' cure period, or for convenience with 60 days' notice.\n\n${DISCLAIMER}`,
+          },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 1520,
           createdAt: daysFromNow(-63),
@@ -567,7 +577,9 @@ async function main(): Promise<void> {
       counterparty: "Pinehollow Creative Studio",
       uploadedByUserId: USER_OPS_ID,
       businessStatus: "DRAFT",
-      processingStatus: "FAILED",
+      processingStatus: "EXTRACTION_FAILED",
+      processingError:
+        "No extractable text layer detected — file appears to be a scanned/image-only PDF.",
       legalState: "DRAFT",
       tags: ["licensing", "creative"],
       extractedTextPresent: false,
@@ -613,7 +625,9 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Scan this contract for auto-renewal, uncapped liability, indemnification, IP assignment, non-compete, and clawback risks.",
-          response: `Liability: No cap on indemnification obligations for breach of representations — HIGH severity. Clawback: Lender may demand early repayment on undefined "material adverse change" — MEDIUM severity, vague trigger language.\n\n${DISCLAIMER}`,
+          result: {
+            text: `Liability: No cap on indemnification obligations for breach of representations — HIGH severity. Clawback: Lender may demand early repayment on undefined "material adverse change" — MEDIUM severity, vague trigger language.\n\n${DISCLAIMER}`,
+          },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 2480,
           createdAt: daysFromNow(-92),
@@ -659,7 +673,9 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Question: Does this contract require advance written notice before either party can decline to renew?",
-          response: `Yes — Section 9.1 requires written notice at least 30 days before the current term ends. If no notice is given, the agreement renews automatically for a further 12 months.\n\n${DISCLAIMER}`,
+          result: {
+            text: `Yes — Section 9.1 requires written notice at least 30 days before the current term ends. If no notice is given, the agreement renews automatically for a further 12 months.\n\n${DISCLAIMER}`,
+          },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 940,
           createdAt: daysFromNow(-2),
@@ -689,7 +705,9 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Analyze the following contract and answer: obligations, payment terms, termination conditions.",
-          response: `Obligations: Ironclad Security Services to provide on-site guard coverage per the staffing schedule. Payment: Monthly, net-30. Termination: Contract has since expired and was not renewed.\n\n${DISCLAIMER}`,
+          result: {
+            text: `Obligations: Ironclad Security Services to provide on-site guard coverage per the staffing schedule. Payment: Monthly, net-30. Termination: Contract has since expired and was not renewed.\n\n${DISCLAIMER}`,
+          },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 1180,
           createdAt: daysFromNow(-35),
@@ -711,6 +729,7 @@ async function main(): Promise<void> {
         counterparty: c.counterparty,
         businessStatus: c.businessStatus,
         processingStatus: c.processingStatus,
+        processingError: c.processingError,
         legalState: c.legalState,
         tags: c.tags,
         expirationDate: c.expirationDate,
@@ -749,7 +768,7 @@ async function main(): Promise<void> {
           type: analysis.type,
           status: analysis.status,
           promptUsed: analysis.promptUsed,
-          response: analysis.response,
+          result: analysis.result,
           modelVersion: analysis.modelVersion,
           tokensUsed: analysis.tokensUsed,
           createdAt: analysis.createdAt,

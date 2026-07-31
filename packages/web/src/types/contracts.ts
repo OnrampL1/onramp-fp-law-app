@@ -1,13 +1,11 @@
 export const ACCEPTED_CONTRACT_FILE_EXTENSIONS = [
   ".pdf",
-  ".doc",
   ".docx",
   ".txt",
 ] as const;
 
 export const ACCEPTED_CONTRACT_MIME_TYPES = [
   "application/pdf",
-  "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/plain",
 ] as const;
@@ -125,4 +123,33 @@ export interface ContractListParams {
 export interface ContractListResult {
   items: ContractListItem[];
   pagination: ContractListPaginationMeta;
+}
+
+export interface ContractDetailResponse {
+  id: string;
+  title: string;
+  counterparty: string;
+  businessStatus: "DRAFT" | "UNDER_REVIEW" | "COMPLETED" | "ARCHIVED";
+  processingStatus:
+    | "PENDING_EXTRACTION"
+    | "EXTRACTION_COMPLETED"
+    | "EXTRACTION_FAILED"
+    | "AI_PENDING"
+    | "AI_COMPLETED"
+    | "AI_FAILED";
+  processingError: string | null;
+  legalState: ContractLegalStatus | null;
+  tags: string[];
+  effectiveDate: string | null;
+  expirationDate: string | null;
+  fileName: string;
+  version: number;
+  uploadedByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractContentResponse {
+  processingStatus: ContractDetailResponse["processingStatus"];
+  extractedText: string | null;
 }

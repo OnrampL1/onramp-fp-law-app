@@ -7,6 +7,7 @@ import {
 import { processEmailJob } from "../jobs/email.job";
 import { processEmbeddingsJob } from "../jobs/embeddings.job";
 import { processInvitationExpiryJob } from "../jobs/invitation-expiry.job";
+import { processExtractionJob } from "src/jobs/extraction.job";
 
 const INVITATION_EXPIRY_SWEEP_JOB_ID = "invitation-expiry-sweep";
 const INVITATION_EXPIRY_INTERVAL_MS = 60 * 60 * 1000; // hourly
@@ -51,7 +52,21 @@ export function createWorkers(): Worker[] {
     },
   );
 
-  const workers = [emailWorker, embeddingsWorker, invitationExpiryWorker];
+  const extractionWorker = new Worker(
+    QUEUE_NAMES.EXTRACTION,
+    processExtractionJob,
+    {
+      connection,
+      concurrency: 3,
+    },
+  );
+
+  const workers = [
+    emailWorker,
+    embeddingsWorker,
+    invitationExpiryWorker,
+    extractionWorker,
+  ];
 
   workers.forEach((worker) => {
     worker.on("completed", (job) => {

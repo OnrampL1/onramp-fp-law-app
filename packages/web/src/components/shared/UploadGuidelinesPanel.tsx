@@ -20,7 +20,7 @@ export function UploadGuidelinesPanel() {
             </li>
             <li className="flex min-w-0 items-center gap-2">
               <FileType2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Word (.docx, .doc)</span>
+              <span>Word (.docx)</span>
             </li>
             <li className="flex min-w-0 items-center gap-2">
               <ClipboardType className="h-4 w-4 shrink-0" aria-hidden="true" />
