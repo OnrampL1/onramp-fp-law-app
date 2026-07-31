@@ -1,8 +1,8 @@
 export { WitnessWorkflowHeader }         from "./WitnessWorkflowHeader";
 export { GenerateWitnessAccessPanel }    from "./GenerateWitnessAccessPanel";
-export { GenerateWitnessLinkModal }      from "./GenerateWitnessLinkModal";
 export { WitnessInvitationsTable }       from "./WitnessInvitationsTable";
 export { WitnessAccessDetailsSidebar }   from "./WitnessAccessDetailsSidebar";
+export { RevokeWitnessLinkDialog }       from "./RevokeWitnessLinkDialog";
 export { WitnessReviewProgress }         from "./WitnessReviewProgress";
 export { SecurityStatusPanel }           from "./SecurityStatusPanel";
 export { ExpiringLinksPanel }            from "./ExpiringLinksPanel";

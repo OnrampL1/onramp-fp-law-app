@@ -36,7 +36,7 @@ export function ContractInfoCard({ contract }: ContractInfoCardProps) {
           {/* Awaiting badge — reuses same pill pattern as WitnessStatusBadge */}
           <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-300/50 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700 dark:border-yellow-700/30 dark:bg-yellow-900/20 dark:text-yellow-400">
             <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
-            Awaiting Witness Acknowledgement
+            Awaiting Witness Access
           </span>
         </div>
 

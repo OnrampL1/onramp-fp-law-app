@@ -165,7 +165,9 @@ export interface AuditLogPaginationMeta {
 export interface AuditLogListParams {
   contractId?: string;
   actorUserId?: string;
-  action?: AuditAction;
+  // A single action, or several at once (e.g. the Witness Workflow page's
+  // Access Activity tab filtering to its 3 witness-related actions).
+  action?: AuditAction | AuditAction[];
   dateFrom?: string;
   dateTo?: string;
   page: number;

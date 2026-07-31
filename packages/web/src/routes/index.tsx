@@ -28,8 +28,7 @@ export function AppRoutes() {
         <Route path="/register" element={<Register />} />
       </Route>
 
-      <Route path="/witness-review" element={<WitnessReview />} />
-      <Route path="/witness/review" element={<WitnessReview />} />
+      <Route path="/witness/:token" element={<WitnessReview />} />
 
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>
