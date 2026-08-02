@@ -1,7 +1,30 @@
 import { Worker } from "bullmq";
-import { getRedisConnection, QUEUE_NAMES } from "@starter-kit/shared";
+import {
+  getRedisConnection,
+  invitationExpiryQueue,
+  QUEUE_NAMES,
+} from "@starter-kit/shared";
 import { processEmailJob } from "../jobs/email.job";
 import { processEmbeddingsJob } from "../jobs/embeddings.job";
+import { processInvitationExpiryJob } from "../jobs/invitation-expiry.job";
+import { processExtractionJob } from "../jobs/extraction.job";
+
+const INVITATION_EXPIRY_SWEEP_JOB_ID = "invitation-expiry-sweep";
+const INVITATION_EXPIRY_INTERVAL_MS = 60 * 60 * 1000; // hourly
+
+// Registers the recurring sweep. BullMQ keys repeatable jobs by their repeat
+// options + jobId, so calling this on every worker restart is idempotent —
+// it will not create duplicate schedules.
+export async function scheduleInvitationExpirySweep(): Promise<void> {
+  await invitationExpiryQueue.add(
+    "sweep",
+    {},
+    {
+      repeat: { every: INVITATION_EXPIRY_INTERVAL_MS },
+      jobId: INVITATION_EXPIRY_SWEEP_JOB_ID,
+    },
+  );
+}
 
 export function createWorkers(): Worker[] {
   const connection = getRedisConnection();
@@ -20,7 +43,33 @@ export function createWorkers(): Worker[] {
     },
   );
 
-  const workers = [emailWorker, embeddingsWorker];
+  const invitationExpiryWorker = new Worker(
+    QUEUE_NAMES.INVITATION_EXPIRY,
+    processInvitationExpiryJob,
+    {
+      connection,
+      concurrency: 1,
+    },
+  );
+
+  const extractionWorker = new Worker(
+    QUEUE_NAMES.EXTRACTION,
+    processExtractionJob,
+    {
+      connection,
+      // Overridable per environment — production lowers this on the 1 GB
+      // VPS, since concurrent large-file parsing is the likeliest source of
+      // memory pressure there.
+      concurrency: Number(process.env.EXTRACTION_CONCURRENCY ?? 3),
+    },
+  );
+
+  const workers = [
+    emailWorker,
+    embeddingsWorker,
+    invitationExpiryWorker,
+    extractionWorker,
+  ];
 
   workers.forEach((worker) => {
     worker.on("completed", (job) => {

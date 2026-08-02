@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import type { ContractDetail } from "@/lib/data";
+import type { ContractDetail, ContractStatus } from "@/lib/data";
 import {
   Building2,
   Calendar,
@@ -12,12 +12,39 @@ import {
   DollarSign,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/badges";
+import type { ContractDetailResponse } from "@/types/contracts";
+
+const LEGAL_STATE_TO_STATUS: Record<string, ContractStatus> = {
+  DRAFT: "Draft",
+  ACTIVE: "Active",
+  EXPIRED: "Expired",
+  TERMINATED: "Terminated",
+};
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
 
 export function ContractMetadata({
   contract: c,
 }: {
-  contract: ContractDetail;
+  contract: ContractDetailResponse;
 }) {
+  const status = c.legalState ? LEGAL_STATE_TO_STATUS[c.legalState] : null;
   return (
     <Card className="p-5">
       <h2 className="text-sm font-semibold text-foreground">
@@ -27,7 +54,7 @@ export function ContractMetadata({
 
       <dl className="space-y-4">
         <Field icon={FileText} label="Name">
-          <span className="font-normal text-foreground">{c.name}</span>
+          <span className="font-normal text-foreground">{c.title}</span>
         </Field>
         <Field icon={Building2} label="Counterparty">
           {c.counterparty}
@@ -35,9 +62,9 @@ export function ContractMetadata({
         <Field icon={Hash} label="ID">
           <span className="font-mono text-xs">{c.id}</span>
         </Field>
-        <Field icon={DollarSign} label="Value">
+        {/* <Field icon={DollarSign} label="Value">
           <span className="font-medium text-foreground">{c.value}</span>
-        </Field>
+        </Field> */}
 
         <div className="flex items-center gap-3">
           <dt className="flex w-28 shrink-0 items-center gap-2 text-sm text-muted-foreground">
@@ -47,15 +74,23 @@ export function ContractMetadata({
             Status
           </dt>
           <dd className="min-w-0 flex-1 text-sm text-foreground">
-            <StatusBadge status={c.status} />
+            {status ? (
+              <StatusBadge status={status} />
+            ) : (
+              <span className="text-muted-foreground">Not set</span>
+            )}
           </dd>
         </div>
 
         <Field icon={Calendar} label="Eff. Date">
-          <span className="font-normal text-foreground">{c.effective}</span>
+          <span className="font-normal text-foreground">
+            {formatDate(c.effectiveDate)}
+          </span>
         </Field>
         <Field icon={CalendarClock} label="Exp. Date">
-          <span className="font-normal text-foreground">{c.expiration}</span>
+          <span className="font-normal text-foreground">
+            {formatDate(c.expirationDate)}
+          </span>
         </Field>
       </dl>
 
@@ -86,11 +121,11 @@ export function ContractMetadata({
           <dd className="flex min-w-0 flex-1 items-center gap-2 text-sm text-foreground ">
             <Avatar className="size-6">
               <AvatarFallback className="bg-primary text-[10px] font-semibold text-primary-foreground">
-                {c.uploadedBy.initials}
+                {getInitials(c.uploadedByName)}
               </AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium text-foreground">
-              {c.uploadedBy.name}
+              {c.uploadedByName}
             </span>
           </dd>
         </div>
@@ -99,7 +134,7 @@ export function ContractMetadata({
             Created Date
           </dt>
           <dd className="min-w-0 flex-1 text-sm text-foreground">
-            {c.created}
+            {formatDate(c.createdAt)}
           </dd>
         </div>
       </div>

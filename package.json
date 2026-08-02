@@ -16,10 +16,16 @@
     "db:seed": "npm run db:seed --workspace=@starter-kit/shared"
   },
   "devDependencies": {
+    "@types/node": "^26.1.2",
     "turbo": "^2.3.0"
   },
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "npm@10.8.0"
+  "packageManager": "npm@10.8.0",
+  "dependencies": {
+    "@nestjs/swagger": "^11.4.5",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
+  }
 }

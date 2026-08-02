@@ -1,20 +1,47 @@
 import { useEffect, useState } from "react";
+import { AxiosError } from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { LinkIcon, CopyIcon, CalendarIcon } from "../shared/icons";
-import { CONTRACT_OPTIONS } from "@/lib/data";
-import type { GeneratedLink, AccessType, AccessExpiry } from "./types";
+import { X } from "lucide-react";
+import { LinkIcon, CopyIcon, CalendarIcon, SendIcon } from "../shared/icons";
+import { useContractsList } from "@/hooks/useContractsList";
+import { useCreateWitnessLink } from "@/hooks/useWitnessLinks";
+import type { GeneratedLink, AccessExpiry } from "./types";
 
 interface GenerateWitnessAccessPanelProps {
   /** Called by WitnessWorkflow when Refresh is pressed — clears generated link */
   generatedLink: GeneratedLink | null;
-  onLinkGenerated: (link: GeneratedLink) => void;
+  onLinkGenerated: (link: GeneratedLink | null) => void;
   refreshKey: number;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const EXPIRY_HOURS: Record<AccessExpiry, number> = {
+  "24h": 24,
+  "48h": 48,
+  "72h": 72,
+  "7d": 7 * 24,
+};
+
+function formatExpiryDate(isoDate: string): string {
+  const date = new Date(isoDate);
+  return (
+    date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) +
+    " · " +
+    date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+  );
+}
+
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof AxiosError) {
+    const message = (error.response?.data as { error?: string } | undefined)?.error;
+    if (message) return message;
+  }
+  return "Something went wrong generating the link. Please try again.";
+}
 
 export function GenerateWitnessAccessPanel({
   generatedLink,
@@ -25,40 +52,58 @@ export function GenerateWitnessAccessPanel({
   const [witnessName, setWitnessName]           = useState("");
   const [witnessEmail, setWitnessEmail]         = useState("");
   const [expiry, setExpiry]                     = useState<AccessExpiry>("48h");
-  const [accessType, setAccessType]             = useState<AccessType>("Review & Acknowledge");
   const [sendEmail, setSendEmail]               = useState(true);
   const [copied, setCopied]                     = useState(false);
+
+  const contractsQuery = useContractsList({
+    sortBy: "updatedAt",
+    sortDirection: "desc",
+    page: 1,
+    // GET /contracts caps pageSize at 50 (MAX_PAGE_SIZE in
+    // contract.schemas.ts) — anything higher 422s and silently breaks this
+    // dropdown. If an org ever has >50 contracts, this select will need
+    // real pagination or search-as-you-type rather than a bigger number.
+    pageSize: 50,
+  });
+  const createWitnessLink = useCreateWitnessLink();
 
   const canGenerate =
     !!selectedContract &&
     !!witnessName &&
     !!witnessEmail &&
-    EMAIL_PATTERN.test(witnessEmail);
+    EMAIL_PATTERN.test(witnessEmail) &&
+    !createWitnessLink.isPending;
 
   const selectClass =
     "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
-  function handleGenerate() {
+  async function handleGenerate() {
     if (!canGenerate) return;
-    const token = `wv_${Math.random().toString(36).substring(2, 14)}`;
-    const now   = new Date();
-    const expiryMs: Record<AccessExpiry, number> = {
-      "24h": 24 * 60 * 60 * 1000,
-      "48h": 48 * 60 * 60 * 1000,
-      "72h": 72 * 60 * 60 * 1000,
-      "7d":  7  * 24 * 60 * 60 * 1000,
-    };
-    const expDate = new Date(now.getTime() + expiryMs[expiry]);
-    const formatted =
-      expDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) +
-      " · " +
-      expDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 
-    onLinkGenerated({
-      url:            `https://app.clausio.com/witness/review?t=${token}`,
-      expirationDate: formatted,
-      accessType,
-    });
+    try {
+      const result = await createWitnessLink.mutateAsync({
+        contractId: selectedContract,
+        witnessEmail,
+        witnessName,
+        expiresInHours: EXPIRY_HOURS[expiry],
+        sendEmail,
+      });
+
+      onLinkGenerated({
+        id: result.id,
+        contractId: result.contractId,
+        url: result.witnessUrl ?? "",
+        expirationDate: formatExpiryDate(result.expiresAt),
+        // Fixed — not a real choice, see AccessType's definition.
+        accessType: "Review Only",
+        witnessEmail: result.witnessEmail,
+        witnessName: result.witnessName,
+        emailSentAt: result.emailSentAt,
+      });
+    } catch {
+      // Surfaced via createWitnessLink.isError below — nothing further to
+      // do here, mutateAsync already rejected.
+    }
   }
 
   useEffect(() => {
@@ -66,9 +111,10 @@ export function GenerateWitnessAccessPanel({
     setWitnessName("");
     setWitnessEmail("");
     setExpiry("48h");
-    setAccessType("Review & Acknowledge");
     setSendEmail(true);
     setCopied(false);
+    createWitnessLink.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
   function handleCopy() {
@@ -76,6 +122,17 @@ export function GenerateWitnessAccessPanel({
     navigator.clipboard.writeText(generatedLink.url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleClear() {
+    setSelectedContract("");
+    setWitnessName("");
+    setWitnessEmail("");
+    setExpiry("48h");
+    setSendEmail(true);
+    setCopied(false);
+    createWitnessLink.reset();
+    onLinkGenerated(null);
   }
 
   return (
@@ -104,12 +161,20 @@ export function GenerateWitnessAccessPanel({
                 value={selectedContract}
                 onChange={(e) => setSelectedContract(e.target.value)}
                 className={selectClass}
+                disabled={contractsQuery.isLoading}
               >
-                <option value="" disabled>Select a contract</option>
-                {CONTRACT_OPTIONS.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                <option value="" disabled>
+                  {contractsQuery.isLoading ? "Loading contracts…" : "Select a contract"}
+                </option>
+                {contractsQuery.data?.items.map((c) => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
                 ))}
               </select>
+              {contractsQuery.isError && (
+                <p className="text-xs text-destructive">
+                  Couldn't load contracts. Try refreshing the page.
+                </p>
+              )}
             </div>
 
             {/* Witness name + email */}
@@ -152,16 +217,12 @@ export function GenerateWitnessAccessPanel({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="panel-access">Access Type</Label>
-                <select
-                  id="panel-access"
-                  value={accessType}
-                  onChange={(e) => setAccessType(e.target.value as AccessType)}
-                  className={selectClass}
-                >
-                  <option value="Review & Acknowledge">Review &amp; Acknowledge</option>
-                  <option value="Review Only">Review Only</option>
-                </select>
+                <Label>Access Type</Label>
+                {/* Fixed, non-interactive — every witness gets identical
+                    read-only access (BR-8), so this isn't a real choice. */}
+                <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                  Review Only
+                </div>
               </div>
             </div>
 
@@ -188,7 +249,7 @@ export function GenerateWitnessAccessPanel({
                 disabled={!canGenerate}
               >
                 <LinkIcon className="h-3.5 w-3.5" />
-                Generate Secure Link
+                {createWitnessLink.isPending ? "Generating…" : "Generate Secure Link"}
               </Button>
               <Button
                 variant="outline"
@@ -200,7 +261,23 @@ export function GenerateWitnessAccessPanel({
                 <CopyIcon />
                 Copy Link
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleClear}
+                disabled={!generatedLink}
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </Button>
             </div>
+
+            {createWitnessLink.isError && (
+              <p className="text-sm text-destructive">
+                {extractErrorMessage(createWitnessLink.error)}
+              </p>
+            )}
           </div>
 
           {/* ── Right: generated URL panel / empty state ── */}
@@ -261,6 +338,14 @@ export function GenerateWitnessAccessPanel({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                 </svg>
                 Link is encrypted, single-use, and scoped to the selected contract only.
+              </p>
+
+              {/* Email status — "sent" means handed to the mail queue, not confirmed delivered */}
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <SendIcon className="h-3.5 w-3.5 shrink-0" />
+                {generatedLink.emailSentAt
+                  ? `Emailed to ${generatedLink.witnessEmail}`
+                  : "Not emailed — share the link directly."}
               </p>
             </div>
           ) : (

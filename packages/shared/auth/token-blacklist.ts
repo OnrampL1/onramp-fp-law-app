@@ -24,8 +24,28 @@ function getBlacklistRedisConnection(): IORedis {
       // covers a command that's already been sent and is awaiting a reply.
       enableOfflineQueue: false,
     });
+    blacklistRedis.on("error", (err) => {
+      console.error("[token-blacklist] Redis connection error:", err.message);
+    });
   }
   return blacklistRedis;
+}
+
+/*
+ * Connects eagerly at server startup instead of lazily on the first
+ * authenticated request. Without this, the first request after a fresh
+ * start can race the connection's handshake.
+ * enableOfflineQueue: false means that request fails immediately instead
+ * of waiting, since a real outage should also fail fast rather than hang.
+ */
+export async function connectTokenBlacklist(): Promise<void> {
+  const client = getBlacklistRedisConnection();
+  if (client.status === "ready") return;
+
+  await new Promise<void>((resolve, reject) => {
+    client.once("ready", resolve);
+    client.once("error", reject);
+  });
 }
 
 interface DecodedTokenClaims {
@@ -56,6 +76,8 @@ export async function blacklistToken(token: string): Promise<void> {
 }
 
 export async function isJtiBlacklisted(jti: string): Promise<boolean> {
-  const result = await getBlacklistRedisConnection().get(`${BLACKLIST_PREFIX}${jti}`);
+  const result = await getBlacklistRedisConnection().get(
+    `${BLACKLIST_PREFIX}${jti}`,
+  );
   return result !== null;
 }

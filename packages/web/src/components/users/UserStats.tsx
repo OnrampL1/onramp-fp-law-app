@@ -1,8 +1,9 @@
 import type { LucideIcon } from "lucide-react";
-import { Eye, Clock, ShieldCheck, UsersRound } from "lucide-react";
+import { Clock, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import type { TeamMember } from "@/lib/users";
+import { isAdminRole } from "@/lib/permissions";
 
 type UserStatsProps = {
   users: TeamMember[];
@@ -16,28 +17,35 @@ type StatItem = {
 };
 
 export function UserStats({ users }: UserStatsProps) {
+  // `users` merges real User records with pending Invitation rows (see
+  // TeamMember) so the table can show both in one list. Member-count stats
+  // must only reflect actual Users — a pending invitation isn't a team
+  // member yet — while "Pending invites" is the mirror image and only
+  // counts invitation rows.
+  const activeUsers = users.filter((user) => user.source === "user");
+
   const stats: StatItem[] = [
     {
       label: "Team members",
-      value: users.length,
+      value: activeUsers.length,
       description: "All workspace accounts",
       icon: UsersRound,
     },
     {
       label: "Administrators",
-      value: users.filter((user) => user.role === "admin").length,
+      value: activeUsers.filter((user) => isAdminRole(user.role)).length,
       description: "Can manage access",
       icon: ShieldCheck,
     },
     {
-      label: "Viewers",
-      value: users.filter((user) => user.role === "viewer").length,
+      label: "Internal users",
+      value: activeUsers.filter((user) => user.role === "INTERNAL").length,
       description: "Read-only contract access",
-      icon: Eye,
+      icon: UserRound,
     },
     {
       label: "Pending invites",
-      value: users.filter((user) => user.status === "pending").length,
+      value: users.filter((user) => user.source === "invitation").length,
       description: "Awaiting acceptance",
       icon: Clock,
     },

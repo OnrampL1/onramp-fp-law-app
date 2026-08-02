@@ -4,7 +4,9 @@ import {
   MoreHorizontal,
   RotateCcw,
   ShieldCheck,
+  UserCheck,
   UserCog,
+  UserX,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -33,7 +35,9 @@ type UserTableProps = {
   users: TeamMember[];
   onSelectUser: (user: TeamMember) => void;
   onDisableUser: (user: TeamMember) => void;
+  onReactivateUser: (user: TeamMember) => void;
   onResendInvite: (user: TeamMember) => void;
+  onRevokeInvite: (user: TeamMember) => void;
   onChangeRole: (user: TeamMember) => void;
   canChangeRole: (user: TeamMember) => boolean;
   canManageAccess: (user: TeamMember) => boolean;
@@ -55,7 +59,9 @@ export function UserTable({
   users,
   onSelectUser,
   onDisableUser,
+  onReactivateUser,
   onResendInvite,
+  onRevokeInvite,
   onChangeRole,
   canChangeRole,
   canManageAccess,
@@ -82,6 +88,7 @@ export function UserTable({
             const visiblePermissions = user.permissionKeys.slice(0, 2);
             const hiddenPermissionCount =
               user.permissionKeys.length - visiblePermissions.length;
+            const displayName = user.name ?? user.email;
 
             return (
               <TableRow
@@ -93,13 +100,13 @@ export function UserTable({
                   <div className="flex min-w-56 items-center gap-3">
                     <Avatar>
                       <AvatarFallback className="bg-accent text-xs font-semibold text-accent-foreground">
-                        {getInitials(user.name)}
+                        {getInitials(displayName)}
                       </AvatarFallback>
                     </Avatar>
 
                     <div className="min-w-0">
                       <p className="truncate font-medium text-foreground">
-                        {user.name}
+                        {user.name ?? "Invitation pending"}
                       </p>
                       <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
                         <Mail className="size-3 shrink-0" aria-hidden="true" />
@@ -153,7 +160,7 @@ export function UserTable({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          aria-label={`Actions for ${user.name}`}
+                          aria-label={`Actions for ${displayName}`}
                         >
                           <MoreHorizontal className="size-4" />
                         </Button>
@@ -171,24 +178,49 @@ export function UserTable({
                         <ShieldCheck className="size-4" />
                         Review permissions
                       </DropdownMenuItem>
-                      {user.status === "pending" && canManageAccess(user) && (
-                        <DropdownMenuItem onClick={() => onResendInvite(user)}>
-                          <RotateCcw className="size-4" />
-                          Resend invite
-                        </DropdownMenuItem>
-                      )}
-                      {canManageAccess(user) && user.status !== "disabled" && (
+                      {user.source === "invitation" && canManageAccess(user) && (
                         <>
+                          <DropdownMenuItem onClick={() => onResendInvite(user)}>
+                            <RotateCcw className="size-4" />
+                            Resend invite
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"
-                            onClick={() => onDisableUser(user)}
+                            onClick={() => onRevokeInvite(user)}
                           >
-                            <Ban className="size-4" />
-                            Disable access
+                            <UserX className="size-4" />
+                            Revoke invite
                           </DropdownMenuItem>
                         </>
                       )}
+                      {user.source === "user" &&
+                        canManageAccess(user) &&
+                        user.status === "active" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => onDisableUser(user)}
+                            >
+                              <Ban className="size-4" />
+                              Disable access
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      {user.source === "user" &&
+                        canManageAccess(user) &&
+                        user.status === "disabled" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => onReactivateUser(user)}
+                            >
+                              <UserCheck className="size-4" />
+                              Reactivate
+                            </DropdownMenuItem>
+                          </>
+                        )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

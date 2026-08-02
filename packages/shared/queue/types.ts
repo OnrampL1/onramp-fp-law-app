@@ -2,6 +2,8 @@
 export const QUEUE_NAMES = {
   EMAIL: "email",
   EMBEDDINGS: "embeddings",
+  INVITATION_EXPIRY: "invitation-expiry",
+  EXTRACTION: "extraction",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -20,7 +22,20 @@ export interface EmbeddingsJobData {
   text: string;
 }
 
-export type JobData = EmailJobData | EmbeddingsJobData;
+// The sweep takes no parameters — it always expires whatever is stale as of
+// "now". The (empty) data shape only exists so the queue can be typed.
+export type InvitationExpiryJobData = Record<string, never>;
+
+export interface ExtractionJobData {
+  contractId: string;
+  fileKey: string;
+}
+
+export type JobData =
+  | EmailJobData
+  | EmbeddingsJobData
+  | InvitationExpiryJobData
+  | ExtractionJobData;
 
 // ─── Job result shapes ─────────────────────────────────────────────────────────
 export interface EmailJobResult {
@@ -29,4 +44,12 @@ export interface EmailJobResult {
 
 export interface EmbeddingsJobResult {
   dimensions: number;
+}
+
+export interface InvitationExpiryJobResult {
+  expiredCount: number;
+}
+
+export interface ExtractionJobResult {
+  status: "EXTRACTION_COMPLETED" | "EXTRACTION_FAILED";
 }

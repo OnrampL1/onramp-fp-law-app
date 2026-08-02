@@ -9,10 +9,9 @@ build/
 out/
 .next/
 
-# packages/shared's source dirs are TS-only. Building packages/api (tsc hits
-# pre-existing rootDir violations pulling in @starter-kit/shared) emits
-# compiled output next to the source here instead of into dist/, even though
-# it errors on those files. Never legitimate to commit.
+# packages/shared's source dirs are TS-only; a stray `tsc` run without
+# --project tsconfig.build.json emits compiled output next to the source
+# instead of into dist/. Never legitimate to commit.
 packages/shared/ai/*.js
 packages/shared/ai/*.js.map
 packages/shared/ai/*.d.ts
@@ -35,6 +34,7 @@ packages/shared/src/*.d.ts
 .env.development.local
 .env.test.local
 .env.production.local
+.env.prod
 
 # ─── Turborepo ────────────────────────────────────────────────────────────────
 .turbo/

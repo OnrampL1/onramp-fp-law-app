@@ -180,9 +180,10 @@ enum ContractBusinessStatus {
 enum ContractProcessingStatus {
   PENDING_EXTRACTION
   EXTRACTION_COMPLETED
+  EXTRACTION_FAILED
   AI_PENDING
   AI_COMPLETED
-  FAILED
+  AI_FAILED
 }
 
 enum ContractLegalState {
@@ -201,9 +202,11 @@ model Contract {
   counterparty     String
   businessStatus   ContractBusinessStatus   @default(DRAFT) @map("business_status")
   processingStatus ContractProcessingStatus @default(PENDING_EXTRACTION) @map("processing_status")
+  processingError  String?                  @map("processing_error") @db.Text
   legalState       ContractLegalState?      @map("legal_state")
 
   tags           String[]
+  effectiveDate  DateTime? @map("effective_date") @db.Date
   expirationDate DateTime? @map("expiration_date") @db.Date
 
   fileKey       String  @map("file_key")
@@ -263,11 +266,20 @@ model WitnessInvitation {
   contractId     String @map("contract_id") @db.Uuid
   issuedByUserId String @map("issued_by_user_id") @db.Uuid
 
+  witnessEmail String  @map("witness_email")
+  witnessName  String? @map("witness_name")
+
   tokenHash String        @unique @map("token_hash")
   status    WitnessStatus @default(ISSUED)
   expiresAt DateTime      @map("expires_at")
   usedAt    DateTime?     @map("used_at")
   isRevoked Boolean       @default(false) @map("is_revoked")
+
+  // When the invitation email was successfully handed off to the mail queue —
+  // there's no delivery webhook anywhere in this codebase, so this is "sent",
+  // not "confirmed delivered" (same caveat as everywhere else). Null means
+  // either the admin opted out (sendEmail: false) or none was ever attempted.
+  emailSentAt DateTime? @map("email_sent_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -301,7 +313,7 @@ model AIAnalysis {
   type         AIAnalysisType
   status       AIAnalysisStatus @default(PENDING)
   promptUsed   String           @map("prompt_used") @db.Text
-  response     String?          @db.Text
+  result     Json?          
   modelVersion String?          @map("model_version")
   tokensUsed   Int?             @map("tokens_used")
 
@@ -393,5 +405,7 @@ model AuditLog {
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([action])
+  @@index([contractId])
+  @@index([actorUserId])
   @@map("audit_logs")
 }

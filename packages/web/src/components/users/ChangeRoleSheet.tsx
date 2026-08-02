@@ -17,20 +17,23 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import type { TeamMember } from "@/lib/users";
 import {
+  assignableRoles,
   getPermissionKeysForRole,
   roleLabels,
-  type TeamMember,
-  type UserAccessRole,
-} from "@/lib/users";
+  type BackendUserRole,
+} from "@/lib/permissions";
 
 import { PermissionBadge, UserRoleBadge } from "./UserBadges";
+
+type AssignableRole = Extract<BackendUserRole, "ADMIN" | "INTERNAL">;
 
 type ChangeRoleSheetProps = {
   user: TeamMember | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (user: TeamMember, role: UserAccessRole) => void;
+  onSave: (user: TeamMember, role: AssignableRole) => void;
 };
 
 export function ChangeRoleSheet({
@@ -39,10 +42,10 @@ export function ChangeRoleSheet({
   onOpenChange,
   onSave,
 }: ChangeRoleSheetProps) {
-  const [selectedRole, setSelectedRole] = useState<UserAccessRole>("viewer");
+  const [selectedRole, setSelectedRole] = useState<AssignableRole>("INTERNAL");
 
   useEffect(() => {
-    if (user) {
+    if (user && user.role !== "OWNER") {
       setSelectedRole(user.role);
     }
   }, [user]);
@@ -92,16 +95,16 @@ export function ChangeRoleSheet({
             <Select
               value={selectedRole}
               onValueChange={(value) =>
-                setSelectedRole(value as UserAccessRole)
+                setSelectedRole(value as AssignableRole)
               }
             >
               <SelectTrigger className="w-full" aria-label="New user role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(roleLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
+                {assignableRoles.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {roleLabels[role]}
                   </SelectItem>
                 ))}
               </SelectContent>

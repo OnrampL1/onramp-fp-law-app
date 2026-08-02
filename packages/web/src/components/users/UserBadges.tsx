@@ -1,28 +1,23 @@
-import { Eye, ShieldCheck, UserRound } from "lucide-react";
+import { ShieldCheck, UserRound } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  permissionLabels,
-  roleLabels,
-  statusLabels,
-  type PermissionKey,
-  type UserAccessRole,
-  type UserAccountStatus,
-} from "@/lib/users";
+import { statusLabels, type UserAccountStatus, type PermissionKey } from "@/lib/users";
+import { permissionLabels, roleLabels, type BackendUserRole } from "@/lib/permissions";
 
-const roleStyles: Record<UserAccessRole, string> = {
-  admin: "border-primary/30 bg-primary/10 text-primary",
-  user: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300",
-  viewer:
+const roleStyles: Record<BackendUserRole, string> = {
+  OWNER: "border-primary/30 bg-primary/10 text-primary",
+  ADMIN:
+    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300",
+  INTERNAL:
     "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300",
 };
 
 const roleIcons = {
-  admin: ShieldCheck,
-  user: UserRound,
-  viewer: Eye,
-} satisfies Record<UserAccessRole, typeof ShieldCheck>;
+  OWNER: ShieldCheck,
+  ADMIN: ShieldCheck,
+  INTERNAL: UserRound,
+} satisfies Record<BackendUserRole, typeof ShieldCheck>;
 
 const statusStyles: Record<UserAccountStatus, string> = {
   active:
@@ -30,15 +25,21 @@ const statusStyles: Record<UserAccountStatus, string> = {
   pending:
     "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
   disabled: "border-border bg-muted text-muted-foreground",
+  expired:
+    "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300",
+  revoked:
+    "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
 };
 
 const statusDotStyles: Record<UserAccountStatus, string> = {
   active: "bg-emerald-500",
   pending: "bg-amber-500",
   disabled: "bg-muted-foreground",
+  expired: "bg-orange-500",
+  revoked: "bg-red-500",
 };
 
-export function UserRoleBadge({ role }: { role: UserAccessRole }) {
+export function UserRoleBadge({ role }: { role: BackendUserRole }) {
   const Icon = roleIcons[role];
 
   return (

@@ -13,6 +13,16 @@ import { router } from "./src/routes";
 
 const app = express();
 
+// ─── Trust proxy ──────────────────────────────────────────────────────────────
+// Exactly one hop: the reverse-proxy nginx container (reverse-proxy/), the
+// only thing ever allowed to sit in front of this API (see the Deployment
+// Architecture doc). This makes req.ip resolve to the real client IP from
+// X-Forwarded-For instead of nginx's own container address — used for
+// audit log ipAddress and by express-rate-limit to key limits per client.
+// A wrong hop count (or `true`) would make ipAddress spoofable; this must
+// change if the topology in front of the API ever changes.
+app.set("trust proxy", 1);
+
 // ─── Security ─────────────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(
