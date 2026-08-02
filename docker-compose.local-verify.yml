@@ -1,0 +1,15 @@
+# Local verification only. Publishes host ports so docker-compose.prod.yml
+# can be checked end-to-end on a dev machine before the reverse proxy
+# (Batch 3) exists to actually expose anything.
+#
+# Never referenced by the real deploy command — that runs
+# `docker compose -f docker-compose.prod.yml` alone, with nothing here.
+#
+# Usage: docker compose -f docker-compose.prod.yml -f docker-compose.local-verify.yml --env-file .env.prod up -d
+services:
+  api:
+    ports:
+      - "3000:3000"
+  web:
+    ports:
+      - "8080:80"

@@ -1,0 +1,132 @@
+networks:
+  clausio_internal:
+    name: clausio_internal
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Tuned down from Postgres's defaults, which assume a larger host than
+    # this VPS provides.
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c max_connections=50
+    volumes:
+      - ${CLAUSIO_DATA_DIR:-/opt/clausio/data}/postgres:/var/lib/postgresql/data
+    networks:
+      - clausio_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - ${CLAUSIO_DATA_DIR:-/opt/clausio/data}/redis:/data
+    networks:
+      - clausio_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ${CLAUSIO_DATA_DIR:-/opt/clausio/data}/minio:/data
+    networks:
+      - clausio_internal
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+
+  minio-init:
+    image: minio/mc:latest
+    networks:
+      - clausio_internal
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      mc mb --ignore-existing local/${S3_BUCKET};
+      "
+
+  api:
+    image: ghcr.io/moustafawehbe/clausio-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    networks:
+      - clausio_internal
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+
+  workers:
+    image: ghcr.io/moustafawehbe/clausio-workers:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    networks:
+      - clausio_internal
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+
+  web:
+    image: ghcr.io/moustafawehbe/clausio-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    networks:
+      - clausio_internal
+    deploy:
+      resources:
+        limits:
+          memory: 64M

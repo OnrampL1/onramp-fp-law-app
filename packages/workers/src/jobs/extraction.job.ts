@@ -5,11 +5,11 @@ import {
   type ExtractionJobResult,
 } from "@starter-kit/shared";
 import path from "node:path";
-import { extractText, TerminalExtractionError } from "src/lib/text-extraction";
+import { extractText, TerminalExtractionError } from "../lib/text-extraction";
 import {
   markExtractionCompleted,
   markExtractionFailed,
-} from "src/repositories/contract-processing.repository";
+} from "../repositories/contract-processing.repository";
 
 export async function processExtractionJob(
   job: Job<ExtractionJobData, ExtractionJobResult>,
