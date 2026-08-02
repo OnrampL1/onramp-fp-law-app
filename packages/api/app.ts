@@ -14,17 +14,14 @@ import { router } from "./src/routes";
 const app = express();
 
 // ─── Trust proxy ──────────────────────────────────────────────────────────────
-// Deliberately NOT set. req.ip (used for audit log ipAddress — see
-// controllers that call auditService via a service's requestContext) is
-// correct as-is when the API is reached directly, with no reverse
-// proxy/load balancer/CDN in front of it. If this deployment DOES sit
-// behind one, req.ip will report the proxy's address instead of the real
-// client until `app.set('trust proxy', <hop count>)` is configured with
-// the exact number of trusted hops for that topology — this repo has no
-// committed infra config (nginx/ALB/CDN) to determine that from, so it
-// must be confirmed against the actual deployment before being set.
-// Setting it to `true` or a wrong hop count makes ipAddress spoofable via
-// a forged X-Forwarded-For header.
+// Exactly one hop: the reverse-proxy nginx container (reverse-proxy/), the
+// only thing ever allowed to sit in front of this API (see the Deployment
+// Architecture doc). This makes req.ip resolve to the real client IP from
+// X-Forwarded-For instead of nginx's own container address — used for
+// audit log ipAddress and by express-rate-limit to key limits per client.
+// A wrong hop count (or `true`) would make ipAddress spoofable; this must
+// change if the topology in front of the API ever changes.
+app.set("trust proxy", 1);
 
 // ─── Security ─────────────────────────────────────────────────────────────────
 app.use(helmet());

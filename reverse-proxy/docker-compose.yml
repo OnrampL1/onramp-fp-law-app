@@ -1,0 +1,33 @@
+networks:
+  public:
+    name: public
+  clausio_internal:
+    external: true
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    networks:
+      - public
+      - clausio_internal
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # No restart policy, no long-running loop, by design — this only ever
+    # runs via `docker compose run --rm certbot ...`, once manually for
+    # bootstrap and afterward from a host cron job (below)
