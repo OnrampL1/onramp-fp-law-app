@@ -36,6 +36,16 @@ packages/shared/src/*.d.ts
 .env.production.local
 .env.prod
 
+# ─── Reverse proxy — Let's Encrypt runtime state ───────────────────────────────
+# Certificates, private keys, account keys, and all other ACME state are
+# generated at deploy time (see reverse-proxy/DEPLOYMENT.md) and must never
+# be committed. Keep the directory skeleton via .gitkeep so a fresh clone
+# has somewhere for certbot/nginx to mount into.
+reverse-proxy/certbot/conf/*
+reverse-proxy/certbot/www/*
+!reverse-proxy/certbot/conf/.gitkeep
+!reverse-proxy/certbot/www/.gitkeep
+
 # ─── Turborepo ────────────────────────────────────────────────────────────────
 .turbo/
 
