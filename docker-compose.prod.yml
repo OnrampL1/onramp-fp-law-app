@@ -82,9 +82,10 @@ services:
       "
 
   api:
-    image: ghcr.io/moustafawehbe/clausio-api:${IMAGE_TAG:-latest}
+    image: ghcr.io/onrampl1/clausio-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    env_file: .env.prod
+    env_file:
+      - ../.env.prod
     depends_on:
       postgres:
         condition: service_healthy
@@ -102,9 +103,10 @@ services:
           memory: 200M
 
   workers:
-    image: ghcr.io/moustafawehbe/clausio-workers:${IMAGE_TAG:-latest}
+    image: ghcr.io/onrampl1/clausio-workers:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    env_file: .env.prod
+    env_file:
+      - ../.env.prod
     depends_on:
       postgres:
         condition: service_healthy
@@ -122,7 +124,7 @@ services:
           memory: 200M
 
   web:
-    image: ghcr.io/moustafawehbe/clausio-web:${IMAGE_TAG:-latest}
+    image: ghcr.io/onrampl1/clausio-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
     networks:
       - clausio_internal

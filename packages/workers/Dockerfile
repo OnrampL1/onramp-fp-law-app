@@ -29,7 +29,7 @@ ARG BUILD_DATE=unknown
 
 LABEL org.opencontainers.image.title="clausio-workers" \
       org.opencontainers.image.description="Clausio background job workers (extraction, email, embeddings)" \
-      org.opencontainers.image.source="https://github.com/MoustafaWehbe/onramp-fp-law-app" \
+      org.opencontainers.image.source="https://github.com/onrampl1/onramp-fp-law-app" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.created="${BUILD_DATE}"
