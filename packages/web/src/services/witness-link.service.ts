@@ -51,6 +51,15 @@ export async function revokeWitnessLink(
   return response.data.data;
 }
 
+export async function resendWitnessLink(
+  witnessInvitationId: string,
+): Promise<WitnessLinkResult> {
+  const response = await apiClient.post<ApiEnvelope<WitnessLinkResult>>(
+    `/users/witness-link/${witnessInvitationId}/resend`,
+  );
+  return response.data.data;
+}
+
 export async function getWitnessLinkStats(): Promise<WitnessLinkStats> {
   const response = await apiClient.get<ApiEnvelope<WitnessLinkStats>>(
     "/users/witness-link/stats",

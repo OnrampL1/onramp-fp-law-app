@@ -19,6 +19,7 @@ import type { WitnessLinkListItem } from "@/types/witness";
 import {
   useWitnessLinks,
   useRevokeWitnessLink,
+  useResendWitnessLink,
   useWitnessLinkStats,
 } from "@/hooks/useWitnessLinks";
 import { useAuditLogsList } from "@/hooks/useAuditLogsList";
@@ -103,6 +104,7 @@ export function WitnessWorkflow() {
   // same lookup AuditLogPage.tsx builds for its own export/table.
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: listUsers });
   const revokeWitnessLink = useRevokeWitnessLink();
+  const resendWitnessLink = useResendWitnessLink();
 
   const invitations = linksQuery.data?.items ?? [];
   const expiringLinks = useMemo(
@@ -299,6 +301,17 @@ export function WitnessWorkflow() {
     });
   }
 
+  function handleResend(invitation: WitnessLinkListItem) {
+    // Resends aren't audit-logged (mirrors POST /invitations/:id/resend, see
+    // witness.service.ts's resendWitnessLink), so there's no activity feed
+    // entry to refetch here — only close the sidebar so the table's own
+    // useWitnessLinks refetch (triggered by useResendWitnessLink's query
+    // invalidation) is what the admin sees the new expiry/email-sent state in.
+    resendWitnessLink.mutate(invitation.id, {
+      onSuccess: () => setSelectedInvitation(null),
+    });
+  }
+
   // GET /users/witness-link and the revoke endpoint are both Owner/Admin-only
   // server-side (witness.routes.ts) — same reasoning as Audit Logging. This
   // is a client-side guard so an INTERNAL user sees a clear message instead
@@ -370,6 +383,8 @@ export function WitnessWorkflow() {
         invitation={selectedInvitation}
         onClose={() => setSelectedInvitation(null)}
         onRevoke={handleRequestRevoke}
+        onResend={handleResend}
+        isResending={resendWitnessLink.isPending}
       />
 
       {/* ── Revoke confirmation ──────────────────────────────────────────── */}

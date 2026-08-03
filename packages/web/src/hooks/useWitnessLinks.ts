@@ -3,6 +3,7 @@ import {
   createWitnessLink,
   getWitnessLinkStats,
   listWitnessLinks,
+  resendWitnessLink,
   revokeWitnessLink,
 } from "@/services/witness-link.service";
 import type { CreateWitnessLinkPayload, WitnessLinkListParams } from "@/types/witness";
@@ -43,6 +44,17 @@ export function useRevokeWitnessLink() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (witnessInvitationId: string) => revokeWitnessLink(witnessInvitationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: witnessLinksBaseKey });
+      queryClient.invalidateQueries({ queryKey: witnessStatsKey });
+    },
+  });
+}
+
+export function useResendWitnessLink() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (witnessInvitationId: string) => resendWitnessLink(witnessInvitationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: witnessLinksBaseKey });
       queryClient.invalidateQueries({ queryKey: witnessStatsKey });
