@@ -9,11 +9,24 @@ export type BackendUserRole = "OWNER" | "ADMIN" | "INTERNAL";
 // read-only. OWNER is excluded from role assignment — organization
 // ownership is transferred through its own dedicated flow, not a role
 // change (see the backend's ASSIGNABLE_ROLES).
-export function isAdminRole(role: BackendUserRole | string | undefined): boolean {
+export function isAdminRole(
+  role: BackendUserRole | string | undefined,
+): boolean {
   return role === "OWNER" || role === "ADMIN";
 }
 
-export const assignableRoles: readonly BackendUserRole[] = ["ADMIN", "INTERNAL"];
+export type AssignableUserRole = Extract<BackendUserRole, "ADMIN" | "INTERNAL">;
+
+export const assignableRoles: readonly AssignableUserRole[] = [
+  "ADMIN",
+  "INTERNAL",
+];
+
+export function getAssignableRolesForActor(
+  role: BackendUserRole | string | undefined,
+): readonly AssignableUserRole[] {
+  return role === "OWNER" ? assignableRoles : ["INTERNAL"];
+}
 
 export const roleLabels: Record<BackendUserRole, string> = {
   OWNER: "Owner",
@@ -60,6 +73,8 @@ const rolePermissionKeys: Record<BackendUserRole, PermissionKey[]> = {
   INTERNAL: ["contracts.read", "contracts.write", "contracts.upload"],
 };
 
-export function getPermissionKeysForRole(role: BackendUserRole): PermissionKey[] {
+export function getPermissionKeysForRole(
+  role: BackendUserRole,
+): PermissionKey[] {
   return rolePermissionKeys[role];
 }

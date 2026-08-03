@@ -13,6 +13,7 @@ interface PaginationInput {
 interface Actor {
   id: string;
   organizationId: string;
+  role: UserRole;
 }
 
 interface RequestContext {
@@ -59,10 +60,7 @@ export class UserService {
     requestContext: RequestContext = {},
   ) {
     if (!isAssignableRole(role)) {
-      throw createError(
-        "OWNER cannot be assigned through a role change",
-        422,
-      );
+      throw createError("OWNER cannot be assigned through a role change", 422);
     }
 
     const target = await this.getOrgMember(actor.organizationId, targetUserId);
@@ -72,6 +70,20 @@ export class UserService {
     }
     if (target.role === "OWNER") {
       throw createError("The organization owner's role cannot be changed", 422);
+    }
+
+    if (role === "ADMIN" && actor.role !== "OWNER") {
+      throw createError(
+        "Only the organization owner can assign the administrator role",
+        403,
+      );
+    }
+
+    if (actor.role !== "OWNER" && target.role !== "INTERNAL") {
+      throw createError(
+        "Only the organization owner can change an administrator's role",
+        403,
+      );
     }
 
     const previousRole = target.role;
@@ -111,11 +123,15 @@ export class UserService {
       throw createError("You cannot change your own status", 422);
     }
     if (target.role === "OWNER") {
-      throw createError("The organization owner's status cannot be changed", 422);
+      throw createError(
+        "The organization owner's status cannot be changed",
+        422,
+      );
     }
 
     const previousStatus = target.status;
-    const action = status === "SUSPENDED" ? "USER_SUSPENDED" : "USER_REACTIVATED";
+    const action =
+      status === "SUSPENDED" ? "USER_SUSPENDED" : "USER_REACTIVATED";
 
     const updated = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
@@ -141,7 +157,10 @@ export class UserService {
     return toPublicUser(updated);
   }
 
-  private async getOrgMember(organizationId: string, userId: string): Promise<User> {
+  private async getOrgMember(
+    organizationId: string,
+    userId: string,
+  ): Promise<User> {
     const user = await prisma.user.findFirst({
       where: { id: userId, organizationId },
     });

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 export function UploadGuidelinesPanel() {
   return (
-    <Card className="min-w-0 lg:sticky lg:top-6">
+    <Card className="min-w-0 sticky top-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Info className="h-4 w-4 text-muted-foreground" aria-hidden="true" />

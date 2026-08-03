@@ -120,7 +120,7 @@ export function UploadContract() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6 pb-24">
+    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6">
       <div className="min-w-0">
         <h1 className="text-2xl font-bold tracking-tight">Upload Contract</h1>
         <p className="text-muted-foreground">
@@ -128,7 +128,7 @@ export function UploadContract() {
         </p>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_280px] md:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-6">
           <Card className="min-w-0">
             <CardHeader>
@@ -199,7 +199,7 @@ export function UploadContract() {
           )}
         </div>
 
-        <aside className="min-w-0">
+        <aside className="min-w-0 self-start">
           <UploadGuidelinesPanel />
         </aside>
       </div>

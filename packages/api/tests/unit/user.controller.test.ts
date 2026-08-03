@@ -108,7 +108,7 @@ describe("PUT /api/users/:id/role", () => {
 
     expect(res.status).toBe(200);
     expect(mockUserService.updateRole).toHaveBeenCalledWith(
-      { id: "user-1", organizationId: "org-1" },
+      { id: "user-1", organizationId: "org-1", role: "ADMIN" },
       "target-1",
       "ADMIN",
       expect.objectContaining({ ipAddress: expect.any(String) }),

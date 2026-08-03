@@ -11,8 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { statusLabels, type TeamMember, type UserAccountStatus } from "@/lib/users";
-import { isAdminRole, roleLabels, type BackendUserRole } from "@/lib/permissions";
+import {
+  statusLabels,
+  type TeamMember,
+  type UserAccountStatus,
+} from "@/lib/users";
+import {
+  isAdminRole,
+  roleLabels,
+  type BackendUserRole,
+  getAssignableRolesForActor,
+} from "@/lib/permissions";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCreateInvitation,
@@ -68,6 +77,11 @@ export function UserManagement() {
   // what the UI offers, matching a read-only INTERNAL account's real access.
   const isCurrentUserAdmin = isAdminRole(currentUser?.role);
 
+  const assignableRoleOptions = useMemo(
+    () => getAssignableRolesForActor(currentUser?.role),
+    [currentUser?.role],
+  );
+
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -91,7 +105,10 @@ export function UserManagement() {
   }
 
   function handleInviteUser(payload: InviteUserPayload) {
-    if (!isCurrentUserAdmin) {
+    if (
+      !isCurrentUserAdmin ||
+      (payload.role === "ADMIN" && currentUser?.role !== "OWNER")
+    ) {
       return;
     }
 
@@ -148,7 +165,7 @@ export function UserManagement() {
 
   function canChangeUserRole(user: TeamMember) {
     return (
-      isCurrentUserAdmin &&
+      currentUser?.role === "OWNER" &&
       user.source === "user" &&
       user.role !== "OWNER" &&
       !isCurrentUser(user)
@@ -156,9 +173,7 @@ export function UserManagement() {
   }
 
   function canManageUserAccess(user: TeamMember) {
-    return (
-      isCurrentUserAdmin && user.role !== "OWNER" && !isCurrentUser(user)
-    );
+    return isCurrentUserAdmin && user.role !== "OWNER" && !isCurrentUser(user);
   }
 
   function handleOpenRoleChange(user: TeamMember) {
@@ -174,7 +189,10 @@ export function UserManagement() {
     user: TeamMember,
     role: Extract<BackendUserRole, "ADMIN" | "INTERNAL">,
   ) {
-    if (!canChangeUserRole(user)) {
+    if (
+      !canChangeUserRole(user) ||
+      (role === "ADMIN" && currentUser?.role !== "OWNER")
+    ) {
       return;
     }
 
@@ -240,8 +258,7 @@ export function UserManagement() {
               User Management
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage team members, role-based access, and pending
-              invitations.
+              Manage team members, role-based access, and pending invitations.
             </p>
           </div>
         </div>
@@ -381,6 +398,7 @@ export function UserManagement() {
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         onInvite={handleInviteUser}
+        availableRoles={assignableRoleOptions}
       />
 
       <UserDetailSheet
@@ -394,6 +412,7 @@ export function UserManagement() {
         open={roleChangeOpen}
         onOpenChange={setRoleChangeOpen}
         onSave={handleSaveRole}
+        availableRoles={assignableRoleOptions}
       />
 
       <RevokeInvitationDialog

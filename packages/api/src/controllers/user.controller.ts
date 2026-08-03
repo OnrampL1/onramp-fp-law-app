@@ -3,7 +3,11 @@ import type { AccessTokenPayload } from "@starter-kit/shared";
 import { userService } from "../services/user.service";
 
 function actorFrom(payload: AccessTokenPayload) {
-  return { id: payload.userId, organizationId: payload.orgId };
+  return {
+    id: payload.userId,
+    organizationId: payload.orgId,
+    role: payload.role,
+  };
 }
 
 function requestContextFrom(req: Request) {

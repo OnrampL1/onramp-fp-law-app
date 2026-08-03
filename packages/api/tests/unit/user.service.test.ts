@@ -18,7 +18,17 @@ jest.mock("@starter-kit/shared", () => ({
 
 import { userService } from "../../src/services/user.service";
 
-const actor = { id: "actor-1", organizationId: "org-1" };
+const ownerActor = {
+  id: "actor-1",
+  organizationId: "org-1",
+  role: "OWNER" as const,
+};
+const adminActor = {
+  id: "actor-1",
+  organizationId: "org-1",
+  role: "ADMIN" as const,
+};
+const actor = ownerActor;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -76,6 +86,20 @@ describe("UserService.updateRole", () => {
     ).rejects.toMatchObject({ statusCode: 422 });
   });
 
+  it("rejects an admin assigning the ADMIN role", async () => {
+    mockUser.user.findFirst.mockResolvedValue({
+      id: "target-1",
+      role: "INTERNAL",
+    });
+
+    await expect(
+      userService.updateRole(adminActor, "target-1", "ADMIN"),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(mockUser.user.update).not.toHaveBeenCalled();
+    expect(mockUser.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it("throws 404 when the target isn't in the organization", async () => {
     mockUser.user.findFirst.mockResolvedValue(null);
 
@@ -84,7 +108,7 @@ describe("UserService.updateRole", () => {
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
-  it("updates the role and writes an audit log entry", async () => {
+  it("allows the owner to assign the ADMIN role and writes an audit log entry", async () => {
     mockUser.user.findFirst.mockResolvedValue({
       id: "target-1",
       role: "INTERNAL",
