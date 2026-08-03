@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { ADMIN_ROLES } from "@starter-kit/shared";
+import { OWNER_ROLES } from "@starter-kit/shared";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { validate } from "../middleware/validate";
@@ -14,7 +14,7 @@ router.get("/organization", settingsController.getOrganizationSettings);
 
 router.put(
   "/organization",
-  authorize(...ADMIN_ROLES),
+  authorize(...OWNER_ROLES),
   validate(updateOrganizationSettingsSchema),
   settingsController.updateOrganizationSettings,
 );

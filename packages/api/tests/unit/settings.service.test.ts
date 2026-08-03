@@ -17,7 +17,7 @@ const mockPrisma = {
 
 jest.mock("@starter-kit/shared", () => ({
   getPrismaClient: () => mockPrisma,
-  isAdminRole: (role: string) => role === "OWNER" || role === "ADMIN",
+  isOwnerRole: (role: string) => role === "OWNER",
 }));
 
 import { settingsService } from "../../src/services/settings.service";
@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 
 describe("SettingsService.getOrganizationSettings", () => {
-  it("returns organization settings for an active organization member", async () => {
+  it("returns organization settings for an active organization member, with canManageSettings false for a non-Owner Admin", async () => {
     mockPrisma.organization.findFirst.mockResolvedValue({
       id: "org-1",
       name: "Acme Legal",
@@ -90,7 +90,7 @@ describe("SettingsService.getOrganizationSettings", () => {
         },
       },
       permissions: {
-        canManageSettings: true,
+        canManageSettings: false,
       },
     });
   });
@@ -163,10 +163,13 @@ describe("SettingsService.getOrganizationSettings", () => {
 });
 
 describe("SettingsService.updateOrganizationSettings", () => {
+  // Owner-only (Issue 6): editing org settings is restricted to the
+  // organization owner, not any Admin — so the actor used for the success
+  // path here is OWNER, and ADMIN gets its own explicit rejection test below.
   const actor = {
-    userId: "admin-1",
+    userId: "owner-1",
     organizationId: "org-1",
-    role: "ADMIN" as const,
+    role: "OWNER" as const,
   };
 
   it("rejects INTERNAL users", async () => {
@@ -181,7 +184,19 @@ describe("SettingsService.updateOrganizationSettings", () => {
     expect(mockPrisma.organization.findFirst).not.toHaveBeenCalled();
   });
 
-  it("updates supported organization settings and writes an audit log", async () => {
+  it("rejects ADMIN users — only the organization owner can edit org settings", async () => {
+    await expect(
+      settingsService.updateOrganizationSettings(
+        { ...actor, role: "ADMIN" },
+        { name: "New Name" },
+        {},
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(mockPrisma.organization.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("updates supported organization settings and writes an audit log when the actor is OWNER", async () => {
     mockPrisma.organization.findFirst.mockResolvedValue({
       id: "org-1",
       name: "Old Name",
@@ -194,7 +209,7 @@ describe("SettingsService.updateOrganizationSettings", () => {
         notificationPreferences: null,
         branding: null,
       },
-      members: [{ role: "ADMIN" }],
+      members: [{ role: "OWNER" }],
     });
 
     mockPrisma.organization.findFirstOrThrow.mockResolvedValue({
@@ -211,7 +226,7 @@ describe("SettingsService.updateOrganizationSettings", () => {
         },
         branding: null,
       },
-      members: [{ role: "ADMIN" }],
+      members: [{ role: "OWNER" }],
     });
 
     const result = await settingsService.updateOrganizationSettings(
@@ -246,7 +261,7 @@ describe("SettingsService.updateOrganizationSettings", () => {
         data: expect.objectContaining({
           organizationId: "org-1",
           actorType: "USER",
-          actorUserId: "admin-1",
+          actorUserId: "owner-1",
           action: "ORGANIZATION_SETTINGS_UPDATED",
           targetEntityType: "Organization",
           targetEntityId: "org-1",

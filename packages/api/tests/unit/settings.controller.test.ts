@@ -121,10 +121,22 @@ describe("PUT /api/settings/organization", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("returns 422 for unsupported fields", async () => {
+  it("returns 403 for ADMIN users — org settings are Owner-only", async () => {
     const res = await request(app)
       .put("/api/settings/organization")
       .set("Cookie", cookieFor("ADMIN"))
+      .send({ name: "New Name" });
+
+    expect(res.status).toBe(403);
+    expect(
+      mockSettingsService.updateOrganizationSettings,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 for unsupported fields", async () => {
+    const res = await request(app)
+      .put("/api/settings/organization")
+      .set("Cookie", cookieFor("OWNER"))
       .send({ contactEmail: "ops@example.com" });
 
     expect(res.status).toBe(422);
@@ -136,7 +148,7 @@ describe("PUT /api/settings/organization", () => {
   it("returns 422 for invalid timezone", async () => {
     const res = await request(app)
       .put("/api/settings/organization")
-      .set("Cookie", cookieFor("ADMIN"))
+      .set("Cookie", cookieFor("OWNER"))
       .send({ timezone: "Not/AZone" });
 
     expect(res.status).toBe(422);
@@ -145,7 +157,7 @@ describe("PUT /api/settings/organization", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("updates settings for ADMIN users using token organization scope", async () => {
+  it("updates settings for OWNER users using token organization scope", async () => {
     mockSettingsService.updateOrganizationSettings.mockResolvedValue({
       organization: {
         id: "org-1",
@@ -169,7 +181,7 @@ describe("PUT /api/settings/organization", () => {
 
     const res = await request(app)
       .put("/api/settings/organization?organizationId=other-org")
-      .set("Cookie", cookieFor("ADMIN"))
+      .set("Cookie", cookieFor("OWNER"))
       .set("User-Agent", "jest")
       .send({
         name: "New Name",
@@ -185,7 +197,7 @@ describe("PUT /api/settings/organization", () => {
       {
         userId: "user-1",
         organizationId: "org-1",
-        role: "ADMIN",
+        role: "OWNER",
       },
       {
         name: "New Name",
