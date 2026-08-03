@@ -904,6 +904,25 @@ components:
           type: string
           format: date-time
           nullable: true
+        processingStatus:
+          type: string
+          enum:
+            - PENDING_EXTRACTION
+            - EXTRACTION_COMPLETED
+            - EXTRACTION_FAILED
+            - AI_PENDING
+            - AI_COMPLETED
+            - AI_FAILED
+          description: >
+            Only PENDING_EXTRACTION and EXTRACTION_FAILED are meaningful to
+            the witness portal UI, which uses this to show a "still
+            processing" or "failed" state instead of an empty document. The
+            AI_* values reflect internal analysis progress, which is not
+            witness-facing and should be treated the same as
+            EXTRACTION_COMPLETED (show the document).
+        processingError:
+          type: string
+          nullable: true
         extractedText:
           type: string
           nullable: true

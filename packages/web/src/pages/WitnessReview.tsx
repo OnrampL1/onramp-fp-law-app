@@ -1,5 +1,12 @@
 import { useParams } from "react-router-dom";
-import { AlertTriangle, Ban, Clock3, Loader2, ShieldOff } from "lucide-react";
+import {
+  AlertTriangle,
+  Ban,
+  Clock3,
+  FileWarning,
+  Loader2,
+  ShieldOff,
+} from "lucide-react";
 import {
   WitnessReviewHeader,
   ContractInfoCard,
@@ -8,6 +15,7 @@ import {
   WitnessReviewFooter,
 } from "../components/witness-review";
 import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
 import { useWitnessPortal, type WitnessPortalErrorKind } from "@/hooks/useWitnessPortal";
 import { formatDate } from "@/lib/utils";
 import type { DocumentPage, WitnessInfo, WitnessReviewContract } from "../components/witness-review/types";
@@ -49,6 +57,41 @@ function buildDocumentPages(contract: WitnessPortalContract): DocumentPage[] {
       ],
     },
   ];
+}
+
+// Mirrors ContractContentViewer.tsx's pending/failed handling for the
+// internal contract viewer — a witness only cares whether text extraction
+// itself succeeded, never how far the (internal-only) AI analysis has
+// gotten, so every other processingStatus falls through to the real viewer.
+function DocumentStateCard({
+  contract,
+}: {
+  contract: WitnessPortalContract;
+}) {
+  if (contract.processingStatus === "PENDING_EXTRACTION") {
+    return (
+      <Card className="flex min-h-[480px] flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
+        <Loader2 className="size-6 animate-spin" />
+        <p>Extracting document text — this can take a moment.</p>
+      </Card>
+    );
+  }
+
+  if (contract.processingStatus === "EXTRACTION_FAILED") {
+    return (
+      <Card className="flex min-h-[480px] flex-col items-center justify-center gap-3 p-8 text-center">
+        <FileWarning className="size-6 text-destructive" />
+        <p className="text-sm font-medium text-foreground">
+          Text extraction failed
+        </p>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          {contract.processingError ?? "This file could not be processed."}
+        </p>
+      </Card>
+    );
+  }
+
+  return <ContractDocumentViewer pages={buildDocumentPages(contract)} />;
 }
 
 const PROBLEM_COPY: Record<
@@ -161,8 +204,6 @@ export function WitnessReview() {
     email: witnessEmail ?? "",
   };
 
-  const documentPages = buildDocumentPages(contract);
-
   // A real "security token" would just be the raw single-use token — which
   // must never be re-displayed after redemption. This is a safe, non-secret
   // reference derived from the contract id instead, kept in the same
@@ -203,7 +244,7 @@ export function WitnessReview() {
         <ContractInfoCard contract={reviewContract} />
 
         {/* Document viewer */}
-        <ContractDocumentViewer pages={documentPages} />
+        <DocumentStateCard contract={contract} />
 
         {/* Access confirmation */}
         <WitnessAcknowledgementPanel

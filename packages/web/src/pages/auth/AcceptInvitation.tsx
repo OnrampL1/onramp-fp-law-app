@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,8 +16,7 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 
-const registerSchema = z.object({
-  invitationToken: z.string().min(1, "Invitation token is required"),
+const acceptInvitationSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
   password: z
     .string()
@@ -26,37 +25,30 @@ const registerSchema = z.object({
     .regex(/[0-9]/, "Must contain a number"),
 });
 
-type RegisterFormData = z.infer<typeof registerSchema>;
+type AcceptInvitationFormData = z.infer<typeof acceptInvitationSchema>;
 
-export function Register() {
+export function AcceptInvitation() {
   const { acceptInvitation } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const { token } = useParams<{ token: string }>();
   const [error, setError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      invitationToken: searchParams.get("token") ?? "",
-    },
+  } = useForm<AcceptInvitationFormData>({
+    resolver: zodResolver(acceptInvitationSchema),
   });
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: AcceptInvitationFormData) => {
     try {
       setError(null);
-      await acceptInvitation(
-        data.invitationToken,
-        data.fullName,
-        data.password,
-      );
+      await acceptInvitation(token ?? "", data.fullName, data.password);
       navigate("/dashboard");
     } catch {
       setError(
-        "This invitation token is invalid, expired, or has already been used.",
+        "This invitation link is invalid, expired, or has already been used.",
       );
     }
   };
@@ -66,7 +58,7 @@ export function Register() {
       <CardHeader>
         <CardTitle>Accept invitation</CardTitle>
         <CardDescription>
-          Enter your invitation token and set up your account.
+          Set up your name and password to join your organization on Clausio.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -86,19 +78,6 @@ export function Register() {
             {errors.fullName && (
               <p className="text-xs text-destructive">
                 {errors.fullName.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="invitationToken">Invitation token</Label>
-            <Input
-              id="invitationToken"
-              placeholder="Paste your invitation token"
-              {...register("invitationToken")}
-            />
-            {errors.invitationToken && (
-              <p className="text-xs text-destructive">
-                {errors.invitationToken.message}
               </p>
             )}
           </div>

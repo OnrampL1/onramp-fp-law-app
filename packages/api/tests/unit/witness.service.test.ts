@@ -24,6 +24,7 @@ const mockDb = {
 };
 
 const mockEmailQueueAdd = jest.fn();
+const mockGetPresignedUrl = jest.fn();
 
 jest.mock("@starter-kit/shared", () => ({
   getPrismaClient: () => mockDb,
@@ -32,10 +33,10 @@ jest.mock("@starter-kit/shared", () => ({
   signWitnessSessionToken: (witnessInvitationId: string) =>
     `session-for-${witnessInvitationId}`,
   emailQueue: { add: (...args: unknown[]) => mockEmailQueueAdd(...args) },
-}));
-
-const mockGetPresignedUrl = jest.fn();
-jest.mock("../../src/lib/storage", () => ({
+  // getPresignedUrl lives in packages/shared/storage/client.ts, re-exported
+  // through @starter-kit/shared's index — not a local packages/api module,
+  // so it's mocked here alongside the rest of the package rather than via a
+  // separate jest.mock on a path that doesn't exist in this package.
   getPresignedUrl: (...args: unknown[]) => mockGetPresignedUrl(...args),
 }));
 
@@ -318,6 +319,141 @@ describe("WitnessService.createWitnessLink", () => {
     expect(mockDb.witnessInvitation.update).not.toHaveBeenCalled();
     expect(result.emailSentAt).toBeNull();
   });
+
+  it("rejects with 409 when an active (issued, unrevoked, unexpired) link already exists for the same contract+witness", async () => {
+    mockDb.contract.findFirst.mockResolvedValue({ id: "contract-1", organizationId: "org-1" });
+    mockDb.witnessInvitation.findFirst.mockResolvedValue({
+      id: "existing-witness-invitation",
+      status: "ISSUED",
+      isRevoked: false,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+
+    await expect(
+      witnessService.createWitnessLink(actor, {
+        contractId: "contract-1",
+        witnessEmail: "witness@example.com",
+        expiresInHours: 72,
+        sendEmail: false,
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(mockDb.witnessInvitation.findFirst).toHaveBeenCalledWith({
+      where: {
+        contractId: "contract-1",
+        witnessEmail: "witness@example.com",
+        isRevoked: false,
+        status: { not: "USED" },
+        expiresAt: { gt: expect.any(Date) },
+      },
+    });
+    expect(mockDb.witnessInvitation.create).not.toHaveBeenCalled();
+  });
+
+  it("allows a new link when the existing one for that contract+witness has been revoked", async () => {
+    mockDb.contract.findFirst.mockResolvedValue({ id: "contract-1", organizationId: "org-1" });
+    // isRevoked: false is baked into the findFirst filter, so a revoked row
+    // simply never matches — findFirst resolves null, same as "no active link".
+    mockDb.witnessInvitation.findFirst.mockResolvedValue(null);
+    mockDb.witnessInvitation.create.mockResolvedValue({
+      id: "witness-2",
+      contractId: "contract-1",
+      witnessEmail: "witness@example.com",
+      witnessName: null,
+      expiresAt: new Date("2026-01-04"),
+      createdAt: new Date("2026-01-01"),
+    });
+
+    await expect(
+      witnessService.createWitnessLink(actor, {
+        contractId: "contract-1",
+        witnessEmail: "witness@example.com",
+        expiresInHours: 72,
+        sendEmail: false,
+      }),
+    ).resolves.toBeDefined();
+
+    expect(mockDb.witnessInvitation.create).toHaveBeenCalled();
+  });
+
+  it("allows a new link when the existing one for that contract+witness has expired", async () => {
+    mockDb.contract.findFirst.mockResolvedValue({ id: "contract-1", organizationId: "org-1" });
+    // expiresAt: { gt: now } is baked into the findFirst filter, so an
+    // expired row never matches — findFirst resolves null.
+    mockDb.witnessInvitation.findFirst.mockResolvedValue(null);
+    mockDb.witnessInvitation.create.mockResolvedValue({
+      id: "witness-3",
+      contractId: "contract-1",
+      witnessEmail: "witness@example.com",
+      witnessName: null,
+      expiresAt: new Date("2026-01-04"),
+      createdAt: new Date("2026-01-01"),
+    });
+
+    await expect(
+      witnessService.createWitnessLink(actor, {
+        contractId: "contract-1",
+        witnessEmail: "witness@example.com",
+        expiresInHours: 72,
+        sendEmail: false,
+      }),
+    ).resolves.toBeDefined();
+
+    expect(mockDb.witnessInvitation.create).toHaveBeenCalled();
+  });
+
+  it("allows a new link when the existing one for that contract+witness has already been used", async () => {
+    mockDb.contract.findFirst.mockResolvedValue({ id: "contract-1", organizationId: "org-1" });
+    // status: { not: "USED" } is baked into the findFirst filter, so a used
+    // row never matches — findFirst resolves null.
+    mockDb.witnessInvitation.findFirst.mockResolvedValue(null);
+    mockDb.witnessInvitation.create.mockResolvedValue({
+      id: "witness-4",
+      contractId: "contract-1",
+      witnessEmail: "witness@example.com",
+      witnessName: null,
+      expiresAt: new Date("2026-01-04"),
+      createdAt: new Date("2026-01-01"),
+    });
+
+    await expect(
+      witnessService.createWitnessLink(actor, {
+        contractId: "contract-1",
+        witnessEmail: "witness@example.com",
+        expiresInHours: 72,
+        sendEmail: false,
+      }),
+    ).resolves.toBeDefined();
+
+    expect(mockDb.witnessInvitation.create).toHaveBeenCalled();
+  });
+
+  it("allows a link for the same witness email on a different contract", async () => {
+    mockDb.contract.findFirst.mockResolvedValue({ id: "contract-2", organizationId: "org-1" });
+    mockDb.witnessInvitation.findFirst.mockResolvedValue(null);
+    mockDb.witnessInvitation.create.mockResolvedValue({
+      id: "witness-5",
+      contractId: "contract-2",
+      witnessEmail: "witness@example.com",
+      witnessName: null,
+      expiresAt: new Date("2026-01-04"),
+      createdAt: new Date("2026-01-01"),
+    });
+
+    await expect(
+      witnessService.createWitnessLink(actor, {
+        contractId: "contract-2",
+        witnessEmail: "witness@example.com",
+        expiresInHours: 72,
+        sendEmail: false,
+      }),
+    ).resolves.toBeDefined();
+
+    expect(mockDb.witnessInvitation.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ contractId: "contract-2" }) }),
+    );
+    expect(mockDb.witnessInvitation.create).toHaveBeenCalled();
+  });
 });
 
 describe("WitnessService.redeemWitnessLink", () => {
@@ -506,6 +642,8 @@ describe("WitnessService.getWitnessScopedContract", () => {
       tags: ["msa"],
       effectiveDate: null,
       expirationDate: null,
+      processingStatus: "EXTRACTION_COMPLETED",
+      processingError: null,
       extractedText: "Full contract text...",
       fileKey: "contracts/org-1/file.pdf",
     };
@@ -575,6 +713,8 @@ describe("WitnessService.getWitnessScopedContract", () => {
       tags: ["msa"],
       effectiveDate: null,
       expirationDate: null,
+      processingStatus: "EXTRACTION_COMPLETED",
+      processingError: null,
       extractedText: "Full contract text...",
       fileUrl: "https://s3.example.com/signed-url",
       fileUrlExpiresInSeconds: 900,
@@ -582,6 +722,20 @@ describe("WitnessService.getWitnessScopedContract", () => {
     expect(result).not.toHaveProperty("fileKey");
     expect(result).not.toHaveProperty("notes");
     expect(result).not.toHaveProperty("aiAnalyses");
+  });
+
+  it("surfaces processingStatus and processingError so the portal can render a pending/failed state", async () => {
+    mockDb.contract.findFirst.mockResolvedValue({
+      ...baseContractRow(),
+      processingStatus: "EXTRACTION_FAILED",
+      processingError: "Unsupported file format",
+    });
+    mockGetPresignedUrl.mockResolvedValue("https://s3.example.com/signed-url");
+
+    const result = await witnessService.getWitnessScopedContract("contract-1");
+
+    expect(result.processingStatus).toBe("EXTRACTION_FAILED");
+    expect(result.processingError).toBe("Unsupported file format");
   });
 });
 
@@ -727,6 +881,127 @@ describe("WitnessService.revokeWitnessLink", () => {
     const { data } = mockDb.witnessInvitation.update.mock.calls[0][0];
     expect(data).not.toHaveProperty("usedAt");
     expect(Object.keys(data).sort()).toEqual(["isRevoked", "status"]);
+  });
+});
+
+describe("WitnessService.resendWitnessLink", () => {
+  function baseInvitationRow(overrides: Partial<{
+    status: "ISSUED" | "USED" | "EXPIRED" | "REVOKED";
+    isRevoked: boolean;
+  }> = {}) {
+    return {
+      id: "witness-1",
+      contractId: "contract-1",
+      issuedByUserId: "issuer-1",
+      witnessEmail: "witness@example.com",
+      witnessName: "Jordan Smith",
+      status: "ISSUED" as const,
+      isRevoked: false,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      createdAt: new Date("2026-01-01"),
+      emailSentAt: new Date("2026-01-01"),
+      contract: { id: "contract-1", organizationId: "org-1", title: "Master Services Agreement" },
+      ...overrides,
+    };
+  }
+
+  it("rejects a witness invitation belonging to a different organization", async () => {
+    mockDb.witnessInvitation.findFirst.mockResolvedValue(null);
+
+    await expect(
+      witnessService.resendWitnessLink(actor, "invitation-in-other-org"),
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    expect(mockDb.witnessInvitation.findFirst).toHaveBeenCalledWith({
+      where: { id: "invitation-in-other-org", contract: { organizationId: "org-1" } },
+      include: { contract: true },
+    });
+    expect(mockDb.witnessInvitation.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a revoked witness invitation with 409", async () => {
+    mockDb.witnessInvitation.findFirst.mockResolvedValue(
+      baseInvitationRow({ isRevoked: true, status: "REVOKED" }),
+    );
+
+    await expect(
+      witnessService.resendWitnessLink(actor, "witness-1"),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(mockDb.witnessInvitation.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects an already-used witness invitation with 409", async () => {
+    mockDb.witnessInvitation.findFirst.mockResolvedValue(
+      baseInvitationRow({ status: "USED" }),
+    );
+
+    await expect(
+      witnessService.resendWitnessLink(actor, "witness-1"),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(mockDb.witnessInvitation.update).not.toHaveBeenCalled();
+  });
+
+  it("rotates the token and expiresAt, resets status to ISSUED, and re-sends the email", async () => {
+    mockDb.witnessInvitation.findFirst.mockResolvedValue(baseInvitationRow());
+    mockDb.user.findUnique.mockResolvedValue({ fullName: "Alex Whitfield" });
+    mockDb.organization.findUnique.mockResolvedValue({ name: "Acme Corp" });
+
+    const rotated = {
+      ...baseInvitationRow(),
+      expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+    };
+    const resent = { ...rotated, emailSentAt: new Date("2026-01-02T00:00:00.000Z") };
+    mockDb.witnessInvitation.update
+      .mockResolvedValueOnce(rotated)
+      .mockResolvedValueOnce(resent);
+
+    const result = await witnessService.resendWitnessLink(actor, "witness-1");
+
+    expect(mockDb.witnessInvitation.update).toHaveBeenNthCalledWith(1, {
+      where: { id: "witness-1" },
+      data: {
+        status: "ISSUED",
+        tokenHash: "hashed-raw-token",
+        expiresAt: expect.any(Date),
+      },
+    });
+
+    expect(mockEmailQueueAdd).toHaveBeenCalledWith(
+      "witness",
+      expect.objectContaining({
+        to: "witness@example.com",
+        template: "witness",
+        variables: expect.objectContaining({
+          witnessName: "Jordan Smith",
+          issuerName: "Alex Whitfield",
+          organizationName: "Acme Corp",
+          contractTitle: "Master Services Agreement",
+          witnessUrl: expect.stringContaining("raw-token"),
+        }),
+      }),
+    );
+
+    expect(mockDb.witnessInvitation.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "witness-1" },
+      data: { emailSentAt: expect.any(Date) },
+    });
+
+    expect(result.token).toBe("raw-token");
+    expect(result.status).toBe("pending");
+    expect(result).not.toHaveProperty("tokenHash");
+  });
+
+  it("never writes an audit log entry — resends aren't audited, matching resendInvitation", async () => {
+    mockDb.witnessInvitation.findFirst.mockResolvedValue(baseInvitationRow());
+    mockDb.user.findUnique.mockResolvedValue({ fullName: "Alex Whitfield" });
+    mockDb.organization.findUnique.mockResolvedValue({ name: "Acme Corp" });
+    mockDb.witnessInvitation.update.mockResolvedValue(baseInvitationRow());
+
+    await witnessService.resendWitnessLink(actor, "witness-1");
+
+    expect(mockDb.auditLog.create).not.toHaveBeenCalled();
   });
 });
 

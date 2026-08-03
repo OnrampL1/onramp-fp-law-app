@@ -21,6 +21,7 @@ jest.mock("../../src/services/witness.service", () => ({
     redeemWitnessLink: jest.fn(),
     getWitnessScopedContract: jest.fn(),
     revokeWitnessLink: jest.fn(),
+    resendWitnessLink: jest.fn(),
   },
 }));
 
@@ -469,6 +470,8 @@ describe("GET /api/witness/contract", () => {
       tags: [],
       effectiveDate: null,
       expirationDate: null,
+      processingStatus: "EXTRACTION_COMPLETED",
+      processingError: null,
       extractedText: "Full contract text...",
       fileUrl: "https://s3.example.com/signed-url",
       fileUrlExpiresInSeconds: 900,
@@ -484,6 +487,7 @@ describe("GET /api/witness/contract", () => {
     );
     expect(res.body.data.title).toBe("Master Services Agreement");
     expect(res.body.data.fileUrl).toBe("https://s3.example.com/signed-url");
+    expect(res.body.data.processingStatus).toBe("EXTRACTION_COMPLETED");
   });
 
   it("never returns notes or AI analysis fields, even if present on the underlying contract", async () => {
@@ -596,6 +600,103 @@ describe("POST /api/users/witness-link/:id/revoke", () => {
 
     const res = await request(app)
       .post("/api/users/witness-link/witness-1/revoke")
+      .set("Cookie", cookieFor("ADMIN"));
+
+    expect(res.status).toBe(409);
+  });
+});
+
+// ─── POST /api/users/witness-link/:id/resend ───────────────────────────────────
+
+describe("POST /api/users/witness-link/:id/resend", () => {
+  it("returns 401 with no session", async () => {
+    const res = await request(app).post("/api/users/witness-link/witness-1/resend");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for an INTERNAL caller — only Admin/Owner can resend witness links", async () => {
+    const res = await request(app)
+      .post("/api/users/witness-link/witness-1/resend")
+      .set("Cookie", cookieFor("INTERNAL"));
+
+    expect(res.status).toBe(403);
+    expect(mockWitnessService.resendWitnessLink).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for an ADMIN caller", async () => {
+    mockWitnessService.resendWitnessLink.mockResolvedValue({
+      id: "witness-1",
+      contractId: "contract-1",
+      token: "new-raw-token",
+      witnessUrl: "http://localhost:5173/witness/new-raw-token",
+      witnessEmail: "witness@example.com",
+      witnessName: null,
+      status: "pending",
+      expiresAt: new Date("2026-01-07"),
+      createdAt: new Date("2026-01-01"),
+    } as never);
+
+    const res = await request(app)
+      .post("/api/users/witness-link/witness-1/resend")
+      .set("Cookie", cookieFor("ADMIN"));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe("pending");
+    expect(res.body.data.token).toBe("new-raw-token");
+    expect(mockWitnessService.resendWitnessLink).toHaveBeenCalledWith(
+      { id: "user-1", organizationId: "org-1" },
+      "witness-1",
+    );
+  });
+
+  it("returns 200 for an OWNER caller", async () => {
+    mockWitnessService.resendWitnessLink.mockResolvedValue({
+      id: "witness-1",
+      status: "pending",
+    } as never);
+
+    const res = await request(app)
+      .post("/api/users/witness-link/witness-1/resend")
+      .set("Cookie", cookieFor("OWNER"));
+
+    expect(res.status).toBe(200);
+  });
+
+  it("propagates a 404 when the invitation isn't found in the actor's org", async () => {
+    const err = new Error("Witness invitation not found") as Error & { statusCode: number };
+    err.statusCode = 404;
+    mockWitnessService.resendWitnessLink.mockRejectedValue(err);
+
+    const res = await request(app)
+      .post("/api/users/witness-link/other-org-witness/resend")
+      .set("Cookie", cookieFor("ADMIN"));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("propagates a 409 when the invitation has already been revoked", async () => {
+    const err = new Error("This witness invitation has been revoked") as Error & {
+      statusCode: number;
+    };
+    err.statusCode = 409;
+    mockWitnessService.resendWitnessLink.mockRejectedValue(err);
+
+    const res = await request(app)
+      .post("/api/users/witness-link/witness-1/resend")
+      .set("Cookie", cookieFor("ADMIN"));
+
+    expect(res.status).toBe(409);
+  });
+
+  it("propagates a 409 when the invitation has already been used", async () => {
+    const err = new Error("This witness invitation has already been used") as Error & {
+      statusCode: number;
+    };
+    err.statusCode = 409;
+    mockWitnessService.resendWitnessLink.mockRejectedValue(err);
+
+    const res = await request(app)
+      .post("/api/users/witness-link/witness-1/resend")
       .set("Cookie", cookieFor("ADMIN"));
 
     expect(res.status).toBe(409);

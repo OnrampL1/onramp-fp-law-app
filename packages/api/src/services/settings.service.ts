@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { getPrismaClient, isAdminRole } from "@starter-kit/shared";
+import { getPrismaClient, isOwnerRole } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
 import type { UpdateOrganizationSettingsInput } from "../schemas/settings.schemas";
 
@@ -34,9 +34,9 @@ function toOrganizationSettingsResponse(
       branding: organization.settings?.branding ?? null,
     },
     permissions: {
-      canManageSettings:
-        organization.members[0]?.role === "OWNER" ||
-        organization.members[0]?.role === "ADMIN",
+      // Owner-only — renaming the org / editing its core settings is
+      // restricted to the organization owner, not any Admin (Issue 6).
+      canManageSettings: organization.members[0]?.role === "OWNER",
     },
   };
 }
@@ -145,7 +145,7 @@ export class SettingsService {
     input: UpdateOrganizationSettingsInput,
     requestContext: { ipAddress?: string; userAgent?: string },
   ) {
-    if (!isAdminRole(actor.role)) {
+    if (!isOwnerRole(actor.role)) {
       throw createError("Insufficient permissions", 403);
     }
 

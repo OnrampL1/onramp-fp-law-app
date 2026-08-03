@@ -110,4 +110,16 @@ export const witnessController = {
       next(err);
     }
   },
+
+  async resend(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const witnessToken = await witnessService.resendWitnessLink(
+        actorFrom(req.user!),
+        req.params.id as string,
+      );
+      res.json({ data: witnessToken });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

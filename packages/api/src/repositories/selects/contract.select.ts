@@ -53,6 +53,8 @@ export const WITNESS_CONTRACT_SELECT = {
   tags: true,
   effectiveDate: true,
   expirationDate: true,
+  processingStatus: true,
+  processingError: true,
   extractedText: true,
   fileKey: true,
 } satisfies Prisma.ContractSelect;

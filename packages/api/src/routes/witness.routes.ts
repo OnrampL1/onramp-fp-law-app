@@ -53,4 +53,12 @@ router.post(
   witnessController.revoke,
 );
 
+// Mirrors invitation.routes.ts's POST /:id/resend pattern — same Admin/Owner
+// gate as every other witness-link mutation route in this file.
+router.post(
+  "/witness-link/:id/resend",
+  authorize(...ADMIN_ROLES),
+  witnessController.resend,
+);
+
 export { router as witnessRouter };

@@ -1,3 +1,4 @@
+import { RotateCcw } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { WitnessStatusBadge } from "./WitnessStatusBadge";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
@@ -7,16 +8,23 @@ interface WitnessAccessDetailsSidebarProps {
   invitation: WitnessLinkListItem | null;
   onClose: () => void;
   onRevoke: (invitation: WitnessLinkListItem) => void;
+  onResend: (invitation: WitnessLinkListItem) => void;
+  isResending?: boolean;
 }
 
 export function WitnessAccessDetailsSidebar({
   invitation,
   onClose,
   onRevoke,
+  onResend,
+  isResending,
 }: WitnessAccessDetailsSidebarProps) {
   if (!invitation) return null;
 
   const isRevoked = invitation.status === "revoked";
+  // Matches resendWitnessLink's own guard (isRevoked or status === "used") —
+  // an expired-but-never-used link is still resendable, same as the backend.
+  const isResendDisabled = isRevoked || invitation.status === "used";
 
   return (
     <>
@@ -98,6 +106,16 @@ export function WitnessAccessDetailsSidebar({
 
         {/* ── Footer actions ── */}
         <div className="space-y-2 border-t border-border p-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5"
+            disabled={isResendDisabled || isResending}
+            onClick={() => onResend(invitation)}
+          >
+            <RotateCcw className="h-4 w-4" />
+            {isResending ? "Resending…" : "Resend Invitation"}
+          </Button>
           <Button
             variant="destructive"
             size="sm"

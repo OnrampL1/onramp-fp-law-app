@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { TeamMember } from "../../lib/users";
@@ -171,5 +171,100 @@ describe("UserManagement revoke invitation", () => {
     await user.click(screen.getByRole("button", { name: /revoke invite/i }));
 
     expect(mockMutate).toHaveBeenCalledWith("invite-1");
+  });
+});
+
+describe("UserManagement copy invite link", () => {
+  beforeEach(() => {
+    // mockMutate is shared module-wide with no auto-reset between tests
+    // (no clearMocks in vite.config.ts) — earlier describe blocks' calls
+    // (e.g. revoke invitation's single-argument call) would otherwise still
+    // be sitting in .mock.calls[0] here.
+    mockMutate.mockClear();
+    mockUseAuth.mockReturnValue({
+      user: { id: "user-1", email: "alex@clausio.test", role: "ADMIN" },
+    });
+    // jsdom's navigator.clipboard is a getter-backed accessor that silently
+    // ignores an instance-level Object.defineProperty override (the getter
+    // keeps winning) — spying on the existing writeText method instead of
+    // replacing the whole clipboard object is what actually sticks.
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+  });
+
+  it("does not offer Copy invite link for a pending invitation with no link generated this session", async () => {
+    const user = userEvent.setup();
+    mockUseTeamMembers.mockReturnValue({
+      members: [...members, pendingInvitation],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<UserManagement />);
+
+    await user.click(
+      screen.getByRole("button", { name: /actions for jordan@clausio\.test/i }),
+    );
+
+    expect(
+      await screen.findByRole("menuitem", { name: /resend invite/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: /copy invite link/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers a fresh Copy invite link after resending, and copies the new URL to the clipboard", async () => {
+    const user = userEvent.setup();
+    mockUseTeamMembers.mockReturnValue({
+      members: [...members, pendingInvitation],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<UserManagement />);
+
+    await user.click(
+      screen.getByRole("button", { name: /actions for jordan@clausio\.test/i }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: /resend invite/i }),
+    );
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      "invite-1",
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+
+    // mockMutate is a bare stub — it never calls onSuccess itself the way
+    // real react-query would once the mutation resolves, so this simulates
+    // that resolution with the newly rotated token/link.
+    const { onSuccess } = mockMutate.mock.calls[0][1] as {
+      onSuccess: (invitation: {
+        id: string;
+        acceptInvitationUrl: string | null;
+      }) => void;
+    };
+    act(() => {
+      onSuccess({
+        id: "invite-1",
+        acceptInvitationUrl:
+          "http://localhost:5173/accept-invitation/new-token",
+      });
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /actions for jordan@clausio\.test/i }),
+    );
+    const copyItem = await screen.findByRole("menuitem", {
+      name: /copy invite link/i,
+    });
+    await user.click(copyItem);
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      "http://localhost:5173/accept-invitation/new-token",
+    );
+    expect(
+      await screen.findByRole("menuitem", { name: /copied!/i }),
+    ).toBeInTheDocument();
   });
 });
