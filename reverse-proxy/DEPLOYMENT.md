@@ -106,12 +106,19 @@ docker compose down       # stops nginx; certbot was never running anyway
 
    ```bash
    docker compose -f docker-compose.prod.yml --env-file ../.env.prod \
-     run --rm -e ALLOW_DEMO_SEED=true api npx prisma db seed
+     run --rm -e ALLOW_DEMO_SEED=true api node packages/shared/dist/prisma/seed.js
    ```
 
    The seed refuses to run against `NODE_ENV=production` unless
    `ALLOW_DEMO_SEED=true` is explicitly passed — there is no way to trigger
    it by accident.
+
+   Runs via plain `node` against the compiled seed in `dist/`, not
+   `npx prisma db seed` — the seed is compiled as part of shared's own
+   build (see its `tsconfig.build.json`), so this works from any image that
+   copies `packages/shared/dist` (which all of them do), without depending
+   on `schema.prisma` being present. `api` is used above only because it's
+   already the designated image for `prisma migrate deploy`.
 4. Rest of Clausio's stack up (`api`, `workers`, `web`).
 5. This reverse proxy's bootstrap sequence (above), first time only.
 6. On every subsequent deploy: just `docker compose up -d` here — no

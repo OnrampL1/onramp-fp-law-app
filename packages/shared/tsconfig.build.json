@@ -13,7 +13,8 @@
     "ai/**/*",
     "queue/**/*",
     "db/**/*",
-    "storage/**/*"
+    "storage/**/*",
+    "prisma/seed.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }
