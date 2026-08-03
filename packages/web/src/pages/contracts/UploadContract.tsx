@@ -120,7 +120,7 @@ export function UploadContract() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6 pb-24">
+    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6">
       <div className="min-w-0">
         <h1 className="text-2xl font-bold tracking-tight">Upload Contract</h1>
         <p className="text-muted-foreground">

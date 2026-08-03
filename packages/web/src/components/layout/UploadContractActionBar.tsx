@@ -17,8 +17,8 @@ export function UploadContractActionBar({
   onSubmit,
 }: UploadContractActionBarProps) {
   return (
-    <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-background/95 px-6 py-3 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <footer className="border-t border-border bg-background/95 py-4">
+      <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="min-w-0 text-sm text-muted-foreground" aria-live="polite">
           {isUploading ? (
             <span className="inline-flex min-w-0 items-center gap-2 text-foreground">
@@ -74,6 +74,6 @@ export function UploadContractActionBar({
           </Button>
         </div>
       </div>
-    </div>
+    </footer>
   );
 }
