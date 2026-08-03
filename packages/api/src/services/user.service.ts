@@ -72,6 +72,13 @@ export class UserService {
       throw createError("The organization owner's role cannot be changed", 422);
     }
 
+    if (role === "ADMIN" && actor.role !== "OWNER") {
+      throw createError(
+        "Only the organization owner can assign the administrator role",
+        403,
+      );
+    }
+
     if (actor.role !== "OWNER" && target.role !== "INTERNAL") {
       throw createError(
         "Only the organization owner can change an administrator's role",

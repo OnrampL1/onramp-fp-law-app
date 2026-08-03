@@ -20,6 +20,7 @@ import {
   isAdminRole,
   roleLabels,
   type BackendUserRole,
+  getAssignableRolesForActor,
 } from "@/lib/permissions";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -76,6 +77,11 @@ export function UserManagement() {
   // what the UI offers, matching a read-only INTERNAL account's real access.
   const isCurrentUserAdmin = isAdminRole(currentUser?.role);
 
+  const assignableRoleOptions = useMemo(
+    () => getAssignableRolesForActor(currentUser?.role),
+    [currentUser?.role],
+  );
+
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -99,7 +105,10 @@ export function UserManagement() {
   }
 
   function handleInviteUser(payload: InviteUserPayload) {
-    if (!isCurrentUserAdmin) {
+    if (
+      !isCurrentUserAdmin ||
+      (payload.role === "ADMIN" && currentUser?.role !== "OWNER")
+    ) {
       return;
     }
 
@@ -155,16 +164,12 @@ export function UserManagement() {
   }
 
   function canChangeUserRole(user: TeamMember) {
-    if (
-      !isCurrentUserAdmin ||
-      user.source !== "user" ||
-      user.role === "OWNER" ||
-      isCurrentUser(user)
-    ) {
-      return false;
-    }
-
-    return currentUser?.role === "OWNER" || user.role === "INTERNAL";
+    return (
+      currentUser?.role === "OWNER" &&
+      user.source === "user" &&
+      user.role !== "OWNER" &&
+      !isCurrentUser(user)
+    );
   }
 
   function canManageUserAccess(user: TeamMember) {
@@ -184,7 +189,10 @@ export function UserManagement() {
     user: TeamMember,
     role: Extract<BackendUserRole, "ADMIN" | "INTERNAL">,
   ) {
-    if (!canChangeUserRole(user)) {
+    if (
+      !canChangeUserRole(user) ||
+      (role === "ADMIN" && currentUser?.role !== "OWNER")
+    ) {
       return;
     }
 
@@ -390,6 +398,7 @@ export function UserManagement() {
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         onInvite={handleInviteUser}
+        availableRoles={assignableRoleOptions}
       />
 
       <UserDetailSheet
@@ -403,6 +412,7 @@ export function UserManagement() {
         open={roleChangeOpen}
         onOpenChange={setRoleChangeOpen}
         onSave={handleSaveRole}
+        availableRoles={assignableRoleOptions}
       />
 
       <RevokeInvitationDialog

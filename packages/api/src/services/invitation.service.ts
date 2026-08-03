@@ -21,6 +21,7 @@ interface PaginationInput {
 interface Actor {
   id: string;
   organizationId: string;
+  role: UserRole;
 }
 
 interface RequestContext {
@@ -61,8 +62,14 @@ async function getInviterAndOrgNames(
   organizationId: string,
 ): Promise<{ inviterName?: string; organizationName?: string }> {
   const [inviter, organization] = await Promise.all([
-    prisma.user.findUnique({ where: { id: inviterId }, select: { fullName: true } }),
-    prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } }),
+    prisma.user.findUnique({
+      where: { id: inviterId },
+      select: { fullName: true },
+    }),
+    prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { name: true },
+    }),
   ]);
 
   return {
@@ -87,7 +94,9 @@ async function sendInvitationEmail(params: {
       // at acceptance time) — only present when sending the original invite.
       ...(params.fullName && { fullName: params.fullName }),
       ...(params.inviterName && { inviterName: params.inviterName }),
-      ...(params.organizationName && { organizationName: params.organizationName }),
+      ...(params.organizationName && {
+        organizationName: params.organizationName,
+      }),
       // The invitee types this into the general /register page themselves —
       // no unique per-invitation link, so the token has to be visible text
       // rather than embedded in a URL.
@@ -103,6 +112,13 @@ export class InvitationService {
     input: CreateInvitationInput,
     requestContext: RequestContext = {},
   ) {
+    if (input.role === "ADMIN" && actor.role !== "OWNER") {
+      throw createError(
+        "Only the organization owner can invite administrators",
+        403,
+      );
+    }
+
     const [existingUser, existingInvitation] = await Promise.all([
       prisma.user.findUnique({ where: { email: input.email } }),
       prisma.invitation.findFirst({
@@ -164,7 +180,10 @@ export class InvitationService {
     return toPublicInvitation(invitation);
   }
 
-  async listInvitations(organizationId: string, { page, limit }: PaginationInput) {
+  async listInvitations(
+    organizationId: string,
+    { page, limit }: PaginationInput,
+  ) {
     // PENDING invitations are actionable in the main roster; EXPIRED ones are
     // surfaced separately (invitation history) so an admin can still find and
     // resend them. ACCEPTED (now a User) and REVOKED (terminal, no further

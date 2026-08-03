@@ -24,32 +24,33 @@ import {
   getPermissionKeysForRole,
   roleLabels,
   type BackendUserRole,
+  type AssignableUserRole,
 } from "@/lib/permissions";
 
 import { PermissionBadge } from "./UserBadges";
 
-type AssignableRole = Extract<BackendUserRole, "ADMIN" | "INTERNAL">;
-
 export type InviteUserPayload = {
   email: string;
   name: string;
-  role: AssignableRole;
+  role: AssignableUserRole;
 };
 
 type InviteUserSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onInvite?: (payload: InviteUserPayload) => void;
+  availableRoles?: readonly AssignableUserRole[];
 };
 
 export function InviteUserSheet({
   open,
   onOpenChange,
   onInvite,
+  availableRoles = assignableRoles,
 }: InviteUserSheetProps) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<AssignableRole>("INTERNAL");
+  const [role, setRole] = useState<AssignableUserRole>("INTERNAL");
 
   const permissions = useMemo(() => getPermissionKeysForRole(role), [role]);
 
@@ -111,13 +112,13 @@ export function InviteUserSheet({
               <Label>Role</Label>
               <Select
                 value={role}
-                onValueChange={(value) => setRole(value as AssignableRole)}
+                onValueChange={(value) => setRole(value as AssignableUserRole)}
               >
                 <SelectTrigger className="w-full" aria-label="Invite role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {assignableRoles.map((r) => (
+                  {availableRoles.map((r) => (
                     <SelectItem key={r} value={r}>
                       {roleLabels[r]}
                     </SelectItem>

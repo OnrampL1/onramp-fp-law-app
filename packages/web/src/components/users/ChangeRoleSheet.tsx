@@ -23,17 +23,17 @@ import {
   getPermissionKeysForRole,
   roleLabels,
   type BackendUserRole,
+  AssignableUserRole,
 } from "@/lib/permissions";
 
 import { PermissionBadge, UserRoleBadge } from "./UserBadges";
-
-type AssignableRole = Extract<BackendUserRole, "ADMIN" | "INTERNAL">;
 
 type ChangeRoleSheetProps = {
   user: TeamMember | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (user: TeamMember, role: AssignableRole) => void;
+  onSave: (user: TeamMember, role: AssignableUserRole) => void;
+  availableRoles?: readonly AssignableUserRole[];
 };
 
 export function ChangeRoleSheet({
@@ -41,14 +41,21 @@ export function ChangeRoleSheet({
   open,
   onOpenChange,
   onSave,
+  availableRoles = assignableRoles,
 }: ChangeRoleSheetProps) {
-  const [selectedRole, setSelectedRole] = useState<AssignableRole>("INTERNAL");
+  const [selectedRole, setSelectedRole] =
+    useState<AssignableUserRole>("INTERNAL");
 
   useEffect(() => {
     if (user && user.role !== "OWNER") {
-      setSelectedRole(user.role);
+      const nextRole = user.role === "ADMIN" ? "ADMIN" : "INTERNAL";
+      setSelectedRole(
+        availableRoles.includes(nextRole)
+          ? nextRole
+          : (availableRoles[0] ?? "INTERNAL"),
+      );
     }
-  }, [user]);
+  }, [availableRoles, user]);
 
   const permissions = useMemo(
     () => getPermissionKeysForRole(selectedRole),
@@ -95,14 +102,14 @@ export function ChangeRoleSheet({
             <Select
               value={selectedRole}
               onValueChange={(value) =>
-                setSelectedRole(value as AssignableRole)
+                setSelectedRole(value as AssignableUserRole)
               }
             >
               <SelectTrigger className="w-full" aria-label="New user role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {assignableRoles.map((role) => (
+                {availableRoles.map((role) => (
                   <SelectItem key={role} value={role}>
                     {roleLabels[role]}
                   </SelectItem>

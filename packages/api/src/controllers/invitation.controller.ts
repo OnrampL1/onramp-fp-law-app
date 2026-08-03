@@ -3,7 +3,11 @@ import type { AccessTokenPayload } from "@starter-kit/shared";
 import { invitationService } from "../services/invitation.service";
 
 function actorFrom(payload: AccessTokenPayload) {
-  return { id: payload.userId, organizationId: payload.orgId };
+  return {
+    id: payload.userId,
+    organizationId: payload.orgId,
+    role: payload.role,
+  };
 }
 
 function requestContextFrom(req: Request) {
@@ -11,11 +15,7 @@ function requestContextFrom(req: Request) {
 }
 
 export const invitationController = {
-  async create(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
+  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const invitation = await invitationService.createInvitation(
         actorFrom(req.user!),
@@ -44,11 +44,7 @@ export const invitationController = {
     }
   },
 
-  async resend(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
+  async resend(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const invitation = await invitationService.resendInvitation(
         actorFrom(req.user!),
@@ -60,11 +56,7 @@ export const invitationController = {
     }
   },
 
-  async revoke(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
+  async revoke(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const invitation = await invitationService.revokeInvitation(
         actorFrom(req.user!),
