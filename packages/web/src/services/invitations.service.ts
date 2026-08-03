@@ -8,6 +8,11 @@ export interface ApiInvitation {
   status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
   expiresAt: string;
   createdAt: string;
+  // Only non-null in the response to createInvitation/resendInvitation — the
+  // raw token is never persisted, so a later list/revoke has nothing to hand
+  // back (same constraint as the witness-link "token"/"witnessUrl" fields).
+  token: string | null;
+  acceptInvitationUrl: string | null;
 }
 
 interface Paginated<T> {

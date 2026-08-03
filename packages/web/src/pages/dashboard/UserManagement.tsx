@@ -63,6 +63,14 @@ export function UserManagement() {
   const [roleChangeOpen, setRoleChangeOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<TeamMember | null>(null);
   const [revokeOpen, setRevokeOpen] = useState(false);
+  // Invitation id -> accept-invitation URL, populated only from create/resend
+  // mutation responses (the raw token is never persisted, so this is the one
+  // and only chance to grab a copyable link — same constraint the witness-
+  // link "Copy Link" feature already lives with). Session-only by design:
+  // reloading the page loses it, matching the witness panel's own behavior.
+  const [copyableLinks, setCopyableLinks] = useState<Record<string, string>>(
+    {},
+  );
 
   const { members, isLoading, isError } = useTeamMembers();
   const { invitations: expiredInvitations } = useInvitationHistory();
@@ -112,25 +120,51 @@ export function UserManagement() {
       return;
     }
 
-    createInvitation.mutate({
-      email: payload.email,
-      fullName: payload.name,
-      role: payload.role,
-    });
+    createInvitation.mutate(
+      {
+        email: payload.email,
+        fullName: payload.name,
+        role: payload.role,
+      },
+      { onSuccess: rememberCopyableLink },
+    );
+  }
+
+  // Shared by every call site that can return a fresh accept-invitation link
+  // (create, and both resend entry points below) — resend rotates the token,
+  // so this always overwrites any previously stored link for that id, since
+  // the old one just stopped working.
+  function rememberCopyableLink(invitation: {
+    id: string;
+    acceptInvitationUrl: string | null;
+  }) {
+    if (!invitation.acceptInvitationUrl) return;
+    setCopyableLinks((prev) => ({
+      ...prev,
+      [invitation.id]: invitation.acceptInvitationUrl!,
+    }));
   }
 
   function handleResendInvite(user: TeamMember) {
     if (!canManageUserAccess(user) || user.source !== "invitation") {
       return;
     }
-    resendInvitationMutation.mutate(user.id);
+    resendInvitationMutation.mutate(user.id, {
+      onSuccess: rememberCopyableLink,
+    });
   }
 
   function handleResendExpiredInvite(invitationId: string) {
     if (!isCurrentUserAdmin) {
       return;
     }
-    resendInvitationMutation.mutate(invitationId);
+    // Resend always sets status back to PENDING (whatever it started as),
+    // so this row moves out of invitation history and into the main roster
+    // on the next refetch — that's where its Copy Link ends up rendering,
+    // not here.
+    resendInvitationMutation.mutate(invitationId, {
+      onSuccess: rememberCopyableLink,
+    });
   }
 
   function handleOpenRevokeInvite(user: TeamMember) {
@@ -384,6 +418,7 @@ export function UserManagement() {
           onChangeRole={handleOpenRoleChange}
           canChangeRole={canChangeUserRole}
           canManageAccess={canManageUserAccess}
+          copyableLinks={copyableLinks}
         />
       )}
 

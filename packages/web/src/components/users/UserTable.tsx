@@ -1,5 +1,8 @@
+import { useState } from "react";
 import {
   Ban,
+  Check,
+  Copy,
   Mail,
   MoreHorizontal,
   RotateCcw,
@@ -41,7 +44,15 @@ type UserTableProps = {
   onChangeRole: (user: TeamMember) => void;
   canChangeRole: (user: TeamMember) => boolean;
   canManageAccess: (user: TeamMember) => boolean;
+  // Invitation id -> accept-invitation URL, present only for invitations
+  // created/resent in this session (see UserManagement.tsx) — most pending
+  // rows won't have an entry, and that's expected, not a bug.
+  copyableLinks: Record<string, string>;
 };
+
+// How long the "Copied!" confirmation stays up before the item reverts —
+// long enough to register as feedback, short enough not to feel stuck.
+const COPIED_FEEDBACK_MS = 1500;
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -65,7 +76,19 @@ export function UserTable({
   onChangeRole,
   canChangeRole,
   canManageAccess,
+  copyableLinks,
 }: UserTableProps) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  async function handleCopyLink(user: TeamMember) {
+    const url = copyableLinks[user.id];
+    if (!url) return;
+
+    await navigator.clipboard.writeText(url);
+    setCopiedId(user.id);
+    setTimeout(() => setCopiedId(null), COPIED_FEEDBACK_MS);
+  }
+
   return (
     <Card className="overflow-hidden">
       <Table>
@@ -180,6 +203,24 @@ export function UserTable({
                       </DropdownMenuItem>
                       {user.source === "invitation" && canManageAccess(user) && (
                         <>
+                          {copyableLinks[user.id] && (
+                            <DropdownMenuItem
+                              closeOnClick={false}
+                              onClick={() => handleCopyLink(user)}
+                            >
+                              {copiedId === user.id ? (
+                                <>
+                                  <Check className="size-4" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="size-4" />
+                                  Copy invite link
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => onResendInvite(user)}>
                             <RotateCcw className="size-4" />
                             Resend invite
