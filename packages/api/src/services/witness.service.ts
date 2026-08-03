@@ -15,6 +15,11 @@ import { auditService } from "./audit.service";
 // requested it is actually open, not indefinitely.
 const WITNESS_FILE_URL_EXPIRES_IN_SECONDS = 15 * 60;
 
+// createWitnessLinkSchema's own default for expiresInHours — reused here
+// because a resend has no per-request expiry input of its own (unlike
+// creation) and the original expiresInHours isn't persisted on the row.
+const WITNESS_RESEND_EXPIRES_IN_HOURS = 72;
+
 const prisma = getPrismaClient();
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:5173";
@@ -318,6 +323,27 @@ export class WitnessService {
       throw createError("Contract not found", 404);
     }
 
+    // Same "active" definition deriveWitnessStatus uses for the list view's
+    // "pending" status: not revoked, not yet used, not yet expired. Blocking
+    // on it here prevents a contract+witness pair from ever having two
+    // simultaneously-usable links outstanding.
+    const existingActiveLink = await prisma.witnessInvitation.findFirst({
+      where: {
+        contractId: contract.id,
+        witnessEmail: input.witnessEmail,
+        isRevoked: false,
+        status: { not: "USED" },
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (existingActiveLink) {
+      throw createError(
+        "An active witness link already exists for this contract and witness",
+        409,
+      );
+    }
+
     const rawToken = generateRawToken();
     const expiresAt = new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000);
 
@@ -474,6 +500,8 @@ export class WitnessService {
       tags: contract.tags,
       effectiveDate: contract.effectiveDate,
       expirationDate: contract.expirationDate,
+      processingStatus: contract.processingStatus,
+      processingError: contract.processingError,
       extractedText: contract.extractedText,
       fileUrl,
       fileUrlExpiresInSeconds: WITNESS_FILE_URL_EXPIRES_IN_SECONDS,
@@ -541,6 +569,67 @@ export class WitnessService {
     });
 
     return toPublicWitnessToken(revoked, "revoked", null);
+  }
+
+  // Mirrors invitation.service.ts's resendInvitation: rotates the token and
+  // expiresAt rather than reusing the original (confirmed that's what that
+  // method actually does, despite the token staying secret either way — a
+  // rotated token invalidates anything already sent, which is the right
+  // behavior when an admin explicitly asks to resend). No audit log entry
+  // here either, matching resendInvitation — there's no WITNESS_INVITATION
+  // _RESENT action in AuditAction, and resends aren't audited for user
+  // invitations either.
+  async resendWitnessLink(actor: Actor, witnessInvitationId: string) {
+    const invitation = await prisma.witnessInvitation.findFirst({
+      where: { id: witnessInvitationId, contract: { organizationId: actor.organizationId } },
+      include: { contract: true },
+    });
+
+    if (!invitation) {
+      throw createError("Witness invitation not found", 404);
+    }
+    if (invitation.isRevoked) {
+      throw createError("This witness invitation has been revoked", 409);
+    }
+    if (invitation.status === "USED") {
+      throw createError("This witness invitation has already been used", 409);
+    }
+
+    const rawToken = generateRawToken();
+    const expiresAt = new Date(
+      Date.now() + WITNESS_RESEND_EXPIRES_IN_HOURS * 60 * 60 * 1000,
+    );
+
+    const updated = await prisma.witnessInvitation.update({
+      where: { id: invitation.id },
+      data: {
+        status: "ISSUED",
+        tokenHash: hashToken(rawToken),
+        expiresAt,
+      },
+    });
+
+    const { issuerName, organizationName } = await getIssuerAndOrgNames(
+      updated.issuedByUserId,
+      actor.organizationId,
+    );
+
+    await sendWitnessEmail({
+      witnessEmail: updated.witnessEmail,
+      witnessName: updated.witnessName,
+      issuerName,
+      organizationName,
+      contractTitle: invitation.contract.title,
+      witnessUrl: `${APP_URL}/witness/${rawToken}`,
+      expiresAt,
+    });
+
+    const resent = await prisma.witnessInvitation.update({
+      where: { id: updated.id },
+      data: { emailSentAt: new Date() },
+    });
+
+    return toPublicWitnessToken(resent, "pending", rawToken);
   }
 }
 
