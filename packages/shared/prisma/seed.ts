@@ -1,5 +1,12 @@
 import crypto from "node:crypto";
-import { getPrismaClient, hashPassword } from "@starter-kit/shared";
+import type { Prisma } from "@prisma/client";
+// Relative, not "@starter-kit/shared": this file is compiled as part of
+// shared's own build (see tsconfig.build.json) and runs from dist/ at
+// runtime, never via raw tsx — a self-referencing package import can't
+// resolve on a clean build, since it needs dist/ to already exist before
+// this same build produces it.
+import { getPrismaClient } from "../db/config/prisma-client.config";
+import { hashPassword } from "../auth/password";
 
 const prisma = getPrismaClient();
 
@@ -304,7 +311,7 @@ async function main(): Promise<void> {
     type: "SUMMARY" | "RISK" | "CLAUSE_QUERY";
     status: "PENDING" | "COMPLETED" | "FAILED";
     promptUsed: string;
-    result?: Record<string, unknown>;
+    result?: Prisma.InputJsonValue;
     modelVersion?: string;
     tokensUsed?: number;
     createdAt: Date;
