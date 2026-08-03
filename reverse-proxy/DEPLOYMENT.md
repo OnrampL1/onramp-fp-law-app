@@ -99,9 +99,22 @@ docker compose down       # stops nginx; certbot was never running anyway
 
 1. Clausio's `docker-compose.prod.yml` up (creates `clausio_internal`).
 2. `prisma migrate deploy` (Clausio's own migration step).
-3. Rest of Clausio's stack up (`api`, `workers`, `web`).
-4. This reverse proxy's bootstrap sequence (above), first time only.
-5. On every subsequent deploy: just `docker compose up -d` here — no
+3. **Optional — demo seed.** Normal production deployments should **not**
+   run this; it creates users with a publicly-known password. Only run it
+   against a deliberate production *demo* environment, and only with the
+   override explicitly set:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file ../.env.prod \
+     run --rm -e ALLOW_DEMO_SEED=true api npx prisma db seed
+   ```
+
+   The seed refuses to run against `NODE_ENV=production` unless
+   `ALLOW_DEMO_SEED=true` is explicitly passed — there is no way to trigger
+   it by accident.
+4. Rest of Clausio's stack up (`api`, `workers`, `web`).
+5. This reverse proxy's bootstrap sequence (above), first time only.
+6. On every subsequent deploy: just `docker compose up -d` here — no
    bootstrap steps needed again, the certificate and its renewal cron
    persist independently of any application deploy.
 

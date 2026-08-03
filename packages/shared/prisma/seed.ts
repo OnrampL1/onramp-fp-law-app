@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
-import { getPrismaClient } from "../db/config/prisma-client.config";
-import { hashPassword } from "../auth/password";
+import { getPrismaClient, hashPassword } from "@starter-kit/shared";
 
 const prisma = getPrismaClient();
 
@@ -49,11 +48,15 @@ const DISCLAIMER =
   "DISCLAIMER: This is an AI-generated summary for informational purposes only and does not constitute legal advice.";
 
 async function main(): Promise<void> {
-  if (process.env.NODE_ENV === "production") {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_DEMO_SEED !== "true"
+  ) {
     throw new Error(
       "Refusing to run the demo seed against a production environment — " +
         "it creates users with a publicly-known password (see DEMO_PASSWORD " +
-        "above). Seed only local or demo databases.",
+        "above). Set ALLOW_DEMO_SEED=true to explicitly allow this on a " +
+        "production demo environment. Never do this against real customer data.",
     );
   }
 
@@ -977,4 +980,8 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    // @starter-kit/shared's barrel also creates BullMQ Queue connections to
+    // Redis as an import side effect (this script never uses them) — those
+    // stay open and keep the event loop alive indefinitely otherwise.
+    process.exit(process.exitCode ?? 0);
   });
