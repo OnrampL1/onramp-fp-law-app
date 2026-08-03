@@ -11,8 +11,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { statusLabels, type TeamMember, type UserAccountStatus } from "@/lib/users";
-import { isAdminRole, roleLabels, type BackendUserRole } from "@/lib/permissions";
+import {
+  statusLabels,
+  type TeamMember,
+  type UserAccountStatus,
+} from "@/lib/users";
+import {
+  isAdminRole,
+  roleLabels,
+  type BackendUserRole,
+} from "@/lib/permissions";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCreateInvitation,
@@ -147,18 +155,20 @@ export function UserManagement() {
   }
 
   function canChangeUserRole(user: TeamMember) {
-    return (
-      isCurrentUserAdmin &&
-      user.source === "user" &&
-      user.role !== "OWNER" &&
-      !isCurrentUser(user)
-    );
+    if (
+      !isCurrentUserAdmin ||
+      user.source !== "user" ||
+      user.role === "OWNER" ||
+      isCurrentUser(user)
+    ) {
+      return false;
+    }
+
+    return currentUser?.role === "OWNER" || user.role === "INTERNAL";
   }
 
   function canManageUserAccess(user: TeamMember) {
-    return (
-      isCurrentUserAdmin && user.role !== "OWNER" && !isCurrentUser(user)
-    );
+    return isCurrentUserAdmin && user.role !== "OWNER" && !isCurrentUser(user);
   }
 
   function handleOpenRoleChange(user: TeamMember) {
@@ -240,8 +250,7 @@ export function UserManagement() {
               User Management
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage team members, role-based access, and pending
-              invitations.
+              Manage team members, role-based access, and pending invitations.
             </p>
           </div>
         </div>
