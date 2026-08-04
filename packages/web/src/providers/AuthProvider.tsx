@@ -5,6 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../lib/api-client";
 
 interface AuthUser {
@@ -32,7 +33,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
+  const queryClient = useQueryClient();
   // Restore session on mount — access token cookie is sent automatically
   useEffect(() => {
     apiClient
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiClient.post("/auth/logout");
     } finally {
       setUser(null);
+      queryClient.clear();
     }
   }
 

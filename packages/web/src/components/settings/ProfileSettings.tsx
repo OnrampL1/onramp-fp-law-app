@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, KeyRound, Loader2, Save } from "lucide-react";
+import { AlertCircle, Loader2, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 

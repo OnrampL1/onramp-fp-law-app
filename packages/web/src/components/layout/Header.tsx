@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-import { Search, Bell, Moon, Sun } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Bell, LogOut, Moon, Sun } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -16,10 +16,14 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { SidebarTrigger } from "../ui/sidebar";
+import { useAuth } from "@/hooks/useAuth";
 import { Separator } from "@base-ui/react";
 
 export function Header() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     const storedTheme = localStorage.getItem("theme");
@@ -43,6 +47,16 @@ export function Header() {
     localStorage.setItem("theme", nextTheme);
     document.documentElement.classList.toggle("dark", nextTheme === "dark");
     document.documentElement.style.colorScheme = nextTheme;
+  }
+
+  async function handleLogout() {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+      navigate("/login", { replace: true });
+    } finally {
+      setIsLoggingOut(false);
+    }
   }
 
   return (
@@ -132,20 +146,19 @@ export function Header() {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <LogOut className="size-4" />
+        </Button>
       </div>
     </header>
-    // <header className="flex h-14 items-center justify-end border-b bg-card px-6 gap-4">
-    //   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-    //     <User className="h-4 w-4" />
-    //     <span>{user?.name}</span>
-    //   </div>
-    //   <button
-    //     onClick={logout}
-    //     className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-    //   >
-    //     <LogOut className="h-4 w-4" />
-    //     Logout
-    //   </button>
-    // </header>
   );
 }
