@@ -26,6 +26,11 @@ interface AcceptInvitationInput {
   password: string;
 }
 
+interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
 interface RequestContext {
   ipAddress?: string;
   userAgent?: string;
@@ -192,6 +197,35 @@ export class AuthService {
       userId: user.id,
       orgId: user.organizationId,
       role: user.role,
+    });
+  }
+
+  async changePassword(
+    userId: string,
+    input: ChangePasswordInput,
+  ): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || user.status !== "ACTIVE") {
+      throw createError("Invalid credentials", 401);
+    }
+
+    const currentPasswordIsValid = await verifyPassword(
+      input.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!currentPasswordIsValid) {
+      throw createError("Invalid credentials", 401);
+    }
+
+    const passwordHash = await hashPassword(input.newPassword);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
     });
   }
 
