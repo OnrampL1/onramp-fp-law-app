@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { getPrismaClient, isOwnerRole } from "@starter-kit/shared";
+import { getPrismaClient, isAdminRole, isOwnerRole } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
 import type { UpdateOrganizationSettingsInput } from "../schemas/settings.schemas";
 
@@ -18,6 +18,8 @@ function toOrganizationSettingsResponse(
     Awaited<ReturnType<typeof findOrganizationWithSettings>>
   >,
 ) {
+  const role = organization.members[0]?.role;
+
   return {
     organization: {
       id: organization.id,
@@ -34,9 +36,8 @@ function toOrganizationSettingsResponse(
       branding: organization.settings?.branding ?? null,
     },
     permissions: {
-      // Owner-only — renaming the org / editing its core settings is
-      // restricted to the organization owner, not any Admin (Issue 6).
-      canManageSettings: organization.members[0]?.role === "OWNER",
+      canManageSettings: role ? isAdminRole(role) : false,
+      canRenameOrganization: role ? isOwnerRole(role) : false,
     },
   };
 }
@@ -145,8 +146,17 @@ export class SettingsService {
     input: UpdateOrganizationSettingsInput,
     requestContext: { ipAddress?: string; userAgent?: string },
   ) {
-    if (!isOwnerRole(actor.role)) {
+    const attemptsOrganizationRename = input.name !== undefined;
+
+    if (!isAdminRole(actor.role)) {
       throw createError("Insufficient permissions", 403);
+    }
+
+    if (attemptsOrganizationRename && !isOwnerRole(actor.role)) {
+      throw createError(
+        "Only the organization owner can rename the organization",
+        403,
+      );
     }
 
     const organization = await findOrganizationWithSettings(

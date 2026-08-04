@@ -22,6 +22,7 @@ export type OrganizationSettingsResponse = {
   };
   permissions: {
     canManageSettings: boolean;
+    canRenameOrganization: boolean;
   };
 };
 

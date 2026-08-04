@@ -397,6 +397,9 @@ components:
             canManageSettings:
               type: boolean
               example: true
+            canRenameOrganization:
+              type: boolean
+              example: true
 
     OrganizationSettingsResponse:
       type: object
@@ -1865,9 +1868,10 @@ paths:
       operationId: updateOrganizationSettings
       description: >
         Updates supported organization-level settings for the authenticated
-        user's organization. Requires OWNER or ADMIN. The endpoint rejects
-        unsupported fields such as contactEmail, phone, website, address,
-        user-level notification settings, and AI analysis mode.
+        user's organization. Requires OWNER or ADMIN for general settings.
+        The `name` field is Owner-only because it renames the organization.
+        The endpoint rejects unsupported fields such as contactEmail, phone,
+        website, address, user-level notification settings, and AI analysis mode.
       security:
         - cookieAuth: []
       requestBody:

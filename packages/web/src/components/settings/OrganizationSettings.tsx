@@ -49,6 +49,8 @@ export function OrganizationSettings() {
 
   const settings = settingsQuery.data;
   const canManageSettings = settings?.permissions.canManageSettings ?? false;
+  const canRenameOrganization =
+    settings?.permissions.canRenameOrganization ?? false;
 
   useEffect(() => {
     if (!settings) return;
@@ -63,7 +65,7 @@ export function OrganizationSettings() {
     event.preventDefault();
 
     updateSettings.mutate({
-      name,
+      ...(canRenameOrganization && { name }),
       timezone,
       language,
       logoUrl: logoUrl.trim() ? logoUrl.trim() : null,
@@ -107,24 +109,28 @@ export function OrganizationSettings() {
                 {settings.organization.name}
               </p>
               <p className="text-xs text-muted-foreground">
-                {canManageSettings
-                  ? "Owners and administrators can update workspace settings."
-                  : "Your role has read-only access to workspace settings."}
+                {canRenameOrganization
+                  ? "Owners can rename the organization and update workspace settings."
+                  : canManageSettings
+                    ? "Administrators can update workspace settings, but only the owner can rename the organization."
+                    : "Your role has read-only access to workspace settings."}
               </p>
             </div>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="organization-name">Organization name</Label>
-              <Input
-                id="organization-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                disabled={!canManageSettings || updateSettings.isPending}
-                required
-              />
-            </div>
+            {canRenameOrganization && (
+              <div className="space-y-2">
+                <Label htmlFor="organization-name">Organization name</Label>
+                <Input
+                  id="organization-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  disabled={updateSettings.isPending}
+                  required
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="organization-logo">Logo URL</Label>
