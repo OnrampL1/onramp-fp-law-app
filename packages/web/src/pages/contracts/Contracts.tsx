@@ -1,8 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import { ContractsTable } from "@/components/contracts/ContractsTable";
 import { Button } from "@/components/ui/button";
 import { Upload } from "lucide-react";
 
 export default function Contracts() {
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-6">
       {/* Page heading */}
@@ -15,7 +18,11 @@ export default function Contracts() {
             Manage and monitor all contracts
           </p>
         </div>
-        <Button className="gap-2">
+        <Button
+          type="button"
+          className="gap-2"
+          onClick={() => navigate("/upload")}
+        >
           <Upload className="size-4" />
           Upload Contract
         </Button>
