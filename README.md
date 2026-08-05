@@ -4,14 +4,14 @@ A full-stack TypeScript monorepo with everything pre-configured so you can focus
 
 ## Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, Vite, Tailwind CSS, shadcn/ui |
-| Backend | Express, Prisma, Zod |
-| Background Jobs | BullMQ, Redis |
-| Database | PostgreSQL |
-| Monorepo | Turborepo |
-| Language | TypeScript (everywhere) |
+| Layer           | Technology                              |
+| --------------- | --------------------------------------- |
+| Frontend        | React 18, Vite, Tailwind CSS, shadcn/ui |
+| Backend         | Express, Prisma, Zod                    |
+| Background Jobs | BullMQ, Redis                           |
+| Database        | PostgreSQL                              |
+| Monorepo        | Turborepo                               |
+| Language        | TypeScript (everywhere)                 |
 
 ## Project Structure
 
@@ -72,14 +72,27 @@ cd packages/web && npm run dev     # Web on :5173
 cd packages/workers && npm run dev # Workers
 ```
 
+## Windows development notes
+
+When developing on Windows, Prisma Client files may stay locked if multiple
+Node.js, API, worker, test, or dev-server processes are running at the same
+time. If `prisma generate`, installs, or rebuilds fail with a locked Prisma
+client DLL, stop the running development processes and retry the command.
+
+The `packages/shared` source directories are TypeScript-only during
+development. If a local TypeScript command emits `.js`, `.js.map`, or `.d.ts`
+files beside the `.ts` source files, remove those generated files before
+continuing. They are ignored by git because stale compiled files can be loaded
+instead of the current TypeScript source.
+
 ## Available Scripts (root)
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start all packages in watch mode |
-| `npm run build` | Build all packages |
-| `npm run test` | Run all test suites |
-| `npm run lint` | Lint all packages |
+| Command         | Description                      |
+| --------------- | -------------------------------- |
+| `npm run dev`   | Start all packages in watch mode |
+| `npm run build` | Build all packages               |
+| `npm run test`  | Run all test suites              |
+| `npm run lint`  | Lint all packages                |
 
 ## Environment Variables
 
@@ -96,5 +109,6 @@ cd packages/web && npm test  # Web tests (Vitest)
 ## Docker
 
 The `docker-compose.yml` starts:
+
 - **PostgreSQL 16** on port `5432`
 - **Redis 7** on port `6379`
