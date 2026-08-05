@@ -85,6 +85,25 @@ files beside the `.ts` source files, remove those generated files before
 continuing. They are ignored by git because stale compiled files can be loaded
 instead of the current TypeScript source.
 
+## Domain review notes
+
+### Invitation organization invariant
+
+The Prisma schema links `User.invitationId` to `Invitation.id`, but the
+database does not currently enforce that the accepted user's
+`organizationId` matches the invitation's `organizationId`.
+
+The current application flow preserves this invariant in service logic:
+accepting an invitation creates the user from the invitation record and copies
+`invitation.organizationId` onto the user. Invitation create, resend, and revoke
+operations are also scoped by the actor's organization.
+
+The remaining risk is direct database writes, seed/script changes, or future
+service code that sets `User.organizationId` and `User.invitationId`
+independently. Do not patch this with an ad hoc Prisma schema change in this
+branch. Treat any database-level enforcement for this invariant as a separate
+domain review.
+
 ## Available Scripts (root)
 
 | Command         | Description                      |
