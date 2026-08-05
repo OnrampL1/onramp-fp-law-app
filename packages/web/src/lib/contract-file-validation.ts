@@ -56,7 +56,7 @@ export function validateContractFile(
       isValid: false,
       error: {
         code: "unsupported-file-type",
-        message: "Upload a PDF, DOC, DOCX, or TXT contract file.",
+        message: "Upload a PDF, DOCX, or TXT contract file.",
       },
     };
   }
