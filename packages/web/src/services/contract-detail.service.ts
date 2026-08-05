@@ -2,6 +2,7 @@ import { apiClient } from "@/lib/api-client";
 import type {
   ContractContentResponse,
   ContractDetailResponse,
+  UpdateContractMetadataPayload,
 } from "@/types/contracts";
 
 interface ApiEnvelope<T> {
@@ -13,6 +14,17 @@ export async function fetchContractDetail(
 ): Promise<ContractDetailResponse> {
   const response = await apiClient.get<ApiEnvelope<ContractDetailResponse>>(
     `/contracts/${id}`,
+  );
+  return response.data.data;
+}
+
+export async function updateContractMetadata(
+  id: string,
+  payload: UpdateContractMetadataPayload,
+): Promise<ContractDetailResponse> {
+  const response = await apiClient.put<ApiEnvelope<ContractDetailResponse>>(
+    `/contracts/${id}/metadata`,
+    payload,
   );
   return response.data.data;
 }

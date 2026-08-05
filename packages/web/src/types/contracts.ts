@@ -149,6 +149,19 @@ export interface ContractDetailResponse {
   updatedAt: string;
 }
 
+// Full-replace payload for PUT /contracts/:id/metadata — every field is
+// resent with its current value (touched or not), plus the `version` the
+// form was loaded with so the API can detect a concurrent edit (DDS §1.8).
+export interface UpdateContractMetadataPayload {
+  title: string;
+  counterparty: string;
+  tags: string[];
+  effectiveDate: string; // "" or "YYYY-MM-DD"
+  expirationDate: string; // "" or "YYYY-MM-DD"
+  legalState: ContractLegalStatus | null;
+  version: number;
+}
+
 export interface ContractContentResponse {
   processingStatus: ContractDetailResponse["processingStatus"];
   extractedText: string | null;
