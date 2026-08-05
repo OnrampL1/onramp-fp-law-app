@@ -108,6 +108,77 @@ const createUploadedContract = async (
   });
 };
 
+// ─── Update (metadata edit) ─────────────────────────────────────────────
+
+export interface UpdateContractMetadataFields {
+  title: string;
+  counterparty: string;
+  tags: string[];
+  effectiveDate: Date | null;
+  expirationDate: Date | null;
+  legalState: ContractLegalState | null;
+}
+
+/**
+ * Optimistic-concurrency update (DDS §1.8): the row is only touched when
+ * `version` still matches what the editor loaded. `updateMany` (not
+ * `update`) is deliberate — it lets a version/deletedAt mismatch report back
+ * as "zero rows changed" instead of throwing, so the caller can tell a real
+ * conflict apart from "not found" without a try/catch on a Prisma error
+ * code. Returns null on that mismatch; the caller (service layer) is what
+ * turns that into a 409.
+ */
+const updateMetadata = async (
+  id: string,
+  organizationId: string,
+  expectedVersion: number,
+  fields: UpdateContractMetadataFields,
+  audit: ContractAuditEntry,
+): Promise<ContractDetailRow | null> => {
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.contract.updateMany({
+      where: {
+        id,
+        organizationId,
+        version: expectedVersion,
+        deletedAt: null,
+      },
+      data: {
+        title: fields.title,
+        counterparty: fields.counterparty,
+        tags: fields.tags,
+        effectiveDate: fields.effectiveDate,
+        expirationDate: fields.expirationDate,
+        legalState: fields.legalState,
+        version: { increment: 1 },
+      },
+    });
+
+    if (result.count !== 1) {
+      return null;
+    }
+
+    await auditService.logEvent(tx, {
+      organizationId: audit.organizationId,
+      actorType: audit.actorType,
+      actorUserId: audit.actorUserId,
+      action: audit.action,
+      targetEntityType: "Contract",
+      targetEntityId: id,
+      contractId: id,
+      oldValue: audit.oldValue as Prisma.InputJsonValue | undefined,
+      newValue: audit.newValue as Prisma.InputJsonValue | undefined,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+
+    return tx.contract.findFirst({
+      where: { id, organizationId },
+      select: CONTRACT_DETAIL_SELECT,
+    });
+  });
+};
+
 // ─── List ───────────────────────────────────────────────────────────────
 
 const buildWhereClause = (
@@ -213,6 +284,7 @@ const findContentById = async (
 
 export const contractRepository = {
   createUploadedContract,
+  updateMetadata,
   findMany,
   count,
   findById,

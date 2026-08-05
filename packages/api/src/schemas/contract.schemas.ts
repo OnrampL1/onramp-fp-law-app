@@ -39,6 +39,19 @@ function parseTags(value: unknown): unknown {
     .filter(Boolean);
 }
 
+// Shared by every optional YYYY-MM-DD contract date field (create's
+// expirationDate, update's effectiveDate/expirationDate) so the
+// regex-plus-transform pair isn't hand-copied at each call site.
+function contractDateSchema(label: string) {
+  return z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, `${label} must use YYYY-MM-DD`)
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => (value ? new Date(`${value}T00:00:00.000Z`) : null));
+}
+
 export const createContractMetadataSchema = z.object({
   title: z
     .string()
@@ -56,13 +69,7 @@ export const createContractMetadataSchema = z.object({
     .preprocess(parseTags, z.array(contractTagSchema).max(MAX_CONTRACT_TAGS))
     .default([]),
 
-  expirationDate: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expiration date must use YYYY-MM-DD")
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value ? new Date(`${value}T00:00:00.000Z`) : null)),
+  expirationDate: contractDateSchema("Expiration date"),
 
   // Single source of truth: the Prisma enum, not a hand-copied string list.
   legalState: z.nativeEnum(ContractLegalState).optional(),
@@ -70,6 +77,46 @@ export const createContractMetadataSchema = z.object({
 
 export type CreateContractMetadataInput = z.infer<
   typeof createContractMetadataSchema
+>;
+
+// ─── Update (metadata edit) ────────────────────────────────────────────────
+
+// Full-replace PUT, mirroring the upload metadata shape plus the two fields
+// upload doesn't collect (effectiveDate) and the optimistic-concurrency
+// token (version, DDS §1.8). The caller always resends every field's
+// current value — there is no partial-patch semantics here.
+export const updateContractMetadataSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, "Contract title is required")
+    .max(MAX_CONTRACT_TITLE_LENGTH),
+
+  counterparty: z
+    .string()
+    .trim()
+    .min(1, "Counterparty is required")
+    .max(MAX_CONTRACT_COUNTERPARTY_LENGTH),
+
+  tags: z
+    .preprocess(parseTags, z.array(contractTagSchema).max(MAX_CONTRACT_TAGS))
+    .default([]),
+
+  effectiveDate: contractDateSchema("Effective date"),
+  expirationDate: contractDateSchema("Expiration date"),
+
+  // Nullable (not just optional): the full-replace contract lets the caller
+  // explicitly clear a previously-set legal state back to unset.
+  legalState: z.nativeEnum(ContractLegalState).nullable(),
+
+  version: z
+    .number()
+    .int()
+    .positive("A contract version is required for concurrency checking"),
+});
+
+export type UpdateContractMetadataInput = z.infer<
+  typeof updateContractMetadataSchema
 >;
 
 // ─── List ───────────────────────────────────────────────────────────────
