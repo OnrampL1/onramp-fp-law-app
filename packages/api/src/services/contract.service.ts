@@ -10,7 +10,10 @@ import {
   type ContractListRow,
   type CreateUploadedContractInput,
 } from "../repositories/contract.repository";
-import type { CreateContractMetadataInput } from "../schemas/contract.schemas";
+import type {
+  CreateContractMetadataInput,
+  UpdateContractMetadataInput,
+} from "../schemas/contract.schemas";
 import type {
   ContractContentDto,
   ContractDetailDto,
@@ -228,6 +231,82 @@ async function uploadContract(
   return toContractUploadResultDto(contract);
 }
 
+// ─── Update (metadata edit) ────────────────────────────────────────────
+
+export interface UpdateContractMetadataActor {
+  userId: string;
+  organizationId: string;
+}
+
+function contractMetadataSnapshot(fields: {
+  title: string;
+  counterparty: string;
+  tags: string[];
+  effectiveDate: Date | null;
+  expirationDate: Date | null;
+  legalState: string | null;
+}): Record<string, unknown> {
+  return {
+    title: fields.title,
+    counterparty: fields.counterparty,
+    tags: fields.tags,
+    effectiveDate: fields.effectiveDate?.toISOString() ?? null,
+    expirationDate: fields.expirationDate?.toISOString() ?? null,
+    legalState: fields.legalState,
+  };
+}
+
+async function updateContractMetadata(
+  id: string,
+  input: UpdateContractMetadataInput,
+  actor: UpdateContractMetadataActor,
+  requestContext: { ipAddress?: string; userAgent?: string },
+): Promise<ContractDetailDto> {
+  const user = await getActiveOrganizationUser(
+    actor.userId,
+    actor.organizationId,
+  );
+
+  const existing = await contractRepository.findById(id, user.organizationId);
+
+  if (!existing) {
+    throw createError("Contract not found", 404);
+  }
+
+  const updated = await contractRepository.updateMetadata(
+    id,
+    user.organizationId,
+    input.version,
+    {
+      title: input.title,
+      counterparty: input.counterparty,
+      tags: input.tags,
+      effectiveDate: input.effectiveDate,
+      expirationDate: input.expirationDate,
+      legalState: input.legalState,
+    },
+    {
+      action: "CONTRACT_METADATA_UPDATED",
+      actorType: "USER",
+      actorUserId: user.id,
+      organizationId: user.organizationId,
+      oldValue: contractMetadataSnapshot(existing),
+      newValue: contractMetadataSnapshot(input),
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+    },
+  );
+
+  if (!updated) {
+    throw createError(
+      "This contract was updated by someone else. Reload to see the latest version.",
+      409,
+    );
+  }
+
+  return toContractDetailDto(updated);
+}
+
 // ─── List ───────────────────────────────────────────────────────────────
 
 function toContractListItemDto(row: ContractListRow): ContractListItemDto {
@@ -328,6 +407,7 @@ async function getContractContent(
 
 export const contractService = {
   uploadContract,
+  updateContractMetadata,
   listContracts,
   getContractById,
   getContractContent,
