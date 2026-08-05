@@ -2,14 +2,18 @@
 
 import { useEffect, useState } from "react";
 
-import { Search, Bell, Moon, Sun } from "lucide-react";
+import { Search, Bell, Clock, Moon, Sparkles, Sun } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useNotifications } from "@/hooks/useNotifications";
+import { cn, formatRelativeTime } from "@/lib/utils";
+import type { NotificationItem } from "@/types/notifications";
 
 import { Badge } from "../ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -18,8 +22,101 @@ import {
 import { SidebarTrigger } from "../ui/sidebar";
 import { Separator } from "@base-ui/react";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// expirationDate is a date-only field (no time-of-day) — formatRelativeTime's
+// millisecond diff would read a same-day expiration as "14 hours ago" purely
+// because "now" is past midnight, contradicting a title that says "soon."
+// Compare calendar days instead, so a contract expiring today always reads
+// as "today," never as an hours-based countdown into the past.
+function formatExpiryInDays(isoDate: string): string {
+  const today = new Date();
+  const todayUtcMidnight = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate(),
+  );
+  const expiry = new Date(isoDate);
+  const expiryUtcMidnight = Date.UTC(
+    expiry.getUTCFullYear(),
+    expiry.getUTCMonth(),
+    expiry.getUTCDate(),
+  );
+  const daysUntil = Math.round(
+    (expiryUtcMidnight - todayUtcMidnight) / DAY_MS,
+  );
+
+  if (daysUntil <= 0) return "today";
+  if (daysUntil === 1) return "tomorrow";
+  return `in ${daysUntil} days`;
+}
+
+function toDisplayNotification(item: NotificationItem) {
+  if (item.type === "CONTRACT_EXPIRING") {
+    const expiry = formatExpiryInDays(item.occurredAt);
+    return {
+      key: item.id,
+      icon: Clock,
+      // Same amber family as the Draft status badge / Legal Status dot —
+      // no new colors introduced.
+      iconClassName: "bg-amber-50 text-amber-600",
+      title: "Contract expiring soon",
+      description: `${item.contractTitle} expires ${expiry}.`,
+      time: expiry,
+    };
+  }
+
+  const time = formatRelativeTime(item.occurredAt);
+  return {
+    key: item.id,
+    icon: Sparkles,
+    // Same emerald family as the Active status badge — matches the AI
+    // Insights / AI Tools icon color used elsewhere in the app.
+    iconClassName: "bg-emerald-50 text-emerald-600",
+    title: "AI analysis complete",
+    description: `Analysis completed for ${item.contractTitle}.`,
+    time,
+  };
+}
+
+// Purely a "have you opened the dropdown since this arrived" indicator for
+// the bell's dot — distinct from the item-count badge, which is always a
+// live count regardless of seen state. No backend persistence: this is
+// local to the browser, so the dot won't chase you across devices.
+const SEEN_STORAGE_KEY = "clausio:notifications:seenIds";
+
+function readSeenIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_STORAGE_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeSeenIds(ids: string[]): void {
+  try {
+    localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // localStorage unavailable (private browsing, etc.) — the dot just
+    // won't persist across reloads, which is a harmless degradation.
+  }
+}
+
 export function Header() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { data: notifications, isLoading, isError } = useNotifications();
+  const notificationCount = notifications?.length ?? 0;
+
+  const [seenIds, setSeenIds] = useState<Set<string>>(() => readSeenIds());
+  const hasUnseen = (notifications ?? []).some((item) => !seenIds.has(item.id));
+
+  function handleNotificationsOpenChange(open: boolean) {
+    if (!open || !notifications) return;
+    const ids = notifications.map((item) => item.id);
+    writeSeenIds(ids);
+    setSeenIds(new Set(ids));
+  }
 
   useEffect(() => {
     const storedTheme = localStorage.getItem("theme");
@@ -78,7 +175,7 @@ export function Header() {
         </Button>
 
         {/* Notifications */}
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={handleNotificationsOpenChange}>
           <DropdownMenuTrigger
             render={
               <Button
@@ -89,47 +186,76 @@ export function Header() {
               />
             }
           >
-            <Bell className="size-4.5" />
-            <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive ring-2 ring-background" />
+            <Bell className="size-4" />
+            {notificationCount > 0 && hasUnseen && (
+              <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive ring-2 ring-background" />
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel className="flex items-center justify-between">
-              Notifications
-              <Badge variant="secondary" className="text-xs">
-                3 new
-              </Badge>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {[
-              {
-                t: "Critical risk detected",
-                d: "Manufacturing Supply Contract flagged for uncapped liability.",
-                time: "5m",
-              },
-              {
-                t: "Contract expiring soon",
-                d: "Enterprise SaaS License expires in 23 days.",
-                time: "1h",
-              },
-              {
-                t: "AI analysis complete",
-                d: "12 clauses extracted from Northwind MSA.",
-                time: "3h",
-              },
-            ].map((n) => (
-              <DropdownMenuItem
-                key={n.t}
-                className="flex flex-col items-start gap-0.5 py-2.5"
-              >
-                <div className="flex w-full items-center justify-between">
-                  <span className="text-sm font-medium">{n.t}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {n.time}
-                  </span>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="flex items-center justify-between">
+                Notifications
+                {notificationCount > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {notificationCount}
+                  </Badge>
+                )}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+
+              {isLoading && (
+                <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                  Loading notifications…
                 </div>
-                <span className="text-xs text-muted-foreground">{n.d}</span>
-              </DropdownMenuItem>
-            ))}
+              )}
+
+              {isError && (
+                <div className="px-2 py-4 text-center text-xs text-destructive">
+                  Unable to load notifications.
+                </div>
+              )}
+
+              {!isLoading && !isError && notificationCount === 0 && (
+                <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                  You're all caught up — no notifications right now.
+                </div>
+              )}
+
+              {!isLoading &&
+                !isError &&
+                notifications?.map((item) => {
+                  const display = toDisplayNotification(item);
+                  const Icon = display.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={display.key}
+                      className="items-start gap-2.5 py-2.5"
+                    >
+                      <span
+                        className={cn(
+                          "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full",
+                          display.iconClassName,
+                        )}
+                      >
+                        <Icon className="size-3.5" />
+                      </span>
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span className="text-sm font-medium">
+                            {display.title}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {display.time}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {display.description}
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                  );
+                })}
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
