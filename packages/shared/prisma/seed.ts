@@ -1,4 +1,10 @@
 import crypto from "node:crypto";
+import type { Prisma } from "@prisma/client";
+// Relative, not "@starter-kit/shared": this file is compiled as part of
+// shared's own build (see tsconfig.build.json) and runs from dist/ at
+// runtime, never via raw tsx — a self-referencing package import can't
+// resolve on a clean build, since it needs dist/ to already exist before
+// this same build produces it.
 import { getPrismaClient } from "../db/config/prisma-client.config";
 import { hashPassword } from "../auth/password";
 
@@ -49,11 +55,15 @@ const DISCLAIMER =
   "DISCLAIMER: This is an AI-generated summary for informational purposes only and does not constitute legal advice.";
 
 async function main(): Promise<void> {
-  if (process.env.NODE_ENV === "production") {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_DEMO_SEED !== "true"
+  ) {
     throw new Error(
       "Refusing to run the demo seed against a production environment — " +
         "it creates users with a publicly-known password (see DEMO_PASSWORD " +
-        "above). Seed only local or demo databases.",
+        "above). Set ALLOW_DEMO_SEED=true to explicitly allow this on a " +
+        "production demo environment. Never do this against real customer data.",
     );
   }
 
@@ -301,7 +311,7 @@ async function main(): Promise<void> {
     type: "SUMMARY" | "RISK" | "CLAUSE_QUERY";
     status: "PENDING" | "COMPLETED" | "FAILED";
     promptUsed: string;
-    result?: Record<string, unknown>;
+    result?: Prisma.InputJsonValue;
     modelVersion?: string;
     tokensUsed?: number;
     createdAt: Date;
@@ -977,4 +987,8 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    // @starter-kit/shared's barrel also creates BullMQ Queue connections to
+    // Redis as an import side effect (this script never uses them) — those
+    // stay open and keep the event loop alive indefinitely otherwise.
+    process.exit(process.exitCode ?? 0);
   });

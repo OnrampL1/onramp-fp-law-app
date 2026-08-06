@@ -18,16 +18,31 @@ services:
     networks:
       - public
       - clausio_internal
-    deploy:
-      resources:
-        limits:
-          memory: 64M
+    # Plain Compose here, never Swarm — mem_limit is the mechanism that
+    # actually enforces this locally. `deploy.resources.limits` is Swarm
+    # syntax that Compose v2 happens to also honor outside Swarm, but this
+    # stack never runs in Swarm mode, so this is the unambiguous choice.
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   certbot:
     image: certbot/certbot:latest
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
+    mem_limit: 64m
     # No restart policy, no long-running loop, by design — this only ever
     # runs via `docker compose run --rm certbot ...`, once manually for
-    # bootstrap and afterward from a host cron job (below)
+    # bootstrap and afterward from a host cron job (see DEPLOYMENT.md).
+    #
+    # profiles keeps it out of a plain `docker compose up`/`up -d` entirely:
+    # without this, certbot's default (no-args) entrypoint would still
+    # start and immediately exit on every routine `up`, which is harmless
+    # but pointless — profiles make "this only runs when explicitly asked
+    # for" true structurally, not just by convention.
+    profiles:
+      - tools

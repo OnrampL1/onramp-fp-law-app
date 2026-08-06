@@ -12,16 +12,3 @@ export function getAIClient(): OpenAI {
   }
   return openaiClient;
 }
-
-export async function chatCompletion(
-  messages: OpenAI.Chat.ChatCompletionMessageParam[],
-  options?: Partial<OpenAI.Chat.ChatCompletionCreateParamsNonStreaming>,
-): Promise<string> {
-  const client = getAIClient();
-  const response = await client.chat.completions.create({
-    model: options?.model ?? "gpt-4o-mini",
-    messages,
-    ...options,
-  });
-  return response.choices[0]?.message?.content ?? "";
-}
