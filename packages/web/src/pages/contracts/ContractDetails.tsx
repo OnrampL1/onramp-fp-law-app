@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badges";
 import {
@@ -64,6 +64,7 @@ const MOCK_DATA_KEY = "CTR-10470";
 
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data: contract, isLoading, isError } = useContractDetail(id);
 
   const pages = contractPagesById[MOCK_DATA_KEY];
@@ -144,8 +145,9 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {/* Action buttons — AI Tools / Edit / Download / Witness Link stay
-            non-functional placeholders until those features are built */}
+        {/* Action buttons — AI Tools / Download / Witness Link remain
+            non-functional placeholders until those features are built.
+            Edit Contract is wired to the real metadata edit page. */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -178,7 +180,11 @@ export default function ContractDetailPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" className="gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate(`/contracts/${id}/edit`)}
+          >
             <Pencil className="size-4" />
             Edit Contract
           </Button>

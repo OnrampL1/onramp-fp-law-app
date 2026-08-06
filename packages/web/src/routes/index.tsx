@@ -9,6 +9,7 @@ import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
 import Contracts from "@/pages/contracts/Contracts";
 import ContractDetailPage from "@/pages/contracts/ContractDetails";
+import ContractEditPage from "@/pages/contracts/ContractEdit";
 import ContractAnalysisPage from "@/pages/contracts/ContractAnalysis";
 import ContractInvestigatorPage from "@/pages/contracts/ContractInvestigator";
 import { UploadContract } from "../pages/contracts/UploadContract";
@@ -40,6 +41,7 @@ export function AppRoutes() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/contracts" element={<Contracts />} />
           <Route path="/contracts/:id" element={<ContractDetailPage />} />
+          <Route path="/contracts/:id/edit" element={<ContractEditPage />} />
           <Route
             path="/contracts/:id/analysis"
             element={<ContractAnalysisPage />}

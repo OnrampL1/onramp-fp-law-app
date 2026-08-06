@@ -9,6 +9,7 @@ import { ADMIN_ROLES } from "@starter-kit/shared";
 import {
   contractIdParamSchema,
   listContractsQuerySchema,
+  updateContractMetadataSchema,
 } from "../schemas/contract.schemas";
 import { listContractAuditLogsQuerySchema } from "../schemas/audit.schemas";
 
@@ -41,6 +42,17 @@ router.get(
   authenticate,
   validate(contractIdParamSchema, "params"),
   withAuth(contractController.getContent),
+);
+
+// Full-replace metadata edit (DDS §1.8 optimistic concurrency via `version`).
+// Same role set as upload — Owner/Admin/Internal may edit; Witness may not.
+router.put(
+  "/:id/metadata",
+  authenticate,
+  authorize("OWNER", "ADMIN", "INTERNAL"),
+  validate(contractIdParamSchema, "params"),
+  validate(updateContractMetadataSchema, "body"),
+  withAuth(contractController.updateMetadata),
 );
 
 // Thin wrapper over the same org-wide audit service, contractId pre-filled

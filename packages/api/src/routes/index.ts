@@ -7,6 +7,7 @@ import { organizationRouter } from "./organization.routes";
 import { settingsRouter } from "./settings.routes";
 import { witnessRouter } from "./witness.routes";
 import { witnessPortalRouter } from "./witness-portal.routes";
+import { notificationRouter } from "./notification.routes";
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use("/contracts", contractRouter);
 router.use("/organizations", organizationRouter);
 router.use("/settings", settingsRouter);
 router.use("/witness", witnessPortalRouter);
+router.use("/notifications", notificationRouter);
 
 export { router };

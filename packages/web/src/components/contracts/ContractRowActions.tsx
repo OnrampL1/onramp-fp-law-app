@@ -40,7 +40,7 @@ export function ContractRowActions({ id }: ContractRowActionsProps) {
           <Eye className="size-4" />
           View Contract
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem render={<Link to={`/contracts/${id}/edit`} />}>
           <Pencil className="size-4" />
           Edit Metadata
         </DropdownMenuItem>
