@@ -11,6 +11,11 @@ import {
   listContractsQuerySchema,
 } from "../schemas/contract.schemas";
 import { listContractAuditLogsQuerySchema } from "../schemas/audit.schemas";
+import { aiAnalysisController } from "../controllers/ai-analysis.controller";
+import {
+  aiAnalysisIdParamSchema,
+  listAIAnalysesQuerySchema,
+} from "../schemas/ai-analysis.schemas";
 
 const router = Router();
 
@@ -52,6 +57,21 @@ router.get(
   authorize(...ADMIN_ROLES),
   validate(listContractAuditLogsQuerySchema, "query"),
   auditController.listForContract,
+);
+
+router.get(
+  "/:id/analyses",
+  authenticate,
+  validate(contractIdParamSchema, "params"),
+  validate(listAIAnalysesQuerySchema, "query"),
+  withAuth(aiAnalysisController.list),
+);
+
+router.get(
+  "/:id/analyses/:analysisId",
+  authenticate,
+  validate(aiAnalysisIdParamSchema, "params"),
+  withAuth(aiAnalysisController.getById),
 );
 
 export { router as contractRouter };

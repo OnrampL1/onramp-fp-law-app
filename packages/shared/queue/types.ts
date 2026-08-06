@@ -4,6 +4,7 @@ export const QUEUE_NAMES = {
   EMBEDDINGS: "embeddings",
   INVITATION_EXPIRY: "invitation-expiry",
   EXTRACTION: "extraction",
+  AI_ANALYSIS: "ai-analysis",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -31,12 +32,6 @@ export interface ExtractionJobData {
   fileKey: string;
 }
 
-export type JobData =
-  | EmailJobData
-  | EmbeddingsJobData
-  | InvitationExpiryJobData
-  | ExtractionJobData;
-
 // ─── Job result shapes ─────────────────────────────────────────────────────────
 export interface EmailJobResult {
   messageId: string;
@@ -53,3 +48,24 @@ export interface InvitationExpiryJobResult {
 export interface ExtractionJobResult {
   status: "EXTRACTION_COMPLETED" | "EXTRACTION_FAILED";
 }
+
+export interface AIAnalysisJobData {
+  contractId: string;
+  organizationId: string;
+  createdByUserId: string;
+  analysisType: "SUMMARY" | "RISK" | "CLAUSE_QUERY";
+  promptId: string;
+  schemaId: string;
+  extractedText: string;
+}
+
+export interface AIAnalysisJobResult {
+  status: "AI_COMPLETED" | "AI_FAILED";
+}
+
+export type JobData =
+  | EmailJobData
+  | EmbeddingsJobData
+  | InvitationExpiryJobData
+  | ExtractionJobData
+  | AIAnalysisJobData;

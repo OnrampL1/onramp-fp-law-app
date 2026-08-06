@@ -1,0 +1,17 @@
+import type { ZodTypeAny } from "zod";
+import { testSchemaV1 } from "./test/v1";
+
+const SCHEMAS: Record<string, Record<string, ZodTypeAny>> = {
+  test: { v1: testSchemaV1 },
+};
+
+export function getSchema(schemaId: string, version: string): ZodTypeAny {
+  const schema = SCHEMAS[schemaId]?.[version];
+  if (!schema) {
+    throw new Error(`No schema registered for ${schemaId} version ${version}`);
+  }
+  return schema;
+}
+
+export * from "./test/v1";
+export * from "./validate";

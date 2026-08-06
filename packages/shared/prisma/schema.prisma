@@ -35,6 +35,7 @@ model Organization {
   invitations Invitation[]
   contracts   Contract[]
   auditLogs   AuditLog[]
+  aiCallLogs AICallLog[]
 
   @@map("organizations")
 }
@@ -313,6 +314,8 @@ model AIAnalysis {
   type         AIAnalysisType
   status       AIAnalysisStatus @default(PENDING)
   promptUsed   String           @map("prompt_used") @db.Text
+  promptVersion String?          @map("prompt_version")
+  schemaVersion String?          @map("schema_version")
   result     Json?          
   modelVersion String?          @map("model_version")
   tokensUsed   Int?             @map("tokens_used")
@@ -324,6 +327,44 @@ model AIAnalysis {
 
   @@index([contractId, type])
   @@map("ai_analyses")
+}
+
+enum AICallStatus {
+  SUCCESS
+  VALIDATION_FAILED
+  PROVIDER_ERROR
+}
+
+model AICallLog {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String? @map("organization_id") @db.Uuid
+
+  provider String
+  model String
+  promptId String? @map("prompt_id")
+  promptVersion String? @map("prompt_version")
+  schemaId String? @map("schema_id")
+  schemaVersion String? @map("schema_version")
+
+  tokensIn Int? @map("tokens_in")
+  tokensOut Int? @map("tokens_out")
+  estimatedCostUsd Decimal? @map("estimated_cost_usd") @db.Decimal(10, 6)
+
+  latencyMs Int @map("latency_ms")
+  workerExecutionMs Int? @map("worker_execution_ms")
+  retryCount Int @default(0) @map("retry_count")
+
+  status AICallStatus
+  errorMessage String? @map("error_message") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([model, createdAt(sort: Desc)])
+  @@index([promptId, promptVersion])
+  @@map("ai_call_logs")
 }
 
 // ─── Audit domain ──────────────────────────────────────────────────────────

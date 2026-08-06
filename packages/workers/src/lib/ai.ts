@@ -1,6 +1,1 @@
-export {
-  getAIClient,
-  chatCompletion,
-  generateEmbedding,
-  generateEmbeddings,
-} from "@starter-kit/shared";
+export { generateEmbedding } from "@starter-kit/shared";
