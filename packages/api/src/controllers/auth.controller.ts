@@ -86,6 +86,33 @@ export const authController = {
     }
   },
 
+  async changePassword(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const accessToken = req.cookies?.[ACCESS_COOKIE] as string | undefined;
+      const refreshToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+
+      await authService.changePassword(req.user!.userId, {
+        currentPassword: req.body.currentPassword,
+        newPassword: req.body.newPassword,
+      });
+
+      await authService.logout(accessToken, refreshToken);
+      clearAuthCookies(res);
+
+      res.json({
+        data: {
+          message: "Password changed successfully. Please sign in again.",
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const accessToken = req.cookies?.[ACCESS_COOKIE] as string | undefined;

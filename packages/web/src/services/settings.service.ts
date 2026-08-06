@@ -22,6 +22,7 @@ export type OrganizationSettingsResponse = {
   };
   permissions: {
     canManageSettings: boolean;
+    canRenameOrganization: boolean;
   };
 };
 
@@ -32,6 +33,12 @@ export type UpdateOrganizationSettingsPayload = Partial<{
   logoUrl: string | null;
   notificationPreferences: NotificationPreferences;
 }>;
+
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+};
 
 export async function getOrganizationSettings() {
   const { data } = await apiClient.get<{ data: OrganizationSettingsResponse }>(
@@ -48,4 +55,10 @@ export async function updateOrganizationSettings(
     payload,
   );
   return data.data;
+}
+
+export async function changePassword(
+  payload: ChangePasswordPayload,
+): Promise<void> {
+  await apiClient.post("/auth/change-password", payload);
 }

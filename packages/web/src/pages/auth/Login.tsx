@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -67,7 +67,7 @@ const trustIndicators = [
 ];
 
 export function Login() {
-  const { login } = useAuth();
+  const { login, user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -80,15 +80,29 @@ export function Login() {
     resolver: zodResolver(loginSchema),
   });
 
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isLoading, navigate, user]);
+
   const onSubmit = async (data: LoginFormData) => {
     try {
       setError(null);
       await login(data.email, data.password);
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     } catch {
       setError("Invalid email or password");
     }
   };
+
+  if (isLoading || user) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 flex w-full bg-background">

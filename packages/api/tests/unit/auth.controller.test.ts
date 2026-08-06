@@ -6,14 +6,29 @@ jest.mock("../../src/services/auth.service", () => ({
     acceptInvitation: jest.fn(),
     login: jest.fn(),
     refresh: jest.fn(),
+    changePassword: jest.fn(),
     logout: jest.fn(),
     getProfile: jest.fn(),
   },
 }));
 
+jest.mock("@starter-kit/shared", () => ({
+  ...jest.requireActual("@starter-kit/shared"),
+  isJtiBlacklisted: jest.fn().mockResolvedValue(false),
+}));
+
+import { signAccessToken } from "@starter-kit/shared";
 import { authService } from "../../src/services/auth.service";
 const mockAuthService = authService as jest.Mocked<typeof authService>;
 
+function cookieFor(role: "OWNER" | "ADMIN" | "INTERNAL" = "INTERNAL") {
+  const token = signAccessToken({ userId: "user-1", orgId: "org-1", role });
+  return `accessToken=${token}`;
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 // ─── POST /api/auth/accept-invitation ─────────────────────────────────────────
 
 describe("POST /api/auth/accept-invitation", () => {
@@ -93,5 +108,87 @@ describe("POST /api/auth/login", () => {
   it("returns 422 when body is missing", async () => {
     const res = await request(app).post("/api/auth/login").send({});
     expect(res.status).toBe(422);
+  });
+});
+
+describe("POST /api/auth/change-password", () => {
+  it("returns 401 with no session", async () => {
+    const res = await request(app).post("/api/auth/change-password").send({
+      currentPassword: "Password123!",
+      newPassword: "NewPassword123",
+      confirmNewPassword: "NewPassword123",
+    });
+
+    expect(res.status).toBe(401);
+    expect(mockAuthService.changePassword).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 when password confirmation does not match", async () => {
+    const res = await request(app)
+      .post("/api/auth/change-password")
+      .set("Cookie", cookieFor())
+      .send({
+        currentPassword: "Password123!",
+        newPassword: "NewPassword123",
+        confirmNewPassword: "DifferentPassword123",
+      });
+
+    expect(res.status).toBe(422);
+    expect(mockAuthService.changePassword).not.toHaveBeenCalled();
+  });
+
+  it("changes the current user's password and clears auth cookies", async () => {
+    mockAuthService.changePassword.mockResolvedValue(undefined);
+    mockAuthService.logout.mockResolvedValue(undefined);
+
+    const res = await request(app)
+      .post("/api/auth/change-password")
+      .set("Cookie", cookieFor("ADMIN"))
+      .send({
+        currentPassword: "Password123!",
+        newPassword: "NewPassword123",
+        confirmNewPassword: "NewPassword123",
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockAuthService.changePassword).toHaveBeenCalledWith("user-1", {
+      currentPassword: "Password123!",
+      newPassword: "NewPassword123",
+    });
+    expect(mockAuthService.logout).toHaveBeenCalled();
+    expect(res.body.data.message).toBe(
+      "Password changed successfully. Please sign in again.",
+    );
+
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.some((cookie) => cookie.startsWith("accessToken=;"))).toBe(
+      true,
+    );
+    expect(cookies.some((cookie) => cookie.startsWith("refreshToken=;"))).toBe(
+      true,
+    );
+  });
+
+  it("returns 401 when the current password is wrong", async () => {
+    const err = new Error("Invalid credentials") as Error & {
+      statusCode: number;
+      isOperational: boolean;
+    };
+    err.statusCode = 401;
+    err.isOperational = true;
+
+    mockAuthService.changePassword.mockRejectedValue(err);
+
+    const res = await request(app)
+      .post("/api/auth/change-password")
+      .set("Cookie", cookieFor())
+      .send({
+        currentPassword: "WrongPassword123",
+        newPassword: "NewPassword123",
+        confirmNewPassword: "NewPassword123",
+      });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("Invalid credentials");
   });
 });

@@ -25,6 +25,10 @@ function cookieFor(role: "OWNER" | "ADMIN" | "INTERNAL") {
   return `accessToken=${token}`;
 }
 
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
 describe("GET /api/settings/organization", () => {
   it("returns 401 with no session", async () => {
     const res = await request(app).get("/api/settings/organization");
@@ -50,6 +54,7 @@ describe("GET /api/settings/organization", () => {
       },
       permissions: {
         canManageSettings: false,
+        canRenameOrganization: false,
       },
     });
 
@@ -82,6 +87,7 @@ describe("GET /api/settings/organization", () => {
       },
       permissions: {
         canManageSettings: true,
+        canRenameOrganization: false,
       },
     });
 
@@ -121,16 +127,44 @@ describe("PUT /api/settings/organization", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("returns 403 for ADMIN users — org settings are Owner-only", async () => {
+  it("allows ADMIN users to update general organization settings", async () => {
+    mockSettingsService.updateOrganizationSettings.mockResolvedValue({
+      organization: {
+        id: "org-1",
+        name: "Acme Legal",
+        slug: "acme-legal",
+        status: "ACTIVE",
+      },
+      settings: {
+        timezone: "Asia/Beirut",
+        language: "en",
+        logoUrl: null,
+        notificationPreferences: null,
+        branding: null,
+      },
+      permissions: {
+        canManageSettings: true,
+        canRenameOrganization: false,
+      },
+    });
+
     const res = await request(app)
       .put("/api/settings/organization")
       .set("Cookie", cookieFor("ADMIN"))
-      .send({ name: "New Name" });
+      .send({ timezone: "Asia/Beirut" });
 
-    expect(res.status).toBe(403);
-    expect(
-      mockSettingsService.updateOrganizationSettings,
-    ).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(mockSettingsService.updateOrganizationSettings).toHaveBeenCalledWith(
+      {
+        userId: "user-1",
+        organizationId: "org-1",
+        role: "ADMIN",
+      },
+      { timezone: "Asia/Beirut" },
+      expect.objectContaining({
+        ipAddress: expect.any(String),
+      }),
+    );
   });
 
   it("returns 422 for unsupported fields", async () => {
@@ -176,6 +210,7 @@ describe("PUT /api/settings/organization", () => {
       },
       permissions: {
         canManageSettings: true,
+        canRenameOrganization: true,
       },
     });
 

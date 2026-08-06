@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-import { Search, Bell, Clock, Moon, Sparkles, Sun } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Bell, Clock, LogOut, Moon, Sparkles, Sun } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -20,15 +20,11 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { SidebarTrigger } from "../ui/sidebar";
+import { useAuth } from "@/hooks/useAuth";
 import { Separator } from "@base-ui/react";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// expirationDate is a date-only field (no time-of-day) — formatRelativeTime's
-// millisecond diff would read a same-day expiration as "14 hours ago" purely
-// because "now" is past midnight, contradicting a title that says "soon."
-// Compare calendar days instead, so a contract expiring today always reads
-// as "today," never as an hours-based countdown into the past.
 function formatExpiryInDays(isoDate: string): string {
   const today = new Date();
   const todayUtcMidnight = Date.UTC(
@@ -57,8 +53,6 @@ function toDisplayNotification(item: NotificationItem) {
     return {
       key: item.id,
       icon: Clock,
-      // Same amber family as the Draft status badge / Legal Status dot —
-      // no new colors introduced.
       iconClassName: "bg-amber-50 text-amber-600",
       title: "Contract expiring soon",
       description: `${item.contractTitle} expires ${expiry}.`,
@@ -70,8 +64,6 @@ function toDisplayNotification(item: NotificationItem) {
   return {
     key: item.id,
     icon: Sparkles,
-    // Same emerald family as the Active status badge — matches the AI
-    // Insights / AI Tools icon color used elsewhere in the app.
     iconClassName: "bg-emerald-50 text-emerald-600",
     title: "AI analysis complete",
     description: `Analysis completed for ${item.contractTitle}.`,
@@ -79,10 +71,6 @@ function toDisplayNotification(item: NotificationItem) {
   };
 }
 
-// Purely a "have you opened the dropdown since this arrived" indicator for
-// the bell's dot — distinct from the item-count badge, which is always a
-// live count regardless of seen state. No backend persistence: this is
-// local to the browser, so the dot won't chase you across devices.
 const SEEN_STORAGE_KEY = "clausio:notifications:seenIds";
 
 function readSeenIds(): Set<string> {
@@ -98,13 +86,16 @@ function writeSeenIds(ids: string[]): void {
   try {
     localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(ids));
   } catch {
-    // localStorage unavailable (private browsing, etc.) — the dot just
-    // won't persist across reloads, which is a harmless degradation.
+    // localStorage unavailable; notification seen state just will not persist.
   }
 }
 
 export function Header() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const { data: notifications, isLoading, isError } = useNotifications();
   const notificationCount = notifications?.length ?? 0;
 
@@ -142,6 +133,16 @@ export function Header() {
     document.documentElement.style.colorScheme = nextTheme;
   }
 
+  async function handleLogout() {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+      navigate("/login", { replace: true });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur md:px-6">
       <SidebarTrigger />
@@ -174,7 +175,6 @@ export function Header() {
           )}
         </Button>
 
-        {/* Notifications */}
         <DropdownMenu onOpenChange={handleNotificationsOpenChange}>
           <DropdownMenuTrigger
             render={
@@ -205,7 +205,7 @@ export function Header() {
 
               {isLoading && (
                 <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-                  Loading notifications…
+                  Loading notifications...
                 </div>
               )}
 
@@ -217,7 +217,7 @@ export function Header() {
 
               {!isLoading && !isError && notificationCount === 0 && (
                 <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-                  You're all caught up — no notifications right now.
+                  You're all caught up - no notifications right now.
                 </div>
               )}
 
@@ -226,6 +226,7 @@ export function Header() {
                 notifications?.map((item) => {
                   const display = toDisplayNotification(item);
                   const Icon = display.icon;
+
                   return (
                     <DropdownMenuItem
                       key={display.key}
@@ -258,20 +259,20 @@ export function Header() {
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <LogOut className="size-4" />
+        </Button>
       </div>
     </header>
-    // <header className="flex h-14 items-center justify-end border-b bg-card px-6 gap-4">
-    //   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-    //     <User className="h-4 w-4" />
-    //     <span>{user?.name}</span>
-    //   </div>
-    //   <button
-    //     onClick={logout}
-    //     className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-    //   >
-    //     <LogOut className="h-4 w-4" />
-    //     Logout
-    //   </button>
-    // </header>
   );
 }

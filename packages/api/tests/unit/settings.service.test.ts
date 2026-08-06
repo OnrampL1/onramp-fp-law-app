@@ -17,6 +17,7 @@ const mockPrisma = {
 
 jest.mock("@starter-kit/shared", () => ({
   getPrismaClient: () => mockPrisma,
+  isAdminRole: (role: string) => role === "OWNER" || role === "ADMIN",
   isOwnerRole: (role: string) => role === "OWNER",
 }));
 
@@ -27,7 +28,7 @@ beforeEach(() => {
 });
 
 describe("SettingsService.getOrganizationSettings", () => {
-  it("returns organization settings for an active organization member, with canManageSettings false for a non-Owner Admin", async () => {
+  it("returns organization settings for an active Admin, with manage true and rename false", async () => {
     mockPrisma.organization.findFirst.mockResolvedValue({
       id: "org-1",
       name: "Acme Legal",
@@ -90,7 +91,8 @@ describe("SettingsService.getOrganizationSettings", () => {
         },
       },
       permissions: {
-        canManageSettings: false,
+        canManageSettings: true,
+        canRenameOrganization: false,
       },
     });
   });
@@ -118,6 +120,7 @@ describe("SettingsService.getOrganizationSettings", () => {
       branding: null,
     });
     expect(result.permissions.canManageSettings).toBe(false);
+    expect(result.permissions.canRenameOrganization).toBe(false);
   });
 
   it("allows OWNER to manage settings", async () => {
@@ -136,6 +139,7 @@ describe("SettingsService.getOrganizationSettings", () => {
     );
 
     expect(result.permissions.canManageSettings).toBe(true);
+    expect(result.permissions.canRenameOrganization).toBe(true);
   });
 
   it("throws 404 when the user is not an active member of the organization", async () => {
@@ -163,9 +167,8 @@ describe("SettingsService.getOrganizationSettings", () => {
 });
 
 describe("SettingsService.updateOrganizationSettings", () => {
-  // Owner-only (Issue 6): editing org settings is restricted to the
-  // organization owner, not any Admin — so the actor used for the success
-  // path here is OWNER, and ADMIN gets its own explicit rejection test below.
+  // Owners and Admins can edit general organization settings, but only the
+  // Owner can rename the organization.
   const actor = {
     userId: "owner-1",
     organizationId: "org-1",
@@ -184,7 +187,7 @@ describe("SettingsService.updateOrganizationSettings", () => {
     expect(mockPrisma.organization.findFirst).not.toHaveBeenCalled();
   });
 
-  it("rejects ADMIN users — only the organization owner can edit org settings", async () => {
+  it("rejects ADMIN users when they try to rename the organization", async () => {
     await expect(
       settingsService.updateOrganizationSettings(
         { ...actor, role: "ADMIN" },
@@ -194,6 +197,56 @@ describe("SettingsService.updateOrganizationSettings", () => {
     ).rejects.toMatchObject({ statusCode: 403 });
 
     expect(mockPrisma.organization.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("allows ADMIN users to update general organization settings without renaming", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue({
+      id: "org-1",
+      name: "Old Name",
+      slug: "old-name",
+      status: "ACTIVE",
+      settings: {
+        timezone: "UTC",
+        language: "en",
+        logoUrl: null,
+        notificationPreferences: null,
+        branding: null,
+      },
+      members: [{ role: "ADMIN" }],
+    });
+
+    mockPrisma.organization.findFirstOrThrow.mockResolvedValue({
+      id: "org-1",
+      name: "Old Name",
+      slug: "old-name",
+      status: "ACTIVE",
+      settings: {
+        timezone: "Asia/Beirut",
+        language: "en",
+        logoUrl: null,
+        notificationPreferences: null,
+        branding: null,
+      },
+      members: [{ role: "ADMIN" }],
+    });
+
+    const result = await settingsService.updateOrganizationSettings(
+      { ...actor, role: "ADMIN" },
+      { timezone: "Asia/Beirut" },
+      {},
+    );
+
+    expect(mockPrisma.organization.update).not.toHaveBeenCalled();
+    expect(mockPrisma.organizationSettings.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: "org-1" },
+        update: expect.objectContaining({ timezone: "Asia/Beirut" }),
+      }),
+    );
+    expect(result.permissions).toEqual({
+      canManageSettings: true,
+      canRenameOrganization: false,
+    });
   });
 
   it("updates supported organization settings and writes an audit log when the actor is OWNER", async () => {

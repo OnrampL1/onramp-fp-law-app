@@ -4,7 +4,11 @@ import { witnessController } from "../controllers/witness.controller";
 import { validate } from "../middleware/validate";
 import { authenticate } from "../middleware/authenticate";
 import { authRateLimiter } from "../middleware/rate-limiter";
-import { acceptInvitationSchema, loginSchema } from "../schemas/auth.schemas";
+import {
+  acceptInvitationSchema,
+  changePasswordSchema,
+  loginSchema,
+} from "../schemas/auth.schemas";
 
 const router = Router();
 
@@ -24,6 +28,13 @@ router.post(
   authController.login,
 );
 router.post("/refresh", authController.refresh);
+router.post(
+  "/change-password",
+  authenticate,
+  authRateLimiter,
+  validate(changePasswordSchema),
+  authController.changePassword,
+);
 router.post("/logout", authenticate, authController.logout);
 router.get("/me", authenticate, authController.me);
 
