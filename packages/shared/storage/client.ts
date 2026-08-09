@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -110,4 +111,19 @@ export async function getPresignedUrl(
     }),
     { expiresIn },
   );
+}
+
+export async function deleteFile(key: string): Promise<void> {
+  const bucket = getRequiredEnv("S3_BUCKET");
+
+  try {
+    await getS3Client().send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      }),
+    );
+  } catch {
+    throw new Error("Could not delete stored file");
+  }
 }
