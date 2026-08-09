@@ -1253,7 +1253,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-    /organization-brain:
+  /organization-brain:
     get:
       tags: [Organization Brain]
       summary: List organization brain items
