@@ -171,12 +171,23 @@ function toListItemDto(
   };
 }
 
+function createAttachmentContentDisposition(fileName: string): string {
+  const asciiFileName = fileName.replace(/["\\\r\n]/g, "_");
+
+  return `attachment; filename="${asciiFileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
+
 async function toDetailDto(
   row: OrganizationBrainItemDetailRow,
 ): Promise<OrganizationBrainItemDetailDto> {
+  const fileName = row.fileName ?? extractFileNameFromKey(row.storageKey);
   const downloadUrl = await getPresignedUrl(
     row.storageKey,
     ORGANIZATION_BRAIN_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
+    {
+      responseContentDisposition: createAttachmentContentDisposition(fileName),
+      responseContentType: row.mimeType,
+    },
   );
 
   return {
@@ -184,7 +195,7 @@ async function toDetailDto(
     title: row.title,
     type: row.type,
     source: row.source,
-    fileName: row.fileName ?? extractFileNameFromKey(row.storageKey),
+    fileName,
     mimeType: row.mimeType,
     sizeBytes: row.sizeBytes,
     createdByName: row.createdBy.fullName,

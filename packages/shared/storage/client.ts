@@ -97,9 +97,15 @@ export async function downloadFile(key: string): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+interface PresignedUrlOptions {
+  responseContentDisposition?: string;
+  responseContentType?: string;
+}
+
 export async function getPresignedUrl(
   key: string,
   expiresIn = 3600,
+  options: PresignedUrlOptions = {},
 ): Promise<string> {
   const bucket = getRequiredEnv("S3_BUCKET");
 
@@ -108,6 +114,8 @@ export async function getPresignedUrl(
     new GetObjectCommand({
       Bucket: bucket,
       Key: key,
+      ResponseContentDisposition: options.responseContentDisposition,
+      ResponseContentType: options.responseContentType,
     }),
     { expiresIn },
   );

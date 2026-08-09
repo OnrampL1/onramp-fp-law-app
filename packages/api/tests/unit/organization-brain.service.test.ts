@@ -365,6 +365,11 @@ describe("OrganizationBrainService.getById", () => {
     expect(mockGetPresignedUrl).toHaveBeenCalledWith(
       "organization-brain/org-1/file-id-Vendor-MSA.pdf",
       900,
+      {
+        responseContentDisposition:
+          "attachment; filename=\"Vendor-MSA.pdf\"; filename*=UTF-8''Vendor-MSA.pdf",
+        responseContentType: "application/pdf",
+      },
     );
 
     expect(result).toEqual({
