@@ -34,6 +34,8 @@ export const AUDIT_ACTIONS = [
   "AI_ANALYSIS_REQUESTED",
   "AI_ANALYSIS_COMPLETED",
   "AI_ANALYSIS_FAILED",
+  "ORGANIZATION_BRAIN_ITEM_CREATED",
+  "ORGANIZATION_BRAIN_ITEM_DELETED",
   "PLATFORM_SUPPORT_ACCESS_GRANTED",
   "PLATFORM_SUPPORT_ACCESS_REVOKED",
 ] as const;
@@ -93,6 +95,9 @@ export const AUDIT_ACTION_GROUP: Record<AuditAction, AuditActionGroup> = {
 
   PLATFORM_SUPPORT_ACCESS_GRANTED: "Platform",
   PLATFORM_SUPPORT_ACCESS_REVOKED: "Platform",
+
+  ORGANIZATION_BRAIN_ITEM_CREATED: "AI",
+  ORGANIZATION_BRAIN_ITEM_DELETED: "AI",
 };
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
@@ -134,6 +139,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 
   PLATFORM_SUPPORT_ACCESS_GRANTED: "Platform support access granted",
   PLATFORM_SUPPORT_ACCESS_REVOKED: "Platform support access revoked",
+
+  ORGANIZATION_BRAIN_ITEM_CREATED: "Organization brain item added",
+  ORGANIZATION_BRAIN_ITEM_DELETED: "Organization brain item deleted",
 };
 
 export interface AuditLogEntry {
