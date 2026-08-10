@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { getOpenRouterApiKey } from "../config";
 import type { AiMessage } from "../types";
+import type { CompletionProvider } from "./types";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -41,3 +42,7 @@ export async function callOpenRouter(
     tokensOut: response.usage?.completion_tokens ?? 0,
   };
 }
+
+export const openRouterProvider: CompletionProvider = {
+  complete: callOpenRouter,
+};

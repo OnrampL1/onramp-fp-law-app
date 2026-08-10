@@ -5,8 +5,8 @@ const prisma = getPrismaClient();
 export async function markExtractionCompleted(
   contractId: string,
   extractedText: string,
-): Promise<void> {
-  await prisma.$transaction(async (tx) => {
+): Promise<{ organizationId: string }> {
+  return prisma.$transaction(async (tx) => {
     const contract = await tx.contract.update({
       where: { id: contractId },
       data: {
@@ -28,6 +28,8 @@ export async function markExtractionCompleted(
         newValue: { processingStatus: "EXTRACTION_COMPLETED" },
       },
     });
+
+    return { organizationId: contract.organizationId };
   });
 }
 
