@@ -5,6 +5,7 @@ export const QUEUE_NAMES = {
   INVITATION_EXPIRY: "invitation-expiry",
   EXTRACTION: "extraction",
   AI_ANALYSIS: "ai-analysis",
+  AI_ANALYSIS_AGGREGATE: "ai-analysis-aggregate",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -61,6 +62,19 @@ export interface AIAnalysisJobData {
 
 export interface AIAnalysisJobResult {
   status: "AI_COMPLETED" | "AI_FAILED";
+  errorMessage?: string;
+}
+
+// Parent job in the flow — runs once both AIAnalysisJobData children (SUMMARY,
+// RISK) have settled, and writes the one aggregate Contract.processingStatus
+// update. Individual analysis jobs no longer touch processingStatus directly.
+export interface AIAnalysisAggregateJobData {
+  contractId: string;
+  organizationId: string;
+}
+
+export interface AIAnalysisAggregateJobResult {
+  status: "AI_COMPLETED" | "AI_FAILED";
 }
 
 export type JobData =
@@ -68,4 +82,5 @@ export type JobData =
   | EmbeddingsJobData
   | InvitationExpiryJobData
   | ExtractionJobData
-  | AIAnalysisJobData;
+  | AIAnalysisJobData
+  | AIAnalysisAggregateJobData;

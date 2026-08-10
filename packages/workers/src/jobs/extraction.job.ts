@@ -1,6 +1,7 @@
 import type { Job } from "bullmq";
 import {
   downloadFile,
+  enqueueContractAnalysis,
   type ExtractionJobData,
   type ExtractionJobResult,
 } from "@starter-kit/shared";
@@ -21,7 +22,14 @@ export async function processExtractionJob(
 
   try {
     const { text } = await extractText(buffer, extension);
-    await markExtractionCompleted(contractId, text);
+    const contract = await markExtractionCompleted(contractId, text);
+
+    await enqueueContractAnalysis({
+      contractId: contract.id,
+      organizationId: contract.organizationId,
+      createdByUserId: contract.uploadedByUserId,
+      extractedText: text,
+    });
     return { status: "EXTRACTION_COMPLETED" };
   } catch (error) {
     if (error instanceof TerminalExtractionError) {

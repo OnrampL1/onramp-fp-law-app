@@ -49,7 +49,48 @@ async function getById(
   }
 }
 
+async function trigger(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id: contractId } = req.params as unknown as ContractIdParam;
+
+    await aiAnalysisService.triggerAnalysis(
+      contractId,
+      req.user.orgId,
+      req.user.userId,
+    );
+
+    res.status(202).json({ data: { message: "Analysis queued" } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function riskOverview(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id: contractId } = req.params as unknown as ContractIdParam;
+
+    const overview = await aiAnalysisService.getRiskOverview(
+      contractId,
+      req.user.orgId,
+    );
+
+    res.json({ data: overview });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export const aiAnalysisController = {
   list,
   getById,
+  trigger,
+  riskOverview,
 };

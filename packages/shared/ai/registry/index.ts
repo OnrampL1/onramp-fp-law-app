@@ -4,10 +4,14 @@ import type { ZodTypeAny } from "zod";
 
 const ACTIVE_PROMPT_VERSIONS: Record<string, string> = {
   test: "v1",
+  summary: "v1",
+  risk: "v1",
 };
 
 const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {
   test: "v1",
+  summary: "v1",
+  risk: "v1",
 };
 
 export function getActivePromptVersion(promptId: string): string {

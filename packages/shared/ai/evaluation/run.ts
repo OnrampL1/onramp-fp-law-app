@@ -2,7 +2,6 @@ import { getValidatedCompletion } from "../schemas";
 import { resolvePrompt, resolveSchema } from "../registry";
 import type { AiMessage } from "../types";
 import { GOLDEN_SET } from "./golden-set";
-import { scoreExactMatch } from "./scoring";
 import type { GoldenSetRunSummary, ScoreResult } from "./types";
 
 export async function runGoldenSet(
@@ -34,7 +33,7 @@ export async function runGoldenSet(
 
       results.push({
         exampleId: example.id,
-        passed: scoreExactMatch(example.expected, result.data),
+        passed: example.score(example.expected, result.data),
         expected: example.expected,
         actual: result.data,
       });

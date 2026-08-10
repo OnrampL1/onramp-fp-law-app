@@ -72,7 +72,7 @@ export async function processAIAnalysisJob(
         promptUsed: prompt.content,
         errorMessage: error.message,
       });
-      return { status: "AI_FAILED" };
+      return { status: "AI_FAILED", errorMessage: error.message };
     }
 
     if (error instanceof AiProviderError && !error.retryable) {
@@ -84,7 +84,7 @@ export async function processAIAnalysisJob(
         promptUsed: prompt.content,
         errorMessage: error.message,
       });
-      return { status: "AI_FAILED" };
+      return { status: "AI_FAILED", errorMessage: error.message };
     }
 
     throw error;

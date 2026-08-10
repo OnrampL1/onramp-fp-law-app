@@ -4,6 +4,7 @@ export interface GoldenExample {
   schemaId: string;
   input: string;
   expected: unknown;
+  score: (expected: unknown, actual: unknown) => boolean;
 }
 
 export interface ScoreResult {

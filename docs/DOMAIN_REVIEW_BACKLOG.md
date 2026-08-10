@@ -31,6 +31,25 @@ what we noticed.
   design as Contract Value; both are structured-output schemas for the
   AI Analysis pillar, not separate mechanisms.
 
+### Jurisdiction / Governing Law
+
+- Identified: AI roadmap freeze discussion (2026-08-10)
+- Classification: Required for correctness — the Lebanese Legal Knowledge
+  Base (`docs/AI_ROADMAP.md` Phase 6) cannot retrieve relevant law without
+  knowing which jurisdiction a contract or organization is governed by.
+- Status: Confirmed absent — no `jurisdiction` or `governingLaw` field
+  exists anywhere in `packages/shared/prisma/schema.prisma` today (checked
+  directly against the schema). Not yet designed, not yet implemented.
+- Notes: Must be resolved before Phase 6 implementation begins, not
+  discovered mid-phase. Open questions for the Domain Review: whether
+  `Contract` needs a `governingLaw` field, whether `OrganizationSettings`
+  needs a jurisdiction/preferred-law setting, whether both are required,
+  how multiple jurisdictions should be represented (a contract's governing
+  law can differ from the org's home jurisdiction), and how
+  historical-vs-current jurisdictional context should work (a contract
+  signed under a since-amended law). See `docs/AI_ROADMAP.md` Section 8.1
+  for full context. Does not block current Phase 3/4 engineering work.
+
 ### Contract Type / Categorization
 
 - Identified: Contract List feature (2026-07-12)
