@@ -80,3 +80,4 @@ Thumbs.db
 # ─── AI assistant configuration (local-only, not project documentation) ───────
 CLAUDE.md
 AGENTS.md
+report.md
