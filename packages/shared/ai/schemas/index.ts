@@ -1,8 +1,10 @@
 import type { ZodTypeAny } from "zod";
 import { testSchemaV1 } from "./test/v1";
+import { investigatorAnswerSchemaV1 } from "./investigator/v1";
 
 const SCHEMAS: Record<string, Record<string, ZodTypeAny>> = {
   test: { v1: testSchemaV1 },
+  investigator: { v1: investigatorAnswerSchemaV1 },
 };
 
 export function getSchema(schemaId: string, version: string): ZodTypeAny {
@@ -14,4 +16,5 @@ export function getSchema(schemaId: string, version: string): ZodTypeAny {
 }
 
 export * from "./test/v1";
+export * from "./investigator/v1";
 export * from "./validate";
