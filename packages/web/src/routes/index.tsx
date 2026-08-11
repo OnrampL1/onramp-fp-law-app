@@ -18,6 +18,7 @@ import { WitnessReview } from "../pages/WitnessReview";
 import { UserManagement } from "../pages/dashboard/UserManagement";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import { AuditLogPage } from "../pages/AuditLogPage";
+import { OrganizationBrain } from "../pages/dashboard/OrganizationBrain";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
@@ -104,6 +105,7 @@ export function AppRoutes() {
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/upload" element={<UploadContract />} />
+          <Route path="/organization-brain" element={<OrganizationBrain />} />
         </Route>
       </Route>
 

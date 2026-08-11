@@ -8,6 +8,7 @@ import { settingsRouter } from "./settings.routes";
 import { witnessRouter } from "./witness.routes";
 import { witnessPortalRouter } from "./witness-portal.routes";
 import { notificationRouter } from "./notification.routes";
+import { organizationBrainRouter } from "./organization-brain.routes";
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.use("/users", userRouter);
 router.use("/users", witnessRouter);
 router.use("/invitations", invitationRouter);
 router.use("/contracts", contractRouter);
+router.use("/organization-brain", organizationBrainRouter);
 router.use("/organizations", organizationRouter);
 router.use("/settings", settingsRouter);
 router.use("/witness", witnessPortalRouter);

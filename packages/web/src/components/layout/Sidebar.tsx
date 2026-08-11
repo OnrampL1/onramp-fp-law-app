@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Upload,
   Users,
+  BrainCircuit,
 } from "lucide-react";
 import {
   Sidebar as SidebarRoot,
@@ -31,6 +32,11 @@ const workspaceNav = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Contracts", href: "/contracts", icon: FileText },
   { title: "Contract Upload", href: "/upload", icon: Upload },
+  {
+    title: "Organization Brain",
+    href: "/organization-brain",
+    icon: BrainCircuit,
+  },
 ];
 
 // requiresAdmin marks items the backend actually 403s for non-Owner/Admin
@@ -38,8 +44,18 @@ const workspaceNav = [
 // in sync with what each route actually enforces, not just cosmetic hiding.
 const adminNav = [
   { title: "User Management", href: "/users", icon: Users },
-  { title: "Witness Workflow", href: "/witness", icon: PenLine, requiresAdmin: true },
-  { title: "Audit Logging", href: "/audit", icon: ScrollText, requiresAdmin: true },
+  {
+    title: "Witness Workflow",
+    href: "/witness",
+    icon: PenLine,
+    requiresAdmin: true,
+  },
+  {
+    title: "Audit Logging",
+    href: "/audit",
+    icon: ScrollText,
+    requiresAdmin: true,
+  },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
