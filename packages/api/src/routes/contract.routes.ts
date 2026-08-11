@@ -81,6 +81,14 @@ router.get(
   withAuth(aiAnalysisController.list),
 );
 
+router.post(
+  "/:id/analyses",
+  authenticate,
+  authorize("OWNER", "ADMIN", "INTERNAL"),
+  validate(contractIdParamSchema, "params"),
+  withAuth(aiAnalysisController.trigger),
+);
+
 router.get(
   "/:id/analyses/:analysisId",
   authenticate,
@@ -97,6 +105,13 @@ router.post(
   validate(contractIdParamSchema, "params"),
   validate(askInvestigatorBodySchema, "body"),
   withAuth(contractInvestigatorController.ask),
+);
+
+router.get(
+  "/:id/risk-overview",
+  authenticate,
+  validate(contractIdParamSchema, "params"),
+  withAuth(aiAnalysisController.riskOverview),
 );
 
 export { router as contractRouter };

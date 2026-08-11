@@ -10,6 +10,10 @@ work extends this architecture; it does not redesign it. See
 **Architecture Freeze** at the end of this document for what that means in
 practice.
 
+For phase numbering and phase status (what's complete, in progress, or
+future), see `docs/AI_ROADMAP.md` — that document is authoritative for
+sequencing; this document remains authoritative for mechanism and design.
+
 This document assumes no prior context. A developer — human or AI coding
 assistant — should be able to read it once and understand the whole AI
 system without needing the design conversations that produced it.
@@ -330,11 +334,13 @@ observability row for debugging; don't build index snapshotting.
 
 ---
 
-## 7. AI Assistant Lifecycle (Near Future, not MVP)
+## 7. AI Assistant Lifecycle (Phase 7 — Near Future, not MVP)
 
 Documented now because the platform's lower layers (provider, tools) need
 to be built in a way that doesn't foreclose this, even though the
-Assistant itself is not implemented until after Phase 3.
+Assistant itself is not implemented until Phase 7 — after Organization
+Brain Retrieval (Phase 5) and the Legal Knowledge Base (Phase 6), not
+immediately after Phase 3. See `docs/AI_ROADMAP.md` Section 2 for why.
 
 ```
 User question
@@ -666,18 +672,34 @@ Not implemented now. Documented so every future capability has a stated
 home in the architecture above, rather than needing its own design
 discussion to figure out where it belongs.
 
+**`docs/AI_ROADMAP.md` is the authoritative document for phase numbering
+and phase status** (which phase is next, what's in progress, what's
+future). The groupings below (Near Future / Medium Term / Long Term)
+describe *what* each capability is and where it fits architecturally;
+`AI_ROADMAP.md` describes *when* and in what order, including the
+approved phase numbers (5–8) and the product-sequencing rationale for why
+AI Assistant is Phase 7 rather than the phase immediately after Clause
+Investigator. If the two ever appear to disagree, `AI_ROADMAP.md` wins —
+raise it rather than resolving silently.
+
 ### Near Future
 
-- **AI Assistant** (Section 7) — plan-and-execute orchestration over
-  Analysis, Investigator, and structured queries
-- **Organization Brain retrieval** — indexing the Phase 4 corpus through
-  Investigator's retrieval engine; Analysis referencing it for deviation
-  flagging
+- **Organization Brain retrieval** (Phase 5) — indexing the Phase 4
+  corpus through Investigator's retrieval engine; Analysis referencing it
+  for deviation flagging
 - **Organization Settings** expansion for AI-specific preferences
-- **Legal Knowledge Base** (Section 3.2) — RAG over jurisdiction-tagged
-  external legal sources, reusing Investigator's retrieval engine, one
-  jurisdiction at a time (start where real customers are, not all four
-  discussed jurisdictions at once)
+- **Legal Knowledge Base** (Phase 6, Section 3.2) — RAG over
+  jurisdiction-tagged external legal sources, reusing Investigator's
+  retrieval engine, one jurisdiction at a time (start where real
+  customers are, not all four discussed jurisdictions at once)
+- **AI Assistant** (Phase 7, Section 7) — plan-and-execute orchestration
+  over Analysis, Investigator, Organization Brain, and (once it exists)
+  the Legal Knowledge Base as tools. Deliberately sequenced after
+  Organization Brain retrieval and the Legal Knowledge Base — a product
+  decision, not a technical one; see `AI_ROADMAP.md` Section 2 for the
+  full rationale. The underlying architecture is unaffected: the
+  Assistant remains an orchestration layer over existing tools (Section
+  3.1), never a new AI pathway.
 - **Witness Assistant** — a plain-language explanation of a contract for
   non-legal-expert witnesses, built on Analysis's existing summary output
   for a different audience — low-risk, reuses infrastructure already

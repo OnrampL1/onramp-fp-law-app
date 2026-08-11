@@ -117,9 +117,27 @@ const findById = async (
   });
 };
 
+const findLatestByType = async (
+  contractId: string,
+  organizationId: string,
+  type: AIAnalysisType,
+): Promise<AIAnalysisDetailRow | null> => {
+  return prisma.aIAnalysis.findFirst({
+    where: {
+      contractId,
+      contract: { organizationId },
+      type,
+      status: "COMPLETED",
+    },
+    select: AI_ANALYSIS_DETAIL_SELECT,
+    orderBy: { createdAt: "desc" },
+  });
+};
+
 export const aiAnalysisRepository = {
   create,
   findMany,
   count,
   findById,
+  findLatestByType,
 };

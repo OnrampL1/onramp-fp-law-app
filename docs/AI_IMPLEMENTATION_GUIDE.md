@@ -13,6 +13,12 @@ architecture document wins. Stop and flag the conflict rather than resolving
 it unilaterally — same rule the architecture document itself states in its
 "Architecture Freeze" section.
 
+**For phase numbering and phase status, `docs/AI_ROADMAP.md` is
+authoritative.** This document's phase sections must agree with it. In
+particular: AI Assistant is **Phase 7**, not the phase immediately after
+Clause Investigator — this was an intentional, approved roadmap amendment
+(see `AI_ROADMAP.md` Section 2), not an error to silently correct back.
+
 ## How to use this document
 
 Someone — human or AI assistant — should be able to say "Start Phase 3" and
@@ -22,9 +28,25 @@ read first, what already exists, what's in scope, what files are expected,
 what must not change, when to stop and ask instead of guessing, and how to
 verify the phase is actually done.
 
+Phases 5–8 are documented at roadmap level only (purpose, dependencies,
+what they will eventually own) — **not** at the same implementation-ready
+detail as Phases 1–4, and not to be started without an explicit
+instruction to begin that specific phase. See `docs/AI_ROADMAP.md` for the
+full direction agreed for each.
+
 ---
 
-## Current State: Phase 1 (AI Foundation) — ✅ Complete
+## Current State
+
+| Phase | Status |
+|---|---|
+| 1 — AI Foundation | ✅ Complete |
+| 2 — AI Analysis Engine | ✅ Complete |
+| 3 — Clause Investigator | 🚧 In progress — teammate implementing |
+| 4 — Organization Brain Ingestion | 🚧 In progress — teammate implementing |
+| 5–8 | ⏳ Future — not started (see `docs/AI_ROADMAP.md`) |
+
+### Phase 1 (AI Foundation) — ✅ Complete
 
 Phase 1 built the shared infrastructure every later phase runs on top of. It
 is fully implemented, built, and verified against real OpenRouter calls and
@@ -101,7 +123,7 @@ to route around it.
 
 ---
 
-## Phase 2 — AI Analysis Engine
+## Phase 2 — AI Analysis Engine — ✅ Complete
 
 ### Purpose
 
@@ -235,7 +257,7 @@ ambiguity above needs resolving before you can proceed.
 
 ---
 
-## Phase 3 — Clause Investigator
+## Phase 3 — Clause Investigator — 🚧 In Progress (teammate implementing)
 
 ### Purpose
 
@@ -337,7 +359,7 @@ against a real contract and a real question — not a mocked retrieval result.
 
 ---
 
-## Phase 4 — Organization Brain (Ingestion Only)
+## Phase 4 — Organization Brain (Ingestion Only) — 🚧 In Progress (teammate implementing)
 
 ### Purpose
 
@@ -426,20 +448,135 @@ reach for).
 
 ---
 
+## Phase 5 — Organization Brain Retrieval — ⏳ Future (not started)
+
+**Roadmap-level only — see `docs/AI_ROADMAP.md` Sections 3–4 for the full
+agreed direction.** Not implementation-ready detail; do not begin without
+an explicit instruction to start Phase 5.
+
+**Purpose:** extend Investigator's retrieval infrastructure (Phase 3) to
+also index the Organization Brain corpus (Phase 4), and let Analysis
+reference it (e.g., flagging a liability cap as a deviation from the org's
+own preferred language) — the "Near Future" extension named in
+`AI_ARCHITECTURE.md` Section 8.
+
+**Must reuse, not duplicate:** chunking, embedding, `pgvector` storage,
+hybrid retrieval, citation verification — all owned by Phase 3. Phase 5
+extends the existing engine with a new corpus type; it does not build a
+second retrieval engine.
+
+**Depends on:** Phase 3 (retrieval engine must exist) and Phase 4
+(corpus must exist to index).
+
+**Do not start** without explicit instruction, even if Phase 3 and 4 are
+both complete.
+
+---
+
+## Phase 6 — Lebanese Legal Knowledge Base — ⏳ Future (not started)
+
+**Roadmap-level only — see `docs/AI_ROADMAP.md` Section 6 for the full
+agreed direction.** Not implementation-ready detail; do not begin without
+an explicit instruction to start Phase 6.
+
+**Purpose:** RAG over jurisdiction-tagged, authoritative Lebanese legal
+sources, reusing the same retrieval engine as Phase 3/5, producing
+grounded answers with citations that resolve to a specific source and
+passage.
+
+**Blocked on, not just preceded by:**
+
+- A Domain Review deciding how jurisdiction/governing law is represented
+  in the schema (`AI_ROADMAP.md` Section 8.1) — no `jurisdiction` or
+  `governingLaw` field exists in `packages/shared/prisma/schema.prisma`
+  today.
+- Sourcing, licensing, and structuring actual Lebanese legal content —
+  non-engineering work that should start before Phase 6 engineering does.
+- Eventually, a qualified legal reviewer to validate content and grounding
+  (`AI_ROADMAP.md` Section 8.2). Engineering work on the retrieval
+  integration can proceed without this, but the resulting system cannot
+  be considered production-ready without it.
+
+**Must reuse, not duplicate:** the same retrieval engine as Phase 3/5.
+The Legal Knowledge Base is a third corpus, unscoped/shared instead of
+org-scoped — that exception must be structural, not an incidental filter
+gap.
+
+**Do not create Legal Knowledge Base schema, migrations, or ingestion code
+before this phase formally begins.**
+
+---
+
+## Phase 7 — AI Assistant — ⏳ Future (not started)
+
+**Roadmap-level only — see `docs/AI_ROADMAP.md` Sections 2–3 and
+`AI_ARCHITECTURE.md` Section 7 for the full agreed direction.** Not
+implementation-ready detail; do not begin without an explicit instruction
+to start Phase 7.
+
+**Sequencing note:** an earlier version of this document placed the AI
+Assistant immediately after Phase 3, since it only *structurally* depends
+on Analysis (Phase 2) and Investigator (Phase 3). That technical
+dependency is still true. **It has been deliberately superseded by a
+product decision**: the Assistant ships after Organization Brain
+Retrieval (Phase 5) and the Legal Knowledge Base (Phase 6) so it launches
+orchestrating a mature set of capabilities rather than a thin two-tool
+chatbot. See `AI_ROADMAP.md` Section 2 — this is an intentional, approved
+amendment, not a contradiction to silently resolve back to the old order.
+
+**Purpose:** plan-and-execute orchestration (`AI_ARCHITECTURE.md` Section
+7) over Analysis, Investigator, Organization Brain, and the Legal
+Knowledge Base as tools.
+
+**Architectural principle (unchanged):** the Assistant is an orchestration
+layer that consumes existing capabilities as tools — "a new capability
+should generally be a new tool/function, not a new orchestration system"
+(`AI_ARCHITECTURE.md` Section 18). It must not reimplement Analysis,
+Investigator, or retrieval logic.
+
+**Depends on:** Phase 2, Phase 3, Phase 5, and Phase 6 all being complete.
+
+---
+
+## Phase 8 — Advanced AI Features — ⏳ Future (not started)
+
+**Roadmap-level only — see `docs/AI_ROADMAP.md` Section 9 and
+`AI_ARCHITECTURE.md` Section 17 (Medium Term / Long Term) for the full
+list.** Covers AI Draft Review, Clause Rewriter, Negotiation Assistant,
+Clause Comparison, Obligation Automation, AI Approval Workflows, Due
+Diligence Mode, Portfolio Intelligence, Contract Drift Reconciliation, and
+similar capabilities that build on Phases 1–7 rather than introducing new
+architecture. Not scoped further until a concrete phase-8 planning
+conversation happens.
+
+---
+
 ## Dependencies
 
 ```
 Phase 1 (AI Foundation) — done
    │
-   ├──► Phase 2 (AI Analysis Engine)
-   ├──► Phase 3 (Clause Investigator)
-   └──► Phase 4 (Organization Brain — ingestion only)
+   ├──► Phase 2 (AI Analysis Engine) — done
+   ├──► Phase 3 (Clause Investigator) — in progress
+   └──► Phase 4 (Organization Brain — ingestion only) — in progress
               │
               ▼
-   Phase 5 (AI Assistant — Near Future, not MVP)
-   depends on Phase 2 + Phase 3 being complete
-   (Phase 4's ingestion enriches it later, but isn't
-   a hard blocker for Assistant's core MVP)
+   Phase 5 (Organization Brain Retrieval) — future
+   depends on Phase 3 + Phase 4
+              │
+              ▼
+   Phase 6 (Lebanese Legal Knowledge Base) — future
+   reuses Phase 3/5's retrieval engine; blocked on jurisdiction Domain
+   Review and legal-source sourcing (see AI_ROADMAP.md Section 8)
+              │
+              ▼
+   Phase 7 (AI Assistant) — future
+   depends on Phase 2 + Phase 3 + Phase 5 + Phase 6
+   (product-sequencing decision, not a pure technical dependency —
+   see AI_ROADMAP.md Section 2)
+              │
+              ▼
+   Phase 8 (Advanced AI Features) — future
 ```
 
 **Why Phases 2, 3, and 4 can run in parallel:** each owns a disjoint set of
@@ -456,11 +593,10 @@ share is Phase 1's infrastructure, which is frozen and read-only from their
 perspective — extended via new content (prompts, schemas, registry entries),
 never modified as a mechanism.
 
-Phase 5 (AI Assistant) is listed for completeness — it is **Near Future, not
-MVP** (Section 7/17). Its planner needs to orchestrate calls into both
-Analysis (Phase 2) and Investigator (Phase 3) as tools, so it structurally
-cannot start before both are done. It is not part of the current
-parallelizable work.
+**Why Phase 7 is no longer positioned right after Phase 3:** see
+`AI_ROADMAP.md` Section 2. The change is a product-sequencing decision,
+approved explicitly — not a technical dependency discovered later, and not
+an error in the diagram above to "fix" back to the old order.
 
 ---
 

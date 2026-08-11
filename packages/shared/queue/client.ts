@@ -1,4 +1,5 @@
-import { Queue } from "bullmq";
+import { Queue, FlowProducer } from "bullmq";
+import type { DefaultJobOptions } from "bullmq";
 import IORedis from "ioredis";
 import {
   QUEUE_NAMES,
@@ -7,6 +8,7 @@ import {
   type InvitationExpiryJobData,
   type ExtractionJobData,
   type AIAnalysisJobData,
+  type AIAnalysisAggregateJobData,
 } from "./types";
 
 let redisConnection: IORedis | null = null;
@@ -21,15 +23,21 @@ export function getRedisConnection(): IORedis {
   return redisConnection;
 }
 
+// Exported so FlowProducer.add()'s `queuesOptions` can apply the same
+// retry/backoff behavior to flow nodes — FlowProducer does not read a
+// Queue instance's defaultJobOptions automatically, it only applies what's
+// explicitly passed to it per queue name.
+export const DEFAULT_JOB_OPTIONS: DefaultJobOptions = {
+  attempts: 3,
+  backoff: { type: "exponential", delay: 1_000 },
+  removeOnComplete: { count: 100 },
+  removeOnFail: { count: 500 },
+};
+
 function createQueue<T>(name: string): Queue<T> {
   return new Queue<T>(name, {
     connection: getRedisConnection(),
-    defaultJobOptions: {
-      attempts: 3,
-      backoff: { type: "exponential", delay: 1_000 },
-      removeOnComplete: { count: 100 },
-      removeOnFail: { count: 500 },
-    },
+    defaultJobOptions: DEFAULT_JOB_OPTIONS,
   });
 }
 
@@ -46,3 +54,15 @@ export const extractionQueue = createQueue<ExtractionJobData>(
 export const aiAnalysisQueue = createQueue<AIAnalysisJobData>(
   QUEUE_NAMES.AI_ANALYSIS,
 );
+export const aiAnalysisAggregateQueue = createQueue<AIAnalysisAggregateJobData>(
+  QUEUE_NAMES.AI_ANALYSIS_AGGREGATE,
+);
+
+let flowProducer: FlowProducer | null = null;
+
+export function getFlowProducer(): FlowProducer {
+  if (!flowProducer) {
+    flowProducer = new FlowProducer({ connection: getRedisConnection() });
+  }
+  return flowProducer;
+}
