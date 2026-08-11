@@ -16,7 +16,9 @@ import type {
 import {
   enqueueContractAnalysis,
   riskSchemaV1,
+  riskSchemaV2,
   type RiskSchemaV1,
+  type RiskSchemaV2,
 } from "@starter-kit/shared";
 
 function toListItemDto(row: AIAnalysisListRow): AIAnalysisListItemDto {
@@ -130,16 +132,20 @@ const SEVERITY_ORDER: Record<
   LOW: 3,
 };
 
-function getRiskSchemaForVersion(version: string) {
+function getRiskSchemaForVersion(
+  version: string,
+): typeof riskSchemaV1 | typeof riskSchemaV2 {
   switch (version) {
     case "v1":
       return riskSchemaV1;
+    case "v2":
+      return riskSchemaV2;
     default:
       throw createError(`Unsupported risk schema version: "${version}"`, 500);
   }
 }
 
-function buildTimeline(risk: RiskSchemaV1): TimelineEntryDto[] {
+function buildTimeline(risk: RiskSchemaV1 | RiskSchemaV2): TimelineEntryDto[] {
   const fromKeyDates: TimelineEntryDto[] = risk.keyDates.map((kd) => ({
     date: kd.date,
     label: kd.label,
