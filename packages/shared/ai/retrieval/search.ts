@@ -62,7 +62,12 @@ async function fullTextCandidates(
   `;
 }
 
-function fuseRankings(
+// Exported for direct unit testing — the RRF dedup/scoring math (a chunk
+// found by both methods must outscore one found by only one, at any rank
+// combination) is the one part of this pipeline with real off-by-one risk;
+// the two $queryRaw calls around it are thin enough not to need their own
+// test rig separately from an integration/smoke test.
+export function fuseRankings(
   vectorRows: CandidateRow[],
   fullTextRows: CandidateRow[],
 ): { row: CandidateRow; score: number }[] {
