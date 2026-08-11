@@ -22,6 +22,8 @@ tags:
     description: Organization-wide audit trail (Owner/Admin oversight only)
   - name: Settings
     description: Organization settings and preferences
+  - name: Organization Brain
+    description: Organization-owned templates, policies, clauses, and guidelines
 
 # ─── Reusable components ───────────────────────────────────────────────────────
 components:
@@ -554,6 +556,106 @@ components:
           format: date-time
           example: "2024-01-16T09:00:00.000Z"
 
+    OrganizationBrainItemType:
+      type: string
+      enum: [TEMPLATE, POLICY, CLAUSE, GUIDELINE]
+      example: TEMPLATE
+
+    OrganizationBrainItemSource:
+      type: string
+      enum: [UPLOAD, PASTE]
+      example: UPLOAD
+
+    OrganizationBrainItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 5b5d1d9c-6d6b-4a2f-b95f-1bda0e5c88b8
+        title:
+          type: string
+          example: Preferred SaaS MSA
+        type:
+          $ref: "#/components/schemas/OrganizationBrainItemType"
+        source:
+          $ref: "#/components/schemas/OrganizationBrainItemSource"
+        fileName:
+          type: string
+          nullable: true
+          example: Preferred-SaaS-MSA.pdf
+        mimeType:
+          type: string
+          example: application/pdf
+        sizeBytes:
+          type: integer
+          example: 245760
+        createdByName:
+          type: string
+          example: Jane Doe
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-09T10:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-08-09T10:00:00.000Z"
+
+    OrganizationBrainItemDetail:
+      allOf:
+        - $ref: "#/components/schemas/OrganizationBrainItem"
+        - type: object
+          properties:
+            downloadUrl:
+              type: string
+              format: uri
+              description: Short-lived presigned download URL.
+              example: https://storage.example.com/signed-url
+            downloadUrlExpiresInSeconds:
+              type: integer
+              example: 900
+
+    OrganizationBrainListResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrganizationBrainItem"
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            pageSize:
+              type: integer
+              example: 20
+            total:
+              type: integer
+              example: 42
+            totalPages:
+              type: integer
+              example: 3
+
+    CreateOrganizationBrainPasteBody:
+      type: object
+      required: [title, type, content]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: Preferred liability clause
+        type:
+          $ref: "#/components/schemas/OrganizationBrainItemType"
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500000
+          example: Liability is capped at fees paid in the previous 12 months.
+
     AuditAction:
       type: string
       enum:
@@ -587,6 +689,8 @@ components:
         - AI_ANALYSIS_REQUESTED
         - AI_ANALYSIS_COMPLETED
         - AI_ANALYSIS_FAILED
+        - ORGANIZATION_BRAIN_ITEM_CREATED
+        - ORGANIZATION_BRAIN_ITEM_DELETED
         - PLATFORM_SUPPORT_ACCESS_GRANTED
         - PLATFORM_SUPPORT_ACCESS_REVOKED
       example: USER_ROLE_CHANGED
@@ -1148,6 +1252,254 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /organization-brain:
+    get:
+      tags: [Organization Brain]
+      summary: List organization brain items
+      operationId: listOrganizationBrainItems
+      description: >
+        Lists templates, policies, preferred clauses, and internal guidelines
+        owned by the authenticated user's organization. This endpoint performs
+        metadata search only; Phase 4 does not perform embeddings, retrieval,
+        reasoning, or AI calls.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/OrganizationBrainItemType"
+        - name: search
+          in: query
+          description: Case-insensitive title search.
+          schema:
+            type: string
+            maxLength: 200
+          example: msa
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200":
+          description: Paginated list of organization brain items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/OrganizationBrainListResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /organization-brain/upload:
+    post:
+      tags: [Organization Brain]
+      summary: Upload an organization brain file
+      operationId: uploadOrganizationBrainItem
+      description: >
+        Uploads a PDF, DOCX, or TXT file into the authenticated user's
+        organization brain. Requires OWNER or ADMIN. Stored through the shared
+        storage module; no AI processing is triggered.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title, type, file]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  example: Preferred SaaS MSA
+                type:
+                  $ref: "#/components/schemas/OrganizationBrainItemType"
+                file:
+                  type: string
+                  format: binary
+                  description: PDF, DOCX, or TXT file up to 10 MB.
+      responses:
+        "201":
+          description: Organization brain item created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/OrganizationBrainItem"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error or unsupported file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /organization-brain/paste:
+    post:
+      tags: [Organization Brain]
+      summary: Create an organization brain text item
+      operationId: pasteOrganizationBrainItem
+      description: >
+        Stores pasted template, policy, clause, or guideline text as a text
+        object in shared storage. Requires OWNER or ADMIN. No AI processing is
+        triggered.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrganizationBrainPasteBody"
+      responses:
+        "201":
+          description: Organization brain item created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/OrganizationBrainItem"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /organization-brain/{id}:
+    get:
+      tags: [Organization Brain]
+      summary: Get an organization brain item
+      operationId: getOrganizationBrainItem
+      description: >
+        Returns organization-scoped item metadata plus a short-lived presigned
+        download URL.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Organization brain item detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/OrganizationBrainItemDetail"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Item not found in this organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+    delete:
+      tags: [Organization Brain]
+      summary: Delete an organization brain item
+      operationId: deleteOrganizationBrainItem
+      description: >
+        Deletes the backing storage object and soft-deletes the metadata row.
+        Requires OWNER or ADMIN.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Organization brain item deleted
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Item not found in this organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
 
   /contracts:
     get:

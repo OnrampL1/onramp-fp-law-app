@@ -1,7 +1,7 @@
 # Clausio AI Implementation Guide
 
 **This is not an architecture document.** `AI_ARCHITECTURE.md` is the frozen
-architecture and remains the single source of truth for *why* the system is
+architecture and remains the single source of truth for _why_ the system is
 shaped the way it is. This document is the execution handbook: what is
 already built, what each remaining phase is responsible for, who owns which
 files, and how to know when a phase is done — so that a developer or an AI
@@ -33,18 +33,18 @@ infrastructure, not a reference implementation to copy** — later phases
 extend it by adding new prompts, schemas, and registry entries, not by
 reimplementing any part of it.
 
-| Layer | Location | What it does |
-|---|---|---|
-| Provider layer | `packages/shared/ai/providers/` | `getCompletion()` — the single choke point every AI call passes through. Talks to OpenRouter, times the call, logs an `AiCallLog` row automatically (success or failure), classifies failures via `AiProviderError` (`retryable: boolean`). |
-| Prompt system | `packages/shared/ai/prompts/` | Prompts are versioned `.md` files, one per version, never mutated once used (`prompts/<id>/v1.md`, `v2.md`, ...). `loadPrompt(id, version)` reads a specific version. |
-| Prompt & schema registry | `packages/shared/ai/registry/` | `resolvePrompt(id)` / `resolveSchema(id)` — the single place that knows which version is "active" right now. Rollback is a one-line pointer change. |
-| Schema validation | `packages/shared/ai/schemas/` | `getValidatedCompletion(request, schema)` — calls the provider, parses/validates the JSON response against a Zod schema, and corrects the `AiCallLog` row to `VALIDATION_FAILED` in place if it fails. Throws `AiValidationError` (always terminal) on failure. |
-| Context optimization seam | `packages/shared/ai/context.ts` | `optimizeContext(gathered)` — an identity function today. Not a pluggable strategy layer; do not turn it into one until a second real implementation justifies it. |
-| Evaluation framework | `packages/shared/ai/evaluation/` | `runGoldenSet(organizationId)` + `npm run eval --workspace=@starter-kit/shared` — scores a set of known examples against expected output. Currently contains one placeholder example, not a real golden set. |
-| Worker orchestration | `packages/workers/src/jobs/ai-analysis.job.ts` + `packages/workers/src/repositories/ai-analysis.repository.ts` | `processAIAnalysisJob` — generic BullMQ job: resolves a prompt/schema pair, calls `getValidatedCompletion`, persists the outcome. Mirrors `extraction.job.ts`'s retryable-vs-terminal shape exactly. Nothing enqueues this job automatically yet. |
-| `AIAnalysis` API | `packages/api/src/{repositories,services,controllers,routes}/ai-analysis.*` | Read-only today: `GET /contracts/:id/analyses`, `GET /contracts/:id/analyses/:analysisId`. Org-scoped through the `Contract` relation. No create/trigger route exists yet — deliberately left to Phase 2. |
-| Observability | `AiCallLog` model (`ai_call_logs` table) | Every provider-layer call is logged automatically: model, prompt/schema id+version, tokens in/out, latency, status (`SUCCESS` / `VALIDATION_FAILED` / `PROVIDER_ERROR`). |
-| Database | `AIAnalysis` model | Already had `promptUsed`, `result`, `modelVersion`, `tokensUsed`. Phase 1 added `promptVersion` and `schemaVersion` — this gap from the original schema is closed. |
+| Layer                     | Location                                                                                                       | What it does                                                                                                                                                                                                                                                    |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider layer            | `packages/shared/ai/providers/`                                                                                | `getCompletion()` — the single choke point every AI call passes through. Talks to OpenRouter, times the call, logs an `AiCallLog` row automatically (success or failure), classifies failures via `AiProviderError` (`retryable: boolean`).                     |
+| Prompt system             | `packages/shared/ai/prompts/`                                                                                  | Prompts are versioned `.md` files, one per version, never mutated once used (`prompts/<id>/v1.md`, `v2.md`, ...). `loadPrompt(id, version)` reads a specific version.                                                                                           |
+| Prompt & schema registry  | `packages/shared/ai/registry/`                                                                                 | `resolvePrompt(id)` / `resolveSchema(id)` — the single place that knows which version is "active" right now. Rollback is a one-line pointer change.                                                                                                             |
+| Schema validation         | `packages/shared/ai/schemas/`                                                                                  | `getValidatedCompletion(request, schema)` — calls the provider, parses/validates the JSON response against a Zod schema, and corrects the `AiCallLog` row to `VALIDATION_FAILED` in place if it fails. Throws `AiValidationError` (always terminal) on failure. |
+| Context optimization seam | `packages/shared/ai/context.ts`                                                                                | `optimizeContext(gathered)` — an identity function today. Not a pluggable strategy layer; do not turn it into one until a second real implementation justifies it.                                                                                              |
+| Evaluation framework      | `packages/shared/ai/evaluation/`                                                                               | `runGoldenSet(organizationId)` + `npm run eval --workspace=@starter-kit/shared` — scores a set of known examples against expected output. Currently contains one placeholder example, not a real golden set.                                                    |
+| Worker orchestration      | `packages/workers/src/jobs/ai-analysis.job.ts` + `packages/workers/src/repositories/ai-analysis.repository.ts` | `processAIAnalysisJob` — generic BullMQ job: resolves a prompt/schema pair, calls `getValidatedCompletion`, persists the outcome. Mirrors `extraction.job.ts`'s retryable-vs-terminal shape exactly. Nothing enqueues this job automatically yet.               |
+| `AIAnalysis` API          | `packages/api/src/{repositories,services,controllers,routes}/ai-analysis.*`                                    | Read-only today: `GET /contracts/:id/analyses`, `GET /contracts/:id/analyses/:analysisId`. Org-scoped through the `Contract` relation. No create/trigger route exists yet — deliberately left to Phase 2.                                                       |
+| Observability             | `AiCallLog` model (`ai_call_logs` table)                                                                       | Every provider-layer call is logged automatically: model, prompt/schema id+version, tokens in/out, latency, status (`SUCCESS` / `VALIDATION_FAILED` / `PROVIDER_ERROR`).                                                                                        |
+| Database                  | `AIAnalysis` model                                                                                             | Already had `promptUsed`, `result`, `modelVersion`, `tokensUsed`. Phase 1 added `promptVersion` and `schemaVersion` — this gap from the original schema is closed.                                                                                              |
 
 **What exists only as scaffolding, not real content:** `prompts/test/v1.md`,
 `schemas/test/v1.ts`, and the single placeholder golden-set example. These
@@ -55,6 +55,26 @@ template to copy for real content, and not something later phases need to
 delete — just don't build on them as if they were real.
 
 ---
+
+## Current State: Phase 4 (Organization Brain — Ingestion Only) — ✅ Complete
+
+Phase 4 is implemented as ingestion and storage only. It does not create
+embeddings, perform retrieval, call an AI provider, or feed Organization Brain
+content into analysis.
+
+| Layer      | Location                                                                                                                           | What it does                                                                                                                                                           |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database   | `OrganizationBrainItem` model in `packages/shared/prisma/schema.prisma`                                                            | Stores organization-owned templates, policies, clauses, and guidelines with title/type/source metadata, storage key, checksum, creator, timestamps, and soft deletion. |
+| Storage    | `packages/shared/storage/client.ts`                                                                                                | Reuses the shared storage client for upload, presigned download URLs, and object deletion.                                                                             |
+| API        | `packages/api/src/{routes,controllers,services,repositories}/organization-brain.*`                                                 | Provides authenticated list/get endpoints and Owner/Admin upload, paste, and delete endpoints. All lookups are organization-scoped.                                    |
+| Validation | `packages/api/src/schemas/organization-brain.schemas.ts` and `packages/api/src/middleware/organization-brain-upload.middleware.ts` | Validates metadata, pagination, pasted content length, file size, extension, MIME type, and basic file signatures.                                                     |
+| Audit      | `AuditAction.ORGANIZATION_BRAIN_ITEM_CREATED` and `AuditAction.ORGANIZATION_BRAIN_ITEM_DELETED`                                    | Records create/delete actions through the existing audit log path.                                                                                                     |
+| Frontend   | `packages/web/src/pages/dashboard/OrganizationBrain.tsx`                                                                           | Adds a workspace page for listing, filtering, uploading, pasting, downloading, and deleting organization brain items, with read-only behavior for non-admin users.     |
+| API docs   | `packages/api/openapi.yaml`                                                                                                        | Documents the Organization Brain endpoints and schemas.                                                                                                                |
+
+**Phase 4 deliberately does not touch `packages/shared/ai/`.** Retrieval and
+reasoning over this corpus remain a future extension after the retrieval
+infrastructure is proven.
 
 ## Frozen — Do Not Modify Without Discussion
 
@@ -69,7 +89,7 @@ how these mechanisms themselves work:
   the only active-version pointer) — Section 10/11.
 - The `getValidatedCompletion` / `AiCallLog` status-correction mechanism
   (`SUCCESS` → `VALIDATION_FAILED` in place).
-- The BullMQ job retryable-vs-terminal pattern itself (the *shape*, not the
+- The BullMQ job retryable-vs-terminal pattern itself (the _shape_, not the
   specific jobs built on it).
 - `packages/shared/queue/` conventions (queue naming, default job options).
 - Multi-tenancy, authentication, authorization — out of scope for any AI
@@ -94,7 +114,7 @@ after extraction, producing real structured, persisted `AIAnalysis` rows.
 - Real, versioned prompts and schemas for `SUMMARY` and `RISK`.
 - Wiring the automatic trigger: today, nothing enqueues `aiAnalysisQueue`
   when a contract reaches `EXTRACTION_COMPLETED` — Phase 2 must add this.
-  Section 5 requires it to be both automatic by default *and*
+  Section 5 requires it to be both automatic by default _and_
   re-triggerable manually.
 - A manual re-trigger endpoint (deliberately not built in Phase 1).
 - Per Section 16: Red Flag Detection, Contract Health Score, and
@@ -153,7 +173,7 @@ one (Section 2).
 - AI Assistant / tool-calling / any agent orchestration (Section 7, Near
   Future — not MVP).
 - Any change to the provider layer, registry mechanism, or schema-validation
-  mechanism itself — only new prompt/schema *content*.
+  mechanism itself — only new prompt/schema _content_.
 - Auto-regenerating existing `AIAnalysis` rows to match a new schema/prompt
   version — regeneration is always an explicit user/admin action (Section 11).
 
@@ -325,7 +345,7 @@ Start the data-accumulation clock early: let an organization upload or paste
 its own templates, policies, preferred clause language, and internal
 guidelines, and store them. Per `AI_ARCHITECTURE.md` Section 2 and Section 8:
 customer-specific data compounds in value over time, which is why ingestion
-starts *before* anything reasons over it.
+starts _before_ anything reasons over it.
 
 ### Responsibilities
 
@@ -423,7 +443,7 @@ Phase 1 (AI Foundation) — done
 ```
 
 **Why Phases 2, 3, and 4 can run in parallel:** each owns a disjoint set of
-files and a disjoint set of database models, and each builds *on top of*
+files and a disjoint set of database models, and each builds _on top of_
 Phase 1's frozen mechanism without needing to modify it:
 
 - Phase 2 touches `AIAnalysis` (already exists) plus new prompt/schema files.
@@ -455,7 +475,7 @@ Every phase follows the same rules — this is the short version;
   provider layer. Every structured output gets validated against a Zod
   schema before persisting. No exceptions for "just this once."
 - **Do not redesign architecture.** If a task seems to require changing how
-  the provider layer, registry, or schema validation *works* (not just what
+  the provider layer, registry, or schema validation _works_ (not just what
   content flows through them), stop and raise it — don't route around it.
 - **Keep commits small, keep PRs reviewable.** One phase's worth of work is
   still expected to land as multiple focused batches, same discipline as
@@ -469,6 +489,6 @@ Every phase follows the same rules — this is the short version;
 
 ---
 
-*After completing any phase, update the "Current State" section above
+_After completing any phase, update the "Current State" section above
 before starting the next one — this document should always reflect what's
-actually true, not what was true when it was written.*
+actually true, not what was true when it was written._
