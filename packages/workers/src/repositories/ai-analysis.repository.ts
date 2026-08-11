@@ -37,11 +37,6 @@ export async function markAnalysisCompleted(
       },
     });
 
-    await tx.contract.update({
-      where: { id: input.contractId },
-      data: { processingStatus: "AI_COMPLETED" },
-    });
-
     await tx.auditLog.create({
       data: {
         organizationId: input.organizationId,
@@ -76,14 +71,6 @@ export async function markAnalysisFailed(
         type: input.type,
         status: "FAILED",
         promptUsed: input.promptUsed,
-      },
-    });
-
-    await tx.contract.update({
-      where: { id: input.contractId },
-      data: {
-        processingStatus: "AI_FAILED",
-        processingError: input.errorMessage,
       },
     });
 

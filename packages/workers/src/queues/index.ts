@@ -9,6 +9,7 @@ import { processEmbeddingsJob } from "../jobs/embeddings.job";
 import { processInvitationExpiryJob } from "../jobs/invitation-expiry.job";
 import { processExtractionJob } from "../jobs/extraction.job";
 import { processAIAnalysisJob } from "../jobs/ai-analysis.job";
+import { processAIAnalysisAggregateJob } from "../jobs/ai-analysis-aggregate.job";
 
 const INVITATION_EXPIRY_SWEEP_JOB_ID = "invitation-expiry-sweep";
 const INVITATION_EXPIRY_INTERVAL_MS = 60 * 60 * 1000; // hourly
@@ -74,12 +75,22 @@ export function createWorkers(): Worker[] {
     },
   );
 
+  const aiAnalysisAggregateWorker = new Worker(
+    QUEUE_NAMES.AI_ANALYSIS_AGGREGATE,
+    processAIAnalysisAggregateJob,
+    {
+      connection,
+      concurrency: Number(process.env.AI_ANALYSIS_CONCURRENCY ?? 2),
+    },
+  );
+
   const workers = [
     emailWorker,
     embeddingsWorker,
     invitationExpiryWorker,
     extractionWorker,
     aiAnalysisWorker,
+    aiAnalysisAggregateWorker,
   ];
 
   workers.forEach((worker) => {
