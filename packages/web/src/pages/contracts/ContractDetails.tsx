@@ -145,9 +145,9 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {/* Action buttons — AI Tools / Download / Witness Link remain
+        {/* Action buttons — Analyze Contract / Download / Witness Link remain
             non-functional placeholders until those features are built.
-            Edit Contract is wired to the real metadata edit page. */}
+            Edit Contract and Clause Investigator are wired to real pages. */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -172,7 +172,10 @@ export default function ContractDetailPage() {
                   <ScrollText className="size-4 text-muted-foreground" />
                   Analyze Contract
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => navigate(`/contracts/${id}/investigator`)}
+                >
                   <Search className="size-4 text-muted-foreground" />
                   Clause Investigator
                 </DropdownMenuItem>

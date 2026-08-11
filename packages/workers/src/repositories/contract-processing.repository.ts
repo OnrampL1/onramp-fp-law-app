@@ -28,6 +28,7 @@ export async function markExtractionCompleted(
         newValue: { processingStatus: "EXTRACTION_COMPLETED" },
       },
     });
+
     return {
       id: contract.id,
       organizationId: contract.organizationId,

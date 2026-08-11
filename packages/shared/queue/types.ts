@@ -19,9 +19,8 @@ export interface EmailJobData {
 }
 
 export interface EmbeddingsJobData {
-  entityId: string;
-  entityType: string;
-  text: string;
+  contractId: string;
+  organizationId: string;
 }
 
 // The sweep takes no parameters — it always expires whatever is stale as of
@@ -39,7 +38,8 @@ export interface EmailJobResult {
 }
 
 export interface EmbeddingsJobResult {
-  dimensions: number;
+  status: "COMPLETED" | "SKIPPED" | "CEILING_EXCEEDED";
+  chunkCount: number;
 }
 
 export interface InvitationExpiryJobResult {

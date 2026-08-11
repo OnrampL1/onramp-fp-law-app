@@ -17,6 +17,8 @@ import {
   aiAnalysisIdParamSchema,
   listAIAnalysesQuerySchema,
 } from "../schemas/ai-analysis.schemas";
+import { contractInvestigatorController } from "../controllers/contract-investigator.controller";
+import { askInvestigatorBodySchema } from "../schemas/contract-investigator.schemas";
 
 const router = Router();
 
@@ -92,6 +94,17 @@ router.get(
   authenticate,
   validate(aiAnalysisIdParamSchema, "params"),
   withAuth(aiAnalysisController.getById),
+);
+
+// Clause Investigator (AI_ARCHITECTURE.md Section 6): synchronous
+// retrieve-then-generate, not a queued job like AI Analysis — the whole
+// point is a fast, conversational round trip.
+router.post(
+  "/:id/investigator/ask",
+  authenticate,
+  validate(contractIdParamSchema, "params"),
+  validate(askInvestigatorBodySchema, "body"),
+  withAuth(contractInvestigatorController.ask),
 );
 
 router.get(

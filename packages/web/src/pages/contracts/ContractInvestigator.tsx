@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { isAxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -11,13 +12,15 @@ import {
   contractDetails,
   conversationHistory,
   suggestedQuestions,
-  resolveAnswer,
   type ChatMessage,
   type Conversation,
   type ContractDetail,
   type Severity,
   type RiskLevel,
+  type SourceRef,
 } from "@/lib/data";
+import { useAskInvestigator } from "@/hooks/useContractInvestigator";
+import type { InvestigatorHistoryTurn } from "@/types/investigator";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -67,6 +70,68 @@ const keyClauseDot: Record<Severity, string> = {
 let idCounter = 0;
 const nextId = () => `live-${Date.now()}-${idCounter++}`;
 
+// The API returns a single combined heading string per source (e.g. "9.4
+// Limitation of Liability") rather than a separate code/title pair — this
+// splits it for display, mirroring the same code-extraction pattern the
+// Key Clauses panel below already uses on mock data.
+const HEADING_CODE_PATTERN =
+  /^(ARTICLE\s+[IVXLCDM\d]+\.?|SECTION\s+\d+(\.\d+)*\.?|\d+(\.\d+){0,3}\.?)/i;
+
+function splitHeading(headingPath: string | null, index: number): { clause: string; title: string } {
+  if (!headingPath) {
+    return { clause: `Source ${index + 1}`, title: "" };
+  }
+  const match = headingPath.match(HEADING_CODE_PATTERN);
+  if (!match) {
+    return { clause: headingPath, title: "" };
+  }
+  const code = match[0].trim();
+  const rest = headingPath.slice(match[0].length).trim();
+  return { clause: code, title: rest || code };
+}
+
+// Sent with every request per the product decision to not persist
+// conversations server-side — mirrors the server's own default turn limit
+// (getInvestigatorHistoryTurnLimit), which is the actual enforcement point;
+// trimming here just avoids the payload growing unbounded over a long
+// session.
+const HISTORY_TURN_LIMIT = 3;
+
+function toHistoryTurns(messages: ChatMessage[]): InvestigatorHistoryTurn[] {
+  const turns: InvestigatorHistoryTurn[] = [];
+  for (let i = 0; i < messages.length - 1; i++) {
+    const current = messages[i];
+    const next = messages[i + 1];
+    if (current.role === "user" && next.role === "assistant") {
+      turns.push({ question: current.content, answer: next.content });
+    }
+  }
+  return turns.slice(-HISTORY_TURN_LIMIT);
+}
+
+// The backend prompt now asks for an explicit non-answer sentence instead of
+// "", but that's instruction-following, not a guarantee — this is the
+// last-resort backstop so a blank/whitespace-only answer never renders as an
+// empty-looking chat bubble.
+const NO_ANSWER_FALLBACK =
+  "This contract does not appear to address that question.";
+
+function errorMessageFor(error: unknown): string {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+    if (status === 409) {
+      return "This contract hasn't finished indexing for Clause Investigator yet. Please try again in a moment.";
+    }
+    if (status === 502 || status === 503) {
+      return "Clause Investigator is temporarily unavailable right now. Please try again.";
+    }
+    if (status === 404) {
+      return "This contract could not be found.";
+    }
+  }
+  return "Something went wrong answering that question. Please try again.";
+}
+
 export default function ContractInvestigatorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -78,13 +143,17 @@ export default function ContractInvestigatorPage() {
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const askInvestigatorMutation = useAskInvestigator(id);
+
+  // ScrollArea (@base-ui/react/scroll-area) renders its own internal
+  // scrolling viewport wrapping this content — scrollTo on the content div
+  // itself is a no-op since that div was never the scrollable element.
+  // scrollIntoView on a bottom sentinel works regardless, since it walks up
+  // to whichever ancestor actually scrolls.
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo?.({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, thinking]);
 
   function startNewChat() {
@@ -100,27 +169,43 @@ export default function ContractInvestigatorPage() {
     setThinking(false);
   }
 
-  function send(question: string) {
+  async function send(question: string) {
     const text = question.trim();
-    if (!text || thinking) return;
+    if (!text || thinking || !id) return;
 
     const userMessage: ChatMessage = { id: nextId(), role: "user", content: text };
+    const history = toHistoryTurns(messages);
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setThinking(true);
 
-    window.setTimeout(() => {
-      const answer = resolveAnswer(text, contract);
+    try {
+      const result = await askInvestigatorMutation.mutateAsync({
+        question: text,
+        history,
+      });
+      const sources: SourceRef[] = result.sources.map((s, i) => ({
+        ...splitHeading(s.headingPath, i),
+        excerpt: s.excerpt,
+      }));
       const assistantMessage: ChatMessage = {
         id: nextId(),
         role: "assistant",
-        content: answer.content,
-        sources: answer.sources,
-        confidence: answer.confidence,
+        content: result.answer.trim().length > 0 ? result.answer : NO_ANSWER_FALLBACK,
+        sources: sources.length > 0 ? sources : undefined,
+        confidence: result.confidence,
       };
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      const assistantMessage: ChatMessage = {
+        id: nextId(),
+        role: "assistant",
+        content: errorMessageFor(error),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } finally {
       setThinking(false);
-    }, 1100);
+    }
   }
 
   const isEmpty = messages.length === 0 && !thinking;
@@ -228,10 +313,7 @@ export default function ContractInvestigatorPage() {
         {/* Center: Chat */}
         <Card className="flex min-h-0 flex-col overflow-hidden p-0">
           <ScrollArea className="min-h-0 flex-1">
-            <div
-              ref={scrollRef}
-              className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4"
-            >
+            <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
               {isEmpty ? (
                 <EmptyState onPick={send} />
               ) : (
@@ -244,6 +326,7 @@ export default function ContractInvestigatorPage() {
                     ),
                   )}
                   {thinking ? <ThinkingBubble /> : null}
+                  <div ref={bottomRef} />
                 </>
               )}
             </div>
@@ -480,7 +563,7 @@ function AssistantBubble({ message }: { message: ChatMessage }) {
           <SourceList sources={message.sources} />
         ) : null}
 
-        {typeof message.confidence === "number" ? (
+        {typeof message.confidence === "number" && message.sources && message.sources.length > 0 ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <ShieldCheck className="size-3.5 text-emerald-600" />
             <span>Grounded answer · {message.confidence}% confidence</span>

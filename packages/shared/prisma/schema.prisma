@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 // ─── Organization domain ─────────────────────────────────────────────────
@@ -36,6 +38,7 @@ model Organization {
   contracts              Contract[]
   auditLogs              AuditLog[]
   aiCallLogs             AICallLog[]
+  contractChunks         ContractChunk[]
   organizationBrainItems OrganizationBrainItem[]
 
   @@map("organizations")
@@ -226,6 +229,7 @@ model Contract {
   uploadedBy         User                @relation("ContractUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
   notes              ContractNote[]
   aiAnalyses         AIAnalysis[]
+  chunks             ContractChunk[]
   witnessInvitations WitnessInvitation[]
   auditLogs          AuditLog[]
 
@@ -253,6 +257,41 @@ model ContractNote {
 
   @@index([contractId, createdAt])
   @@map("contract_notes")
+}
+
+// ─── Clause Investigator domain ──────────────────────────────────────────
+// Phase 3 (AI_ARCHITECTURE.md Section 6): per-contract text chunks, embedded
+// for retrieval. organizationId is denormalized from Contract so retrieval
+// queries can be org-scoped at the query itself (Section 14) without a join.
+
+model ContractChunk {
+  id             String @id @default(uuid()) @db.Uuid
+  contractId     String @map("contract_id") @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+
+  chunkIndex  Int     @map("chunk_index")
+  headingPath String? @map("heading_path")
+  content     String  @db.Text
+  tokenCount  Int?    @map("token_count")
+
+  // Populated by the embeddings pipeline after chunking; nullable so a row
+  // can exist mid-pipeline without violating a NOT NULL constraint.
+  embedding Unsupported("vector(1536)")?
+
+  // Generated column (to_tsvector) for hybrid full-text search — declared
+  // here for schema completeness, but defined as GENERATED ALWAYS AS by
+  // hand in the migration; Prisma has no syntax for generated columns.
+  contentTsv Unsupported("tsvector")? @map("content_tsv")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  contract     Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([contractId, chunkIndex])
+  @@index([contractId])
+  @@index([organizationId])
+  @@map("contract_chunks")
 }
 
 // ─── Witness domain ───────────────────────────────────────────────────────
