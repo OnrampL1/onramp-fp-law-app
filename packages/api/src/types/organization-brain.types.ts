@@ -27,6 +27,7 @@ export interface OrganizationBrainItemListItemDto {
 }
 
 export interface OrganizationBrainItemDetailDto extends OrganizationBrainItemListItemDto {
+  extractionError: string | null;
   downloadUrl: string;
   downloadUrlExpiresInSeconds: number;
 }

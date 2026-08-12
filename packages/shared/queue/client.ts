@@ -9,6 +9,7 @@ import {
   type ExtractionJobData,
   type AIAnalysisJobData,
   type AIAnalysisAggregateJobData,
+  type OrganizationBrainEmbeddingsJobData,
 } from "./types";
 
 let redisConnection: IORedis | null = null;
@@ -57,6 +58,11 @@ export const aiAnalysisQueue = createQueue<AIAnalysisJobData>(
 export const aiAnalysisAggregateQueue = createQueue<AIAnalysisAggregateJobData>(
   QUEUE_NAMES.AI_ANALYSIS_AGGREGATE,
 );
+
+export const organizationBrainEmbeddingsQueue =
+  createQueue<OrganizationBrainEmbeddingsJobData>(
+    QUEUE_NAMES.ORGANIZATION_BRAIN_EMBEDDINGS,
+  );
 
 let flowProducer: FlowProducer | null = null;
 

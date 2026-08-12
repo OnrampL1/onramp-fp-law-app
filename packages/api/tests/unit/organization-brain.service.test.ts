@@ -7,12 +7,14 @@ const mockPrisma = {
 const mockUploadFile = jest.fn();
 const mockDeleteFile = jest.fn();
 const mockGetPresignedUrl = jest.fn();
+const mockOrganizationBrainEmbeddingsQueue = { add: jest.fn() };
 
 jest.mock("@starter-kit/shared", () => ({
   getPrismaClient: () => mockPrisma,
   uploadFile: mockUploadFile,
   deleteFile: mockDeleteFile,
   getPresignedUrl: mockGetPresignedUrl,
+  organizationBrainEmbeddingsQueue: mockOrganizationBrainEmbeddingsQueue,
 }));
 
 const mockOrganizationBrainRepository = {
@@ -75,6 +77,7 @@ function createDetailRow(overrides = {}) {
     ...createRepositoryRow(),
     storageKey: "organization-brain/org-1/file-id-Vendor-MSA.pdf",
     checksum: "checksum-1",
+    extractionError: null,
     ...overrides,
   };
 }
@@ -112,6 +115,7 @@ beforeEach(() => {
   mockOrganizationBrainRepository.count.mockResolvedValue(0);
   mockOrganizationBrainRepository.findById.mockResolvedValue(createDetailRow());
   mockOrganizationBrainRepository.softDelete.mockResolvedValue(true);
+  mockOrganizationBrainEmbeddingsQueue.add.mockResolvedValue(undefined);
 });
 
 describe("OrganizationBrainService.createFromUpload", () => {
@@ -179,6 +183,19 @@ describe("OrganizationBrainService.createFromUpload", () => {
       createdAt: "2026-08-09T10:00:00.000Z",
       updatedAt: "2026-08-09T10:05:00.000Z",
     });
+
+    // Ingestion must be enqueued, not run inline — the HTTP request must
+    // not wait for extraction/chunking/embedding to happen.
+    expect(mockOrganizationBrainEmbeddingsQueue.add).toHaveBeenCalledWith(
+      "extract-chunk-and-embed",
+      {
+        organizationBrainItemId: "brain-1",
+        organizationId: "org-1",
+        storageKey: expect.stringMatching(
+          /^organization-brain\/org-1\/[0-9a-f-]+-Vendor-MSA\.pdf$/,
+        ),
+      },
+    );
   });
 
   it("rejects a missing file", async () => {
@@ -272,6 +289,17 @@ describe("OrganizationBrainService.createFromPaste", () => {
       expect.objectContaining({
         action: "ORGANIZATION_BRAIN_ITEM_CREATED",
       }),
+    );
+
+    expect(mockOrganizationBrainEmbeddingsQueue.add).toHaveBeenCalledWith(
+      "extract-chunk-and-embed",
+      {
+        organizationBrainItemId: "brain-1",
+        organizationId: "org-1",
+        storageKey: expect.stringMatching(
+          /^organization-brain\/org-1\/[0-9a-f-]+-Preferred-Liability-Clause\.txt$/,
+        ),
+      },
     );
   });
 
@@ -383,6 +411,7 @@ describe("OrganizationBrainService.getById", () => {
       createdByName: "Ada Lovelace",
       createdAt: "2026-08-09T10:00:00.000Z",
       updatedAt: "2026-08-09T10:05:00.000Z",
+      extractionError: null,
       downloadUrl: "https://signed.example.com/file",
       downloadUrlExpiresInSeconds: 900,
     });

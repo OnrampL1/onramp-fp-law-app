@@ -12,18 +12,41 @@ jest.mock("../providers", () => ({
   generateEmbeddings: (...args: unknown[]) => mockGenerateEmbeddings(...args),
 }));
 
-import { fuseRankings, searchContractChunks } from "./search";
+import {
+  fuseRankings,
+  searchContractChunks,
+  searchOrganizationBrainChunks,
+} from "./search";
 
 interface CandidateRow {
   id: string;
+  source_id: string;
   chunk_index: number;
   heading_path: string | null;
   content: string;
 }
 
-const rowA: CandidateRow = { id: "a", chunk_index: 0, heading_path: null, content: "A" };
-const rowB: CandidateRow = { id: "b", chunk_index: 1, heading_path: null, content: "B" };
-const rowC: CandidateRow = { id: "c", chunk_index: 2, heading_path: null, content: "C" };
+const rowA: CandidateRow = {
+  id: "a",
+  source_id: "contract-1",
+  chunk_index: 0,
+  heading_path: null,
+  content: "A",
+};
+const rowB: CandidateRow = {
+  id: "b",
+  source_id: "contract-1",
+  chunk_index: 1,
+  heading_path: null,
+  content: "B",
+};
+const rowC: CandidateRow = {
+  id: "c",
+  source_id: "contract-1",
+  chunk_index: 2,
+  heading_path: null,
+  content: "C",
+};
 
 describe("fuseRankings", () => {
   it("ranks a chunk found by both retrieval methods above one found by only one", () => {
@@ -110,7 +133,14 @@ describe("searchContractChunks", () => {
     });
 
     expect(results).toEqual([
-      { id: "a", chunkIndex: 0, headingPath: null, content: "A", score: expect.any(Number) },
+      {
+        id: "a",
+        sourceId: "contract-1",
+        chunkIndex: 0,
+        headingPath: null,
+        content: "A",
+        score: expect.any(Number),
+      },
     ]);
   });
 
@@ -125,5 +155,55 @@ describe("searchContractChunks", () => {
     });
 
     expect(results).toHaveLength(2);
+  });
+});
+
+describe("searchOrganizationBrainChunks", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGenerateEmbeddings.mockResolvedValue({
+      embeddings: [[0.1, 0.2, 0.3]],
+      tokensIn: 3,
+      callLogId: "log-1",
+    });
+  });
+
+  it("is organization-scoped only — no per-item scoping parameter exists", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([rowA]);
+
+    await searchOrganizationBrainChunks({
+      organizationId: "org-1",
+      query: "liability",
+    });
+
+    expect(mockGenerateEmbeddings).toHaveBeenCalledWith({
+      texts: ["liability"],
+      organizationId: "org-1",
+    });
+  });
+
+  it("can return chunks sourced from more than one organization brain item in a single search", async () => {
+    const fromItemOne = {
+      id: "x",
+      source_id: "item-1",
+      chunk_index: 0,
+      heading_path: null,
+      content: "X",
+    };
+    const fromItemTwo = {
+      id: "y",
+      source_id: "item-2",
+      chunk_index: 0,
+      heading_path: null,
+      content: "Y",
+    };
+    mockPrisma.$queryRaw.mockResolvedValue([fromItemOne, fromItemTwo]);
+
+    const results = await searchOrganizationBrainChunks({
+      organizationId: "org-1",
+      query: "indemnification",
+    });
+
+    expect(results.map((r) => r.sourceId).sort()).toEqual(["item-1", "item-2"]);
   });
 });
