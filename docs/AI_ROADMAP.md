@@ -26,14 +26,14 @@ started yet.
 |---|---|---|
 | 1 | AI Foundation | ✅ Complete |
 | 2 | AI Analysis Engine | ✅ Complete |
-| 3 | Clause Investigator | 🚧 In progress — teammate implementing |
-| 4 | Organization Brain Ingestion | 🚧 In progress — teammate implementing |
-| 5 | Organization Brain Retrieval | ⏳ Future — not started |
-| 6 | Lebanese Legal Knowledge Base | ⏳ Future — not started |
+| 3 | Clause Investigator | ✅ Complete |
+| 4 | Organization Brain Ingestion | ✅ Complete |
+| 5 | Organization Brain Retrieval | ✅ Complete |
+| 6 | Lebanese Legal Knowledge Base | 🚧 In progress — Domain Review approved 2026-08-12, Batch 1 pending |
 | 7 | AI Assistant | ⏳ Future — not started |
 | 8 | Advanced AI Features | ⏳ Future — not started |
 
-**Do not begin implementation work on Phase 5, 6, 7, or 8 without explicit
+**Do not begin implementation work on Phase 7 or 8 without explicit
 instruction to start that specific phase.** This applies to AI coding
 assistants as much as to human developers — being asked to "help with the
 AI roadmap" or "continue the AI platform" is not the same as being asked
@@ -174,7 +174,7 @@ fresh discussion.
 
 ---
 
-## 6. Lebanese Legal Knowledge Base (frozen direction, not implemented)
+## 6. Lebanese Legal Knowledge Base (frozen direction; implementation plan approved, Batch 1 not yet started)
 
 ```
 Trusted Lebanese Legal Sources
@@ -188,8 +188,16 @@ LLM
 Grounded Answer + Citation
 ```
 
-**No schema, no migration, no ingestion exists or is planned in this
-pass.** The following is the agreed *direction* for when Phase 6 begins.
+**Status as of 2026-08-12: the direction below is frozen, and a detailed,
+implementation-ready plan now exists and has passed Domain Review** — see
+`docs/PHASE6_IMPLEMENTATION_PLAN.md` (design, domain model, Batch 1's
+complete schema specification, and the full batch breakdown) and
+`docs/DOMAIN_REVIEW_BACKLOG.md` ("Lebanese Legal Knowledge Base — Phase 6
+Domain Review" entry). **No schema, migration, or code has been written
+yet** — Batch 1 is approved but not started. The section below remains the
+agreed high-level *direction*; `PHASE6_IMPLEMENTATION_PLAN.md` is now the
+authoritative source for implementation detail, the same relationship
+`AI_IMPLEMENTATION_GUIDE.md` has to this document for every other phase.
 
 ### Source authority (eventual)
 
@@ -223,12 +231,25 @@ Sources should eventually be distinguished by authority tier:
 
 ### Versioning
 
-Legal sources must **not** be overwritten when legislation changes.
-Amendments are represented with effective-dating/versioning so historical
-and current law remain distinguishable — the same non-destructive
-versioning principle already frozen for prompts and schemas
-(`AI_ARCHITECTURE.md` Sections 10–11), applied to a new content type
-rather than reinvented.
+**Amended 2026-08-12, per the Phase 6 Domain Review
+(`docs/PHASE6_IMPLEMENTATION_PLAN.md` Section 5,
+`docs/DOMAIN_REVIEW_BACKLOG.md`):** Phase 6 stores **current, consolidated
+text only**, annotated with amendment metadata (amending instrument,
+effective date) where the source states it — not full historical/
+point-in-time versions. This was a deliberate, sourcing-constrained choice,
+not an oversight: the available legal sources state *that* an article was
+amended and *by what*, but do not preserve the superseded wording itself,
+so full historical versioning cannot honestly be built from what's
+currently sourceable. Re-ingestion replaces a source's content, the same
+non-upsert replace pattern `ContractChunk`/`OrganizationBrainChunk` already
+use. The system must not imply it can answer what the law said at a
+historical date when no historical wording is stored. A prior version of
+this paragraph described a stricter non-destructive versioning requirement
+("must not be overwritten... historical and current law remain
+distinguishable") in the spirit of the prompt/schema versioning principle
+(`AI_ARCHITECTURE.md` Sections 10–11) — full point-in-time historical
+versioning remains the eventual direction and is recorded as explicit
+future work, additive to what Phase 6 ships, not a redesign of it.
 
 ### Citation
 
@@ -276,15 +297,30 @@ unless evidence says otherwise.
 These are **not** blockers for current engineering work (Phase 3/4), but
 they are real project dependencies that later phases cannot skip.
 
-### 8.1 Jurisdiction / governing law (Domain Review prerequisite for Phase 6)
+### 8.1 Jurisdiction / governing law on `Contract`/`OrganizationSettings` (open, but not a Phase 6 blocker)
 
-Confirmed: no `jurisdiction` or `governingLaw` field exists anywhere in
-`packages/shared/prisma/schema.prisma` today (checked directly against the
-schema, not assumed). The Legal Knowledge Base fundamentally needs to know
-which jurisdiction a contract or organization cares about in order to
-retrieve relevant law.
+**Updated 2026-08-12:** this item is no longer a prerequisite for Phase 6.
+When this section was originally written, the assumption was that the
+Legal Knowledge Base couldn't retrieve relevant law without a jurisdiction
+field somewhere in the schema. The Phase 6 Domain Review
+(`docs/DOMAIN_REVIEW_BACKLOG.md`, "Lebanese Legal Knowledge Base — Phase 6
+Domain Review"; design detail in `docs/PHASE6_IMPLEMENTATION_PLAN.md`
+Section 4.3) resolved this: the Legal Knowledge Base's own `LegalSource`
+model carries its own `jurisdiction` field directly (defaulted to Lebanon
+for the current single-jurisdiction corpus), so Legal KB retrieval doesn't
+depend on `Contract` or `OrganizationSettings` having one. Phase 6
+implementation is **not** blocked on the item below.
 
-Before Phase 6 implementation begins, a Domain Review must decide:
+The underlying question is still genuinely open, still real, and still
+tracked — it just belongs to a different, narrower problem: routing a
+*contract* (or an organization) to the jurisdiction whose law applies to
+it (relevant once the Legal Knowledge Base covers more than one
+jurisdiction, and for Phase 7's Assistant auto-selecting jurisdiction from
+contract context). Confirmed: no `jurisdiction` or `governingLaw` field
+exists anywhere in `packages/shared/prisma/schema.prisma` today (checked
+directly against the schema, not assumed).
+
+Whenever this item is picked up, a Domain Review must decide:
 
 - Whether `Contract` needs a `governingLaw` field.
 - Whether `OrganizationSettings` needs a jurisdiction / preferred-law
@@ -297,7 +333,7 @@ Before Phase 6 implementation begins, a Domain Review must decide:
   contract signed under a since-amended law).
 
 Tracked as an Open Item in `docs/DOMAIN_REVIEW_BACKLOG.md`. **No schema
-change is made now.**
+change is made now, and none is required for Phase 6.**
 
 ### 8.2 Legal expert / reviewer
 
@@ -335,9 +371,10 @@ part of current implementation scope unless already covered by Phase 1–4:
 - Natural-language contract querying — covered by Investigator (Phase 3)
   for single-contract QA; broader portfolio querying is Phase 7
   (Assistant) territory.
-- Organization Brain — Phase 4 (ingestion, in progress) / Phase 5
-  (retrieval, future).
-- Lebanese Legal Knowledge Base — Phase 6, future.
+- Organization Brain — Phase 4 (ingestion) / Phase 5 (retrieval) — both complete.
+- Lebanese Legal Knowledge Base — Phase 6, in progress: Domain Review
+  approved and implementation plan frozen
+  (`docs/PHASE6_IMPLEMENTATION_PLAN.md`); Batch 1 (schema) not yet started.
 - Advanced multi-tool AI Assistant capabilities — Phase 7, future.
 - Contract Drift Reconciliation — future, Phase 8 or later, long-term item
   per `AI_ARCHITECTURE.md` Section 17.
@@ -357,10 +394,15 @@ a future planning conversation doesn't have to re-derive the list.
   `AI_IMPLEMENTATION_GUIDE.md` is authoritative for **phase-level
   execution detail**. If you find any of the three disagreeing on
   sequencing, stop and flag it — don't silently pick one.
-- Do not start Phase 5, 6, 7, or 8 because a task mentions the AI roadmap,
-  the Assistant, the Legal Knowledge Base, or Organization Brain
-  retrieval in passing. Starting a phase requires an explicit instruction
-  to start that phase.
+- Phase 5 (Organization Brain Retrieval) is complete. Phase 6 (Lebanese
+  Legal Knowledge Base) has an approved Domain Review and a frozen
+  implementation plan (`docs/PHASE6_IMPLEMENTATION_PLAN.md`), but that
+  approval does not by itself authorize writing code — no Batch of Phase 6
+  has been started. Do not start Phase 7 or 8, and do not start any
+  specific Phase 6 batch, because a task mentions the AI roadmap, the
+  Assistant, or the Legal Knowledge Base in passing. Starting a phase (or a
+  batch within an approved phase) requires an explicit instruction to start
+  that specific phase or batch.
 - Do not create Legal Knowledge Base schema, migrations, or ingestion
   code from this document. It records direction, not an implementation
   ticket.
@@ -370,6 +412,7 @@ a future planning conversation doesn't have to re-derive the list.
 - Do not implement an Ollama/local-model provider, and do not select a
   specific Arabic or legal model, without an explicit instruction and the
   evidence-based benchmarking described in Section 7.
-- When Phase 5 or Phase 6 do begin, re-read this document's Sections 4–8
+- Phase 5 is complete. When starting work on any Phase 6 batch, re-read
+  this document's Sections 4–8 and `docs/PHASE6_IMPLEMENTATION_PLAN.md`
   first — they are the agreed starting point, not a discussion to redo
   from scratch.
