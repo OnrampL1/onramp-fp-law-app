@@ -10,6 +10,8 @@ import {
   listOrganizationBrainItemsQuerySchema,
   organizationBrainItemIdParamSchema,
 } from "../schemas/organization-brain.schemas";
+import { organizationBrainInvestigatorController } from "../controllers/organization-brain-investigator.controller";
+import { askOrganizationBrainBodySchema } from "../schemas/organization-brain-investigator.schemas";
 
 const router = Router();
 
@@ -19,6 +21,12 @@ router.get(
   "/",
   validate(listOrganizationBrainItemsQuerySchema, "query"),
   organizationBrainController.list,
+);
+
+router.post(
+  "/ask",
+  validate(askOrganizationBrainBodySchema, "body"),
+  organizationBrainInvestigatorController.ask,
 );
 
 router.post(

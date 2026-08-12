@@ -5,6 +5,7 @@ import {
   uploadFile,
   deleteFile,
   getPrismaClient,
+  organizationBrainEmbeddingsQueue,
 } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
 import {
@@ -201,6 +202,7 @@ async function toDetailDto(
     createdByName: row.createdBy.fullName,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    extractionError: row.extractionError,
     downloadUrl,
     downloadUrlExpiresInSeconds:
       ORGANIZATION_BRAIN_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
@@ -262,7 +264,7 @@ async function createFromUpload({
     throw createError("Could not store organization brain file", 502);
   }
 
-  return persistOrganizationBrainItem(
+  const item = await persistOrganizationBrainItem(
     {
       organizationId: user.organizationId,
       createdByUserId: user.id,
@@ -277,6 +279,14 @@ async function createFromUpload({
     },
     requestContext,
   );
+
+  await organizationBrainEmbeddingsQueue.add("extract-chunk-and-embed", {
+    organizationBrainItemId: item.id,
+    organizationId: user.organizationId,
+    storageKey,
+  });
+
+  return item;
 }
 
 async function createFromPaste({
@@ -304,7 +314,7 @@ async function createFromPaste({
     throw createError("Could not store organization brain content", 502);
   }
 
-  return persistOrganizationBrainItem(
+  const item = await persistOrganizationBrainItem(
     {
       organizationId: user.organizationId,
       createdByUserId: user.id,
@@ -319,6 +329,14 @@ async function createFromPaste({
     },
     requestContext,
   );
+
+  await organizationBrainEmbeddingsQueue.add("extract-chunk-and-embed", {
+    organizationBrainItemId: item.id,
+    organizationId: user.organizationId,
+    storageKey,
+  });
+
+  return item;
 }
 
 async function listItems(

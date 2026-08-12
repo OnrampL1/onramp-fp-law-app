@@ -6,6 +6,7 @@ export const QUEUE_NAMES = {
   EXTRACTION: "extraction",
   AI_ANALYSIS: "ai-analysis",
   AI_ANALYSIS_AGGREGATE: "ai-analysis-aggregate",
+  ORGANIZATION_BRAIN_EMBEDDINGS: "organization-brain-embeddings",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -77,10 +78,22 @@ export interface AIAnalysisAggregateJobResult {
   status: "AI_COMPLETED" | "AI_FAILED";
 }
 
+export interface OrganizationBrainEmbeddingsJobData {
+  organizationBrainItemId: string;
+  organizationId: string;
+  storageKey: string;
+}
+
+export interface OrganizationBrainEmbeddingsJobResult {
+  status: "COMPLETED" | "SKIPPED" | "CEILING_EXCEEDED" | "EXTRACTION_FAILED";
+  chunkCount: number;
+}
+
 export type JobData =
   | EmailJobData
   | EmbeddingsJobData
   | InvitationExpiryJobData
   | ExtractionJobData
   | AIAnalysisJobData
-  | AIAnalysisAggregateJobData;
+  | AIAnalysisAggregateJobData
+  | OrganizationBrainEmbeddingsJobData;

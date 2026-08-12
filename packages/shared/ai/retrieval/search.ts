@@ -6,6 +6,7 @@ const prisma = getPrismaClient();
 
 export interface RetrievedChunk {
   id: string;
+  sourceId: string;
   chunkIndex: number;
   headingPath: string | null;
   content: string;
@@ -22,51 +23,15 @@ const DEFAULT_RESULT_LIMIT = 8;
 
 interface CandidateRow {
   id: string;
+  source_id: string;
   chunk_index: number;
   heading_path: string | null;
   content: string;
 }
 
-async function vectorCandidates(
-  contractId: string,
-  organizationId: string,
-  queryEmbedding: number[],
-  limit: number,
-): Promise<CandidateRow[]> {
-  const vectorLiteral = `[${queryEmbedding.join(",")}]`;
-  return prisma.$queryRaw<CandidateRow[]>`
-    SELECT id, chunk_index, heading_path, content
-    FROM contract_chunks
-    WHERE contract_id = ${contractId}::uuid
-      AND organization_id = ${organizationId}::uuid
-      AND embedding IS NOT NULL
-    ORDER BY embedding <=> ${vectorLiteral}::vector
-    LIMIT ${limit}
-  `;
-}
-
-async function fullTextCandidates(
-  contractId: string,
-  organizationId: string,
-  query: string,
-  limit: number,
-): Promise<CandidateRow[]> {
-  return prisma.$queryRaw<CandidateRow[]>`
-    SELECT id, chunk_index, heading_path, content
-    FROM contract_chunks
-    WHERE contract_id = ${contractId}::uuid
-      AND organization_id = ${organizationId}::uuid
-      AND content_tsv @@ websearch_to_tsquery('english', ${query})
-    ORDER BY ts_rank(content_tsv, websearch_to_tsquery('english', ${query})) DESC
-    LIMIT ${limit}
-  `;
-}
-
 // Exported for direct unit testing — the RRF dedup/scoring math (a chunk
 // found by both methods must outscore one found by only one, at any rank
-// combination) is the one part of this pipeline with real off-by-one risk;
-// the two $queryRaw calls around it are thin enough not to need their own
-// test rig separately from an integration/smoke test.
+// combination) is the one part of this pipeline with real off-by-one risk.
 export function fuseRankings(
   vectorRows: CandidateRow[],
   fullTextRows: CandidateRow[],
@@ -90,6 +55,51 @@ export function fuseRankings(
   return [...fused.values()].sort((a, b) => b.score - a.score);
 }
 
+// The shared shape behind every corpus's hybrid search (AI_ROADMAP.md
+// Section 4). Each corpus supplies its own org/parent-scoped, type-safe
+// $queryRaw calls via `fetcher`; this function owns only the algorithm:
+// embed the query once, fetch both candidate sets in parallel, fuse via
+// RRF, then optimizeContext.
+interface CandidateFetcher {
+  vectorCandidates(
+    queryEmbedding: number[],
+    limit: number,
+  ): Promise<CandidateRow[]>;
+  fullTextCandidates(query: string, limit: number): Promise<CandidateRow[]>;
+}
+
+async function hybridSearch(
+  fetcher: CandidateFetcher,
+  organizationId: string,
+  query: string,
+  limit: number,
+): Promise<RetrievedChunk[]> {
+  const { embeddings } = await generateEmbeddings({
+    texts: [query],
+    organizationId,
+  });
+  const queryEmbedding = embeddings[0];
+  if (!queryEmbedding) return [];
+
+  const [vectorRows, fullTextRows] = await Promise.all([
+    fetcher.vectorCandidates(queryEmbedding, CANDIDATES_PER_METHOD),
+    fetcher.fullTextCandidates(query, CANDIDATES_PER_METHOD),
+  ]);
+
+  const results = fuseRankings(vectorRows, fullTextRows)
+    .slice(0, limit)
+    .map(({ row, score }) => ({
+      id: row.id,
+      sourceId: row.source_id,
+      chunkIndex: row.chunk_index,
+      headingPath: row.heading_path,
+      content: row.content,
+      score,
+    }));
+
+  return optimizeContext(results);
+}
+
 export interface SearchParams {
   contractId: string;
   organizationId: string;
@@ -107,27 +117,81 @@ export async function searchContractChunks(
 ): Promise<RetrievedChunk[]> {
   const limit = params.limit ?? DEFAULT_RESULT_LIMIT;
 
-  const { embeddings } = await generateEmbeddings({
-    texts: [params.query],
-    organizationId: params.organizationId,
-  });
-  const queryEmbedding = embeddings[0];
-  if (!queryEmbedding) return [];
+  return hybridSearch(
+    {
+      vectorCandidates: (queryEmbedding, candidateLimit) => {
+        const vectorLiteral = `[${queryEmbedding.join(",")}]`;
+        return prisma.$queryRaw<CandidateRow[]>`
+          SELECT id, contract_id AS source_id, chunk_index, heading_path, content
+          FROM contract_chunks
+          WHERE contract_id = ${params.contractId}::uuid
+            AND organization_id = ${params.organizationId}::uuid
+            AND embedding IS NOT NULL
+          ORDER BY embedding <=> ${vectorLiteral}::vector
+          LIMIT ${candidateLimit}
+        `;
+      },
+      fullTextCandidates: (query, candidateLimit) =>
+        prisma.$queryRaw<CandidateRow[]>`
+          SELECT id, contract_id AS source_id, chunk_index, heading_path, content
+          FROM contract_chunks
+          WHERE contract_id = ${params.contractId}::uuid
+            AND organization_id = ${params.organizationId}::uuid
+            AND content_tsv @@ websearch_to_tsquery('english', ${query})
+          ORDER BY ts_rank(content_tsv, websearch_to_tsquery('english', ${query})) DESC
+          LIMIT ${candidateLimit}
+        `,
+    },
+    params.organizationId,
+    params.query,
+    limit,
+  );
+}
 
-  const [vectorRows, fullTextRows] = await Promise.all([
-    vectorCandidates(params.contractId, params.organizationId, queryEmbedding, CANDIDATES_PER_METHOD),
-    fullTextCandidates(params.contractId, params.organizationId, params.query, CANDIDATES_PER_METHOD),
-  ]);
+export interface OrganizationBrainSearchParams {
+  organizationId: string;
+  query: string;
+  limit?: number;
+}
 
-  const results = fuseRankings(vectorRows, fullTextRows)
-    .slice(0, limit)
-    .map(({ row, score }) => ({
-      id: row.id,
-      chunkIndex: row.chunk_index,
-      headingPath: row.heading_path,
-      content: row.content,
-      score,
-    }));
+// Same hybrid retrieval as searchContractChunks, but scoped to the whole
+// organization's brain corpus rather than one document — a query can
+// legitimately match chunks from several different OrganizationBrainItems
+// in one search (finding the org's most relevant template/policy/clause for
+// a topic, not answering about one pre-known document). That's exactly why
+// RetrievedChunk.sourceId exists: the caller needs to know which item each
+// result came from. Organization-scoped directly in the query itself —
+// never fetched globally and filtered after — per the frozen requirement.
+export async function searchOrganizationBrainChunks(
+  params: OrganizationBrainSearchParams,
+): Promise<RetrievedChunk[]> {
+  const limit = params.limit ?? DEFAULT_RESULT_LIMIT;
 
-  return optimizeContext(results);
+  return hybridSearch(
+    {
+      vectorCandidates: (queryEmbedding, candidateLimit) => {
+        const vectorLiteral = `[${queryEmbedding.join(",")}]`;
+        return prisma.$queryRaw<CandidateRow[]>`
+          SELECT id, organization_brain_item_id AS source_id, chunk_index, heading_path, content
+          FROM organization_brain_chunks
+          WHERE organization_id = ${params.organizationId}::uuid
+            AND embedding IS NOT NULL
+          ORDER BY embedding <=> ${vectorLiteral}::vector
+          LIMIT ${candidateLimit}
+        `;
+      },
+      fullTextCandidates: (query, candidateLimit) =>
+        prisma.$queryRaw<CandidateRow[]>`
+          SELECT id, organization_brain_item_id AS source_id, chunk_index, heading_path, content
+          FROM organization_brain_chunks
+          WHERE organization_id = ${params.organizationId}::uuid
+            AND content_tsv @@ websearch_to_tsquery('english', ${query})
+          ORDER BY ts_rank(content_tsv, websearch_to_tsquery('english', ${query})) DESC
+          LIMIT ${candidateLimit}
+        `,
+    },
+    params.organizationId,
+    params.query,
+    limit,
+  );
 }

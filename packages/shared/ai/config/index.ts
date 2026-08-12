@@ -16,10 +16,6 @@ export function getDefaultAiModel(): string {
   return process.env.AI_DEFAULT_MODEL ?? "openai/gpt-4o-mini";
 }
 
-export function getOpenAIApiKey(): string {
-  return getRequiredEnv("OPENAI_API_KEY");
-}
-
 // Environment-level switch, not a per-call param — deliberately, so a mock
 // can never be left on by accident in a real request path. Approved as part
 // of Phase 3's cost controls: chunking, storage, and retrieval ranking need
@@ -58,4 +54,13 @@ export function getInvestigatorHistoryTurnLimit(): number {
   const raw = process.env.INVESTIGATOR_HISTORY_TURN_LIMIT;
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 3;
+}
+
+// Same rationale as getMaxChunksPerContract — a hard ceiling checked before
+// any embedding calls fire. Kept as its own config/env var rather than
+// reusing the contract one so each corpus can be tuned independently.
+export function getMaxChunksPerOrganizationBrainItem(): number {
+  const raw = process.env.ORGANIZATION_BRAIN_MAX_CHUNKS_PER_ITEM;
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 500;
 }

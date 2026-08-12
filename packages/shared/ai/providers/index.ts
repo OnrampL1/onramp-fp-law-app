@@ -3,7 +3,7 @@ import { getAiProviderMode, getDefaultAiModel } from "../config";
 import type { AiCompletionRequest, AiCompletionResult } from "../types";
 import { openRouterProvider } from "./openrouter";
 import { classifyProviderError } from "./errors";
-import { openAIEmbeddingProvider, OPENAI_EMBEDDING_MODEL } from "./openai-embeddings";
+import { openRouterEmbeddingProvider, OPENROUTER_EMBEDDING_MODEL } from "./openrouter-embeddings";
 import { mockEmbeddingProvider, MOCK_EMBEDDING_MODEL } from "./mock-embeddings";
 import { mockCompletionProvider } from "./mock-completion";
 import type { CompletionProvider, EmbeddingProvider } from "./types";
@@ -120,9 +120,9 @@ export async function generateEmbeddings(
 ): Promise<EmbeddingResult> {
   const mode = getAiProviderMode();
   const provider: EmbeddingProvider =
-    mode === "mock" ? mockEmbeddingProvider : openAIEmbeddingProvider;
-  const model = mode === "mock" ? MOCK_EMBEDDING_MODEL : OPENAI_EMBEDDING_MODEL;
-  const providerName = mode === "mock" ? "mock" : "openai";
+    mode === "mock" ? mockEmbeddingProvider : openRouterEmbeddingProvider;
+  const model = mode === "mock" ? MOCK_EMBEDDING_MODEL : OPENROUTER_EMBEDDING_MODEL;
+  const providerName = mode === "mock" ? "mock" : "openrouter";
   const startedAt = Date.now();
 
   try {

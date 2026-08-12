@@ -28,6 +28,7 @@ export const ORGANIZATION_BRAIN_ITEM_DETAIL_SELECT = {
   mimeType: true,
   sizeBytes: true,
   checksum: true,
+  extractionError: true,
   createdAt: true,
   updatedAt: true,
   createdBy: {
