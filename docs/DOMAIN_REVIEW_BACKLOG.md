@@ -62,6 +62,75 @@ what we noticed.
 
 ## Resolved Items
 
+### Lebanese Legal Knowledge Base — Phase 6 Domain Review
+
+- Identified: `docs/PHASE6_IMPLEMENTATION_PLAN.md` Section 13 (2026-08-12)
+- Classification: Required for correctness — Phase 6 cannot begin schema
+  work without these decisions frozen, per `CLAUDE.md`'s Domain Review
+  Workflow.
+- Status: **Approved** (2026-08-12). Full detail lives in
+  `docs/PHASE6_IMPLEMENTATION_PLAN.md`; this entry records the outcome, not
+  the reasoning.
+- Decisions:
+  1. New models `LegalSource`, `LegalChunk` and enums `LegalSourceType`,
+     `LegalAuthorityTier`, `LegalStatus`, `LegalLicenseStatus` — approved,
+     per the plan's Section 6 design.
+  2. Legal KB is global/non-organization-scoped: no `organizationId` on
+     either table, no org filter in retrieval. The asking organization is
+     still recorded on `AICallLog.organizationId` for observability/cost
+     attribution — global content, organization-attributed usage.
+  3. Versioning: **current-only** consolidated text with amendment
+     metadata (Option 1 of the plan's Section 5). No historical/
+     point-in-time legal versioning in Phase 6. **Note:** `AI_ROADMAP.md`
+     Section 6's versioning paragraph ("Legal sources must not be
+     overwritten... so historical and current law remain distinguishable")
+     predates this decision and reads as asking for more than Option 1
+     delivers. Reconciled as: the *spirit* (don't silently treat law as
+     static, keep amendment awareness) is satisfied via amendment metadata
+     + `lastVerifiedAt` + explicit no-historical-claim behavior; the
+     *literal* "not overwritten" wording no longer matches the approved
+     mechanism (re-ingestion replaces chunks, same as `ContractChunk`/
+     `OrganizationBrainChunk` today). `AI_ROADMAP.md` Section 6 needs a
+     short wording correction to match — tracked as part of the
+     documentation housekeeping in decision 11, not a reopened design
+     question.
+  4. `deletedAt` soft delete on `LegalSource`; FK-level `onDelete: Cascade`
+     from `LegalSource` to `LegalChunk` (fires only on a genuine hard
+     delete, mirroring `ContractChunk`/`OrganizationBrainChunk`). Retrieval
+     must separately exclude a soft-deleted source's chunks at query time —
+     a Batch 4 (retrieval) requirement, not a Batch 1 (schema) one.
+  5. `articleNumber: String?`, nullable and indexed. No Book/Title/Chapter
+     composite model in Phase 6.
+  6. Enum vocabularies taken verbatim from `AI_ROADMAP.md` Section 6 —
+     no competing taxonomy invented.
+  7. Ingestion trigger: an operator-invoked script (no new platform-admin
+     HTTP auth layer), which enqueues work through the existing BullMQ
+     worker/job conventions rather than doing everything synchronously
+     in-process — combines what the plan listed as separate items 7 and 9
+     into one pipeline design (see item 9).
+  8. Arabic full-text search: PostgreSQL `'simple'` configuration for MVP.
+     No stemming extension. Real Arabic retrieval quality must be tested
+     and the limitation documented (Batch 4).
+  9. Ingestion job execution reuses the existing BullMQ worker/job
+     conventions (retryable-vs-terminal shape, per-queue worker) rather
+     than a new execution architecture — see item 7.
+  10. License gating: `LegalLicenseStatus` (`DEVELOPMENT_ONLY` /
+      `UNDER_REVIEW` / `CLEARED_FOR_PRODUCTION`), deployment-level filter,
+      following the existing `AI_PROVIDER_MODE`-style config pattern — no
+      new licensing subsystem.
+  11. `AI_ROADMAP.md` and `AI_IMPLEMENTATION_GUIDE.md` stale Phase 3/4/5
+      status tables corrected as documentation housekeeping (done alongside
+      this entry).
+- Additional scope constraints approved alongside the 11 decisions:
+  single-source proof (Code of Obligations and Contracts only) before
+  scaling to the remaining four; exactly the five already-researched
+  sources, no silent expansion; none of the five may be marked
+  `CLEARED_FOR_PRODUCTION`; `promulgatingAuthority` (the legal instrument/
+  Lebanese Republic) and `compilerSource` (Lebanese University) stay
+  distinct fields, never conflated; the Code of Commerce date discrepancy,
+  the Law 81/2018 Gazette-date discrepancy, licensing, and legal
+  correctness all remain open and are not resolved by this decision.
+
 ### Effective Date
 
 - Identified: Contract List feature (2026-07-12)

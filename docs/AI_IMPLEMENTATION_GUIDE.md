@@ -42,9 +42,11 @@ full direction agreed for each.
 |---|---|
 | 1 — AI Foundation | ✅ Complete |
 | 2 — AI Analysis Engine | ✅ Complete |
-| 3 — Clause Investigator | 🚧 In progress — teammate implementing |
-| 4 — Organization Brain Ingestion | 🚧 In progress — teammate implementing |
-| 5–8 | ⏳ Future — not started (see `docs/AI_ROADMAP.md`) |
+| 3 — Clause Investigator | ✅ Complete |
+| 4 — Organization Brain Ingestion | ✅ Complete |
+| 5 — Organization Brain Retrieval | ✅ Complete |
+| 6 — Lebanese Legal Knowledge Base | 🚧 In progress — Domain Review approved 2026-08-12, Batch 1 pending (see `docs/AI_ROADMAP.md`, `docs/PHASE6_IMPLEMENTATION_PLAN.md`) |
+| 7–8 | ⏳ Future — not started (see `docs/AI_ROADMAP.md`) |
 
 ### Phase 1 (AI Foundation) — ✅ Complete
 
@@ -473,29 +475,50 @@ both complete.
 
 ---
 
-## Phase 6 — Lebanese Legal Knowledge Base — ⏳ Future (not started)
+## Phase 6 — Lebanese Legal Knowledge Base — 🚧 In progress (Domain Review approved, Batch 1 pending)
 
-**Roadmap-level only — see `docs/AI_ROADMAP.md` Section 6 for the full
-agreed direction.** Not implementation-ready detail; do not begin without
-an explicit instruction to start Phase 6.
+**Domain Review approved 2026-08-12.** The implementation plan is frozen —
+see `docs/PHASE6_IMPLEMENTATION_PLAN.md` (design, Batch 1's complete
+field-by-field specification, and the full Batch 1–6 breakdown) and
+`docs/DOMAIN_REVIEW_BACKLOG.md` ("Lebanese Legal Knowledge Base — Phase 6
+Domain Review" entry, the authoritative record of what was approved).
+`docs/AI_ROADMAP.md` Section 6 remains authoritative for the original
+frozen *direction*; `PHASE6_IMPLEMENTATION_PLAN.md` is now authoritative
+for implementation-ready detail, the same relationship this guide has to
+`AI_ARCHITECTURE.md` for every other phase. **Batch 1 itself has not been
+started — do not begin writing schema/code without explicit authorization
+to start that specific batch**, same discipline as every other phase in
+this guide.
 
-**Purpose:** RAG over jurisdiction-tagged, authoritative Lebanese legal
-sources, reusing the same retrieval engine as Phase 3/5, producing
-grounded answers with citations that resolve to a specific source and
-passage.
+**Purpose:** RAG over a curated, five-document set of Lebanese legal
+sources (see `docs/PHASE6_LEGAL_CORPUS_VALIDATION.md`), reusing the same
+retrieval engine as Phase 3/5, producing grounded answers with citations
+that resolve to a specific instrument, article, and source — while keeping
+the legal instrument/promulgating authority distinguishable from the
+secondary compiler (Lebanese University) Clausio's copy comes from.
 
-**Blocked on, not just preceded by:**
+**Resolved, not blocking:**
 
-- A Domain Review deciding how jurisdiction/governing law is represented
-  in the schema (`AI_ROADMAP.md` Section 8.1) — no `jurisdiction` or
-  `governingLaw` field exists in `packages/shared/prisma/schema.prisma`
-  today.
-- Sourcing, licensing, and structuring actual Lebanese legal content —
-  non-engineering work that should start before Phase 6 engineering does.
-- Eventually, a qualified legal reviewer to validate content and grounding
-  (`AI_ROADMAP.md` Section 8.2). Engineering work on the retrieval
-  integration can proceed without this, but the resulting system cannot
-  be considered production-ready without it.
+- The jurisdiction/governing-law Domain Review item (`AI_ROADMAP.md`
+  Section 8.1, `DOMAIN_REVIEW_BACKLOG.md`) concerns `Contract`/
+  `OrganizationSettings` — which jurisdiction governs a *contract*. It
+  remains genuinely open, but the Phase 6 Domain Review explicitly
+  determined it does **not** block Phase 6: the Legal KB corpus itself
+  carries its own `jurisdiction` field (defaulted to Lebanon for all
+  current sources), and with a single-jurisdiction corpus there is nothing
+  to route between yet. See `PHASE6_IMPLEMENTATION_PLAN.md` Section 4.3.
+- Sourcing and structuring the initial development corpus — done; see
+  `PHASE6_LEGAL_CORPUS_VALIDATION.md`.
+
+**Still open, tracked, not resolved by this phase:**
+
+- Licensing/reuse rights for all five current sources
+  (`[REQUIRES LEGAL REVIEW]` in the validation report) — none may be marked
+  `CLEARED_FOR_PRODUCTION` in Phase 6.
+- A qualified legal reviewer to validate content and grounding
+  (`AI_ROADMAP.md` Section 8.2). Engineering work can proceed without this,
+  but the resulting system cannot be considered production-ready without
+  it.
 
 **Must reuse, not duplicate:** the same retrieval engine as Phase 3/5.
 The Legal Knowledge Base is a third corpus, unscoped/shared instead of
@@ -503,7 +526,7 @@ org-scoped — that exception must be structural, not an incidental filter
 gap.
 
 **Do not create Legal Knowledge Base schema, migrations, or ingestion code
-before this phase formally begins.**
+before Batch 1 is explicitly authorized to begin.**
 
 ---
 
