@@ -13,13 +13,42 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { recentContracts } from "@/lib/data";
 import { ArrowRight, FileText } from "lucide-react";
-import { RiskBadge, StatusBadge } from "../ui/badges";
+import { StatusBadge } from "../ui/badges";
+import { Badge } from "@/components/ui/badge";
 import { Link, useNavigate } from "react-router-dom";
+import { formatDate, formatRelativeTime } from "@/lib/utils";
+import type { DashboardContractItem } from "@/types/dashboard";
+import type { ContractLegalStatus } from "@/types/contracts";
 
-export function RecentContracts() {
+const LEGAL_STATE_LABELS = {
+  DRAFT: "Draft",
+  ACTIVE: "Active",
+  EXPIRED: "Expired",
+  TERMINATED: "Terminated",
+} as const satisfies Record<
+  ContractLegalStatus,
+  "Draft" | "Active" | "Expired" | "Terminated"
+>;
+
+const BUSINESS_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
+  UNDER_REVIEW: "Under review",
+  COMPLETED: "Completed",
+  ARCHIVED: "Archived",
+};
+
+interface RecentContractsProps {
+  contracts: DashboardContractItem[] | undefined;
+  isLoading?: boolean;
+}
+
+export function RecentContracts({
+  contracts,
+  isLoading = false,
+}: RecentContractsProps) {
   const navigate = useNavigate();
+  const items = contracts ?? [];
 
   return (
     <Card>
@@ -27,7 +56,7 @@ export function RecentContracts() {
         <div>
           <CardTitle className="text-base">Recent Contracts</CardTitle>
           <CardDescription>
-            Latest activity across your contract portfolio
+            Latest updates across your contract portfolio
           </CardDescription>
         </div>
         <Button
@@ -40,56 +69,90 @@ export function RecentContracts() {
           <ArrowRight className="size-4" />
         </Button>
       </CardHeader>
+
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Contract Name</TableHead>
               <TableHead>Counterparty</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Legal State</TableHead>
+              <TableHead>Workflow</TableHead>
               <TableHead>Expiration Date</TableHead>
-              <TableHead>Risk Level</TableHead>
               <TableHead className="text-right">Last Updated</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {recentContracts.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                      <FileText className="size-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <Link
-                        to={`/contracts/${c.id}`}
-                        className="truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
-                      >
-                        {c.name}
-                      </Link>
-                      <p className="text-xs text-muted-foreground">
-                        {c.id} · {c.type}
-                      </p>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {c.counterparty}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={c.status} />
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {c.expiration}
-                </TableCell>
-                <TableCell>
-                  <RiskBadge risk={c.risk} />
-                </TableCell>
-                <TableCell className="text-right text-sm text-muted-foreground">
-                  {c.updated}
+            {isLoading ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-sm text-muted-foreground"
+                >
+                  Loading recent contracts...
                 </TableCell>
               </TableRow>
-            ))}
+            ) : items.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-sm text-muted-foreground"
+                >
+                  No contracts have been uploaded yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              items.map((contract) => (
+                <TableRow key={contract.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                        <FileText className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <Link
+                          to={`/contracts/${contract.id}`}
+                          className="truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
+                        >
+                          {contract.title}
+                        </Link>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {contract.id}
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-muted-foreground">
+                    {contract.counterparty}
+                  </TableCell>
+
+                  <TableCell>
+                    {contract.legalState ? (
+                      <StatusBadge
+                        status={LEGAL_STATE_LABELS[contract.legalState]}
+                      />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+
+                  <TableCell>
+                    <Badge variant="outline" className="font-medium">
+                      {BUSINESS_STATUS_LABELS[contract.businessStatus]}
+                    </Badge>
+                  </TableCell>
+
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(contract.expirationDate)}
+                  </TableCell>
+
+                  <TableCell className="text-right text-sm text-muted-foreground">
+                    {formatRelativeTime(contract.updatedAt)}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
