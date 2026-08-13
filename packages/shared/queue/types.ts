@@ -7,6 +7,7 @@ export const QUEUE_NAMES = {
   AI_ANALYSIS: "ai-analysis",
   AI_ANALYSIS_AGGREGATE: "ai-analysis-aggregate",
   ORGANIZATION_BRAIN_EMBEDDINGS: "organization-brain-embeddings",
+  LEGAL_KB_EMBEDDINGS: "legal-kb-embeddings",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -89,6 +90,39 @@ export interface OrganizationBrainEmbeddingsJobResult {
   chunkCount: number;
 }
 
+// One already-crawled, already-verified-clean article — the caller (an
+// operator script, per Domain Review item 7) must have already run
+// crawlLegalSource() + assertCleanCrawl() before enqueueing; this job takes
+// the resulting article data as-is and does not re-verify crawl cleanliness
+// or re-fetch anything from the source site itself. amendmentEffectiveDate
+// stays a "DD/MM/YYYY" string here (the crawler's own output shape,
+// LegalChunk.amendmentEffectiveDate's DateTime column is populated by the
+// job, not this input).
+// articleNumber is a string, not a bare integer: LegalChunk.articleNumber
+// is itself String? (an opaque label, not a numeric column), and flat-view
+// sources (Labour Law) have real sub-numbered articles like "12-1" and
+// "35-مكرر" that no numeric type could represent — found when wiring Labour
+// Law through this pipeline for the first time, tree-view sources still
+// just pass their plain integer as a string unchanged.
+export interface LegalKbArticleInput {
+  articleNumber: string;
+  headingPath: string | null;
+  text: string;
+  amendingInstrument: string | null;
+  amendmentEffectiveDate: string | null;
+  isEnactmentClause: boolean;
+}
+
+export interface LegalKbEmbeddingsJobData {
+  legalSourceId: string;
+  articles: LegalKbArticleInput[];
+}
+
+export interface LegalKbEmbeddingsJobResult {
+  status: "COMPLETED" | "CEILING_EXCEEDED";
+  chunkCount: number;
+}
+
 export type JobData =
   | EmailJobData
   | EmbeddingsJobData
@@ -96,4 +130,5 @@ export type JobData =
   | ExtractionJobData
   | AIAnalysisJobData
   | AIAnalysisAggregateJobData
-  | OrganizationBrainEmbeddingsJobData;
+  | OrganizationBrainEmbeddingsJobData
+  | LegalKbEmbeddingsJobData;

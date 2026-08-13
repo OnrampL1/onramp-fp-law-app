@@ -64,3 +64,17 @@ export function getMaxChunksPerOrganizationBrainItem(): number {
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 500;
 }
+
+// Same rationale and pattern as the two ceilings above, checked before any
+// embedding calls fire for a legal source's chunks (summed across all its
+// articles, not per-article). 1,500 default: the largest known source (Code
+// of Obligations and Contracts) has 1,107 articles; 1,500 gives real
+// headroom for longer articles splitting into multiple 500-800 token
+// chunks, while still being a genuine ceiling that would catch something
+// actually gone wrong (e.g. a crawl bug producing far more chunks than any
+// real source should).
+export function getMaxChunksPerLegalSource(): number {
+  const raw = process.env.LEGAL_KB_MAX_CHUNKS_PER_SOURCE;
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1500;
+}
