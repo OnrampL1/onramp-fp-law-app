@@ -117,9 +117,9 @@ export function ExpiringContractsList({
         <Button
           variant="outline"
           className="w-full gap-1.5"
-          onClick={() => navigate("/contracts?expiration=expiring_30")}
+          onClick={() => navigate("/contracts")}
         >
-          View expiring contracts
+          View All Contracts
           <ArrowRight className="size-4" />
         </Button>
       </CardContent>

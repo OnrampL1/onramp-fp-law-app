@@ -20,14 +20,16 @@ import { Link, useNavigate } from "react-router-dom";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 import type { DashboardContractItem } from "@/types/dashboard";
 import type { ContractLegalStatus } from "@/types/contracts";
-import type { ContractStatus } from "@/lib/data";
 
-const LEGAL_STATE_LABELS: Record<ContractLegalStatus, ContractStatus> = {
+const LEGAL_STATE_LABELS = {
   DRAFT: "Draft",
   ACTIVE: "Active",
   EXPIRED: "Expired",
   TERMINATED: "Terminated",
-};
+} as const satisfies Record<
+  ContractLegalStatus,
+  "Draft" | "Active" | "Expired" | "Terminated"
+>;
 
 const BUSINESS_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",

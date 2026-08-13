@@ -63,7 +63,7 @@ export function AiInsightsPanel() {
           className="w-full"
           onClick={() => navigate("/contracts")}
         >
-          View analyzed contracts
+          View Contracts
         </Button>
       </CardContent>
     </Card>
