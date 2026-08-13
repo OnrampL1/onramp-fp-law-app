@@ -110,7 +110,10 @@ export function Dashboard() {
           <ActivityFeed />
         </div>
         <div className="lg:col-span-2">
-          <ExpiringContractsList />
+          <ExpiringContractsList
+            contracts={contracts?.expiringSoon}
+            isLoading={isLoading}
+          />
         </div>
       </div>
     </div>
