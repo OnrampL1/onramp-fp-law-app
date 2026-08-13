@@ -103,7 +103,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      <RecentContracts />
+      <RecentContracts contracts={contracts?.recent} isLoading={isLoading} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
