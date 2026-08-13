@@ -11,12 +11,14 @@ import type {
   AIAnalysisListPagination,
   AIAnalysisListPaginationMeta,
   RiskOverviewDto,
+  SummaryOverviewDto,
   TimelineEntryDto,
 } from "../types/ai-analysis.types";
 import {
   enqueueContractAnalysis,
   riskSchemaV1,
   riskSchemaV2,
+  summarySchemaV1,
   type RiskSchemaV1,
   type RiskSchemaV2,
 } from "@starter-kit/shared";
@@ -211,9 +213,43 @@ async function getRiskOverview(
   };
 }
 
+async function getSummaryOverview(
+  contractId: string,
+  organizationId: string,
+): Promise<SummaryOverviewDto> {
+  const analysis = await aiAnalysisRepository.findLatestByType(
+    contractId,
+    organizationId,
+    "SUMMARY",
+  );
+
+  if (!analysis) {
+    throw createError(
+      "No completed summary analysis found for this contract",
+      404,
+    );
+  }
+
+  const parsed = summarySchemaV1.safeParse(analysis.result);
+
+  if (!parsed.success) {
+    throw createError(
+      "Stored summary analysis does not match its recorded schema",
+      500,
+    );
+  }
+
+  return {
+    analysisId: analysis.id,
+    createdAt: analysis.createdAt.toISOString(),
+    text: parsed.data.text,
+  };
+}
+
 export const aiAnalysisService = {
   listAnalyses,
   getAnalysisById,
   triggerAnalysis,
   getRiskOverview,
+  getSummaryOverview,
 };

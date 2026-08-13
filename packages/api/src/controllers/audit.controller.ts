@@ -3,6 +3,27 @@ import type { AuditAction } from "@prisma/client";
 import { auditService } from "../services/audit.service";
 import { createError } from "../middleware/error-handler";
 
+// The curated subset of AuditAction values meaningful on a Contract
+// Details activity timeline (visible to any org member) — as opposed to
+// the full org-wide audit trail (/audit, Owner/Admin oversight only,
+// Domain & Business Rules Section 10). A fixed list, not a caller-supplied
+// filter — every value here already has real display copy in the
+// frontend's AUDIT_ACTION_LABELS.
+const CONTRACT_TIMELINE_ACTIONS: AuditAction[] = [
+  "CONTRACT_UPLOADED",
+  "CONTRACT_METADATA_UPDATED",
+  "CONTRACT_TEXT_EXTRACTED",
+  "CONTRACT_PROCESSING_STATUS_CHANGED",
+  "AI_ANALYSIS_COMPLETED",
+  "AI_ANALYSIS_FAILED",
+  "WITNESS_INVITATION_CREATED",
+  "WITNESS_ACCESSED",
+  "WITNESS_INVITATION_REVOKED",
+  "NOTE_ADDED",
+  "NOTE_EDITED",
+  "NOTE_DELETED",
+];
+
 interface OrgAuditListQuery {
   contractId?: string;
   actorUserId?: string;
@@ -62,6 +83,37 @@ export const auditController = {
           action,
           dateFrom,
           dateTo,
+        },
+        { page, limit },
+      );
+
+      res.json({ data, meta: { pagination } });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // GET /contracts/:id/timeline — any Owner/Admin/Internal (unlike
+  // listForContract's /audit, which stays Owner/Admin-only oversight).
+  // Same underlying service, filtered to a fixed, display-ready action
+  // whitelist rather than an arbitrary caller-supplied filter — page/limit
+  // are the only query params this endpoint actually consumes.
+  async listTimelineForContract(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const { page, limit } = req.query as unknown as {
+        page: number;
+        limit: number;
+      };
+
+      const { data, pagination } = await auditService.listAuditLogs(
+        req.user!.orgId,
+        {
+          contractId: req.params.id as string,
+          action: CONTRACT_TIMELINE_ACTIONS,
         },
         { page, limit },
       );
