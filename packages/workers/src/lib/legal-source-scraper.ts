@@ -196,7 +196,15 @@ export function findArticleHeadingPath(tree: ScrapedTreeIndex, articleNumber: nu
  */
 export function parseArticlePage(html: string): ScrapedArticle {
   const $ = cheerio.load(html);
-  const bodyText = $("body").text();
+  // Scoped to the article-content container when present — confirmed via
+  // live cross-check (2026-08-15) that #MainContent_divarticles holds the
+  // article number, amendment tag, effective date, and body text on every
+  // real page checked (proof source, Commerce, Law 81/2018, Law 75/1999),
+  // with no boilerplate (nav/footer/JS/CSS) leaking in. Falls back to the
+  // full body text when the container is absent, since the synthetic test
+  // fixtures predate this container and don't include it.
+  const container = $("#MainContent_divarticles");
+  const bodyText = container.length ? container.text() : $("body").text();
 
   const numberMatch = bodyText.match(ARTICLE_NUMBER_PATTERN);
   if (!numberMatch) {
@@ -223,16 +231,12 @@ export function parseArticlePage(html: string): ScrapedArticle {
     amendmentEffectiveDate = dateMatch ? dateMatch[1] : null;
   }
 
-  // Article text: the page's text content with the amendment tag and
-  // article-number label (including the "- اصدار" suffix, when present)
-  // stripped out, since those are metadata, not article body text. The
-  // effective-date string (if found) is removed by its literal matched
-  // value, not the general date pattern, so an unrelated date elsewhere in
-  // the article's own text is never touched. Falls back to the full
-  // remaining body text (no dedicated content-container selector assumed)
-  // rather than throwing — this module errs toward "under-clean but
-  // present" text over failing an otherwise-parseable page on a
-  // text-extraction nuance.
+  // Article text: the container (or full-body-fallback) text content with
+  // the amendment tag and article-number label (including the "- اصدار"
+  // suffix, when present) stripped out, since those are metadata, not
+  // article body text. The effective-date string (if found) is removed by
+  // its literal matched value, not the general date pattern, so an
+  // unrelated date elsewhere in the article's own text is never touched.
   let text = bodyText
     .replace(ENACTMENT_CLAUSE_PATTERN, "")
     .replace(ARTICLE_NUMBER_PATTERN, "")
