@@ -60,6 +60,51 @@ what we noticed.
   if a genuine categorization need emerges — design a proper enum/entity
   then, not a free-text field now.
 
+### Legal Source Historical Text Availability (Phase 6 versioning premise)
+
+- Identified: Batch 2 live cross-check against legallaw.ul.edu.lb, Code of
+  Obligations and Contracts, Article 844 (2026-08-14)
+- Classification: Flag for a future decision — does not block or change any
+  current batch's work. Option 1 (current-only text, no historical
+  versioning) remains the implemented approach.
+- Status: Open, not resolved. Logged for whoever next revisits the Phase 6
+  versioning decision (see "Lebanese Legal Knowledge Base — Phase 6 Domain
+  Review" below, decision 3, and `docs/PHASE6_IMPLEMENTATION_PLAN.md`
+  Section 5).
+- Notes: Article 844's real page includes a section labeled "النص السابق
+  للمادة" ("previous text of the article"), showing the pre-amendment
+  wording with its own validity date range (09/03/1932-29/03/2019), directly
+  on the same page as the current text. Section 5's stated rationale for
+  Option 1 is that sources note *that* and *by what* an article was amended
+  but do not preserve the superseded wording itself — this appears not to
+  hold, at least for this one article. Caveats: only one article has been
+  inspected this deeply, not a survey — unknown whether a "previous text"
+  section is reliably present for every amended article or specific to this
+  one; the previous text shown here is nearly identical to the current text
+  (the 2019 amendment only added a sentence permitting single-person company
+  formation), so this doesn't prove the site preserves deep multi-revision
+  history, only that at least the immediately-prior version is available for
+  this amendment event. Incidental, same-category finding logged alongside:
+  the real page also includes a full French translation of the article,
+  directly contradicting `PHASE6_LEGAL_CORPUS_VALIDATION.md`'s
+  `[UNVERIFIED]` tag on French-text availability for this source.
+- **Update, 2026-08-15 — do not conflate with the separate
+  multi-`LawArticleID` finding below.** A follow-up investigation (Code of
+  Commerce, Article 16, `LawArticleID` 982862 vs. 1056370 — two different
+  IDs listed for the same article number in `AmendedArticles.aspx`) was
+  suspected to be a second instance of "superseded text served under a
+  different ID." Direct comparison showed it is **not**: both IDs return
+  byte-for-byte identical, current content, including the same inline
+  "previous text" sections. The two IDs are duplicate access paths to the
+  same record (the `AmendedArticles.aspx` listing groups rows by amending
+  instrument, so one article amended by two different laws over time
+  appears twice, each occurrence getting its own row/ID) — not two
+  different versions of the text. This finding is walked back; it does not
+  affect or resemble the Article 844 finding above, which remains open and
+  unresolved. The Article 844 finding is about the *same record*
+  preserving superseded wording inline; the Commerce-16 investigation was
+  about *different records* possibly disagreeing — they turned out not to.
+
 ## Resolved Items
 
 ### Lebanese Legal Knowledge Base — Phase 6 Domain Review
