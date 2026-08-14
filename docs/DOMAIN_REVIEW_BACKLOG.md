@@ -105,7 +105,60 @@ what we noticed.
   preserving superseded wording inline; the Commerce-16 investigation was
   about *different records* possibly disagreeing — they turned out not to.
 
+### Legal KB Retrieval Quality Gap — Doctrinal Terminology vs. Statute Wording
+
+- Identified: Batch 4 manual Arabic retrieval-quality review, 20-question
+  real sample against the Code of Obligations and Contracts (2026-08-14)
+- Classification: Retrieval-quality limitation, not a Phase 6 defect —
+  per the plan's own principle that a model/retrieval-quality problem is a
+  separate, evidence-based decision, not something to patch silently inside
+  Batch 4. Logged so it isn't rediscovered from scratch later.
+- Status: Open, explicitly out of scope for Phase 6 to chase.
+- Notes: Three questions in the sample returned no relevant results even
+  from vector search alone (full-text was empty on all three too, so this
+  isn't the hybrid-vs-vector-only question — see the Batch 4 entry above):
+  - "شو هي المسؤولية التقصيرية؟" (What is tortious/delictual liability?) —
+    top hits were about custodianship and bailee liability, not delict.
+  - "ما هو الشرط الفاسخ الصريح؟" (What is an express resolutory clause?) —
+    top hits were about promissory-note form requirements, unrelated.
+  - "الإثراء بلا سبب" (Unjust enrichment) — top hits were about force
+    majeure and cause-of-obligation, not unjust enrichment.
+  Likely cause: the 1932 statute's own wording doesn't use the modern
+  doctrinal terms a question would naturally use, and/or a real embedding-
+  quality limit on this specific vocabulary gap — neither has been
+  investigated further. A model/embedding-provider change or a
+  terminology-expansion layer would be the kind of fix to evaluate, each
+  requiring its own evidence-based decision (`AI_ROADMAP.md` Section 7),
+  not a Phase 6 patch.
+
 ## Resolved Items
+
+### Legal KB Article-Number Lookup — Cross-Source Ambiguity
+
+- Identified: Batch 4 acceptance-criteria live verification (2026-08-14),
+  not a user-reported bug — surfaced by re-running the newly-built
+  article-number direct-lookup feature against the real, multi-source
+  database rather than the single-source mock fixtures its unit tests used.
+- Classification: Correctness bug in newly-shipped code, fixed same-day
+  before Batch 4 was called complete.
+- Status: **Resolved (2026-08-14).**
+- Notes: `article_number` is unique only *within* one `LegalSource`, not
+  across the corpus. Live proof: `article_number = '654'` matches a row in
+  both the Code of Obligations and Contracts (an employment/service-hire
+  termination clause) and the Code of Commerce (an unrelated
+  bankruptcy-rehabilitation clause). The original implementation returned
+  both at the same guaranteed-inclusion priority regardless of which
+  instrument the question named — false confidence on a wrong-source match,
+  worse than no boost at all. Fixed via a small instrument-alias table that
+  scopes the lookup to the named source when one is given, and withholds
+  the guaranteed-inclusion boost entirely (falling back to ordinary hybrid
+  search) when no instrument is named and the number is genuinely ambiguous
+  across sources. Live re-verification of the same Article 654 case,
+  post-fix: instrument named → exactly 1 correctly-sourced boosted result;
+  no instrument named (ambiguous) → 0 boosted results, ordinary hybrid
+  results only, no error; no instrument named + a confirmed-unique article
+  number → unchanged. Full detail and evidence in
+  `docs/PHASE6_IMPLEMENTATION_PLAN.md` Section 9.
 
 ### Lebanese Legal Knowledge Base — Phase 6 Domain Review
 
@@ -155,7 +208,16 @@ what we noticed.
      into one pipeline design (see item 9).
   8. Arabic full-text search: PostgreSQL `'simple'` configuration for MVP.
      No stemming extension. Real Arabic retrieval quality must be tested
-     and the limitation documented (Batch 4).
+     and the limitation documented (Batch 4). **Tested, 2026-08-14:**
+     20-question real sample against the proof source — 1/20 questions had
+     a full-text-only chunk reach the final fused top-8 (well under the
+     20% threshold set for this decision), 17/20 had completely empty
+     `fullTextCandidates` (expected — no Arabic stopword list under
+     `'simple'`). **Decision: hybrid retrieval ships as designed, no
+     vector-only fallback.** Full detail in
+     `docs/PHASE6_IMPLEMENTATION_PLAN.md` Batch 4's Risks entry. A separate,
+     unrelated retrieval-quality gap surfaced by the same review is tracked
+     as its own Open Item above ("Legal KB Retrieval Quality Gap").
   9. Ingestion job execution reuses the existing BullMQ worker/job
      conventions (retryable-vs-terminal shape, per-queue worker) rather
      than a new execution architecture — see item 7.

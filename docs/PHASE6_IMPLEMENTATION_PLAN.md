@@ -537,13 +537,50 @@ only in:
   for MVP.
 
 Two retrieval enhancements are enabled by `articleNumber` existing as a
-typed column, but are **not MVP-blocking** — recommended as a fast-follow
-once the base pipeline is proven:
+typed column. Originally scoped as **not MVP-blocking** — a fast-follow once
+the base pipeline is proven:
 
-- Direct exact-match article lookup (`WHERE article_number = $1`) when a
-  question cleanly references an article number, short-circuiting or
-  supplementing the embed-and-fuse path.
-- Direct exact-match law-number lookup against `LegalSource.instrumentNumber`.
+- **Implemented in Batch 4** (pulled forward from fast-follow — a scope
+  addition beyond Batch 4's original acceptance criteria, flagged as such in
+  its PR): direct exact-match article lookup (`WHERE article_number = $1`),
+  merged as a guaranteed-inclusion candidate ahead of the RRF-fused results
+  rather than fused into their scoring. Real-query evidence forced this
+  forward: "what does Article N say" questions returned
+  semantically-related-but-wrong articles from vector search alone (e.g.
+  Article 654 asked, Articles 96/249/118 returned) — an exact-match problem
+  vector similarity was never going to solve. Detection reuses the same
+  "المادة N" pattern shape already proven in
+  `legal-source-flatview-parser.ts`, extended to sub-numbered ("12-1") and
+  bis-style ("12-مكرر") labels, since Labour Law's real ingested data already
+  has both.
+  - **Cross-source ambiguity bug found and fixed same-day (2026-08-14),
+    during Batch 4 acceptance verification, not before ship.**
+    `article_number` is only unique *within* one source, not across all
+    five — live-DB proof: `article_number = '654'` matches a row in **both**
+    the Code of Obligations and Contracts (an employment/service-hire
+    termination clause) and the Code of Commerce (a bankruptcy-rehabilitation
+    clause) — two unrelated articles. The initial, unscoped implementation
+    surfaced **both** at the same guaranteed-inclusion (`score: Infinity`)
+    priority regardless of which instrument the question actually named —
+    false confidence on a wrong-source match. Fixed by: (1) a small,
+    deliberately non-exhaustive Arabic instrument-alias table
+    (`INSTRUMENT_ALIASES` in `search.ts`) that scopes the lookup to one
+    source via a `legal_source_id IN (SELECT id FROM legal_sources WHERE
+    title ILIKE ...)` subquery when the question names an instrument (e.g.
+    "قانون الموجبات والعقود", "قانون التجارة", "قانون العمل"); (2) when no
+    instrument is named and the unscoped lookup still returns rows from more
+    than one distinct source, the guaranteed-inclusion boost is withheld
+    entirely and the query falls back to hybrid search alone — no error, no
+    unverified guess presented as certain. **Live re-verification, same
+    Article 654 case, post-fix:** instrument named ("...من قانون الموجبات
+    والعقود") → exactly 1 boosted result, correctly from the Code of
+    Obligations and Contracts source; no instrument named (ambiguous) → 0
+    boosted results, 8 ordinary hybrid results returned, no error; no
+    instrument named + a confirmed-unique article number (654 in a
+    different, single-source instance — article 1000) → unchanged, still 1
+    boosted result — regression-clean.
+- Still a fast-follow, not yet implemented: direct exact-match law-number
+  lookup against `LegalSource.instrumentNumber`.
 
 `authorityTier` / `jurisdiction` filtering are present as structural query
 parameters, defaulted to "no-op" (all tiers, `jurisdiction = 'LB'`) — same
@@ -965,8 +1002,18 @@ copy-pasting the existing migration pattern without adjusting it.
 ### Batch 4 — Legal retrieval integration
 
 - **Scope:** `searchLegalKbChunks()` in `search.ts`; `'simple'`-config
-  full-text leg; `licenseStatus`/`legalStatus` filtering.
-- **Files:** `packages/shared/ai/retrieval/search.ts`.
+  full-text leg; `licenseStatus`/`legalStatus` filtering; `LEGAL_KB_LICENSE_MODE`
+  env flag + checked-in production-clearances registry
+  (`legal-kb-production-clearances.ts`) as the two-gate guard on top of
+  `licenseStatus`. **Scope addition beyond original acceptance criteria**
+  (flagged explicitly, not folded in silently): direct exact-match
+  article-number lookup (`WHERE article_number = $1`), pulled forward from
+  Section 9's fast-follow list after real-query evidence showed vector
+  search alone can't answer "what does Article N say" — see Section 9 for
+  the resolved discussion.
+- **Files:** `packages/shared/ai/retrieval/search.ts`,
+  `packages/shared/ai/retrieval/legal-kb-production-clearances.ts`,
+  `packages/shared/ai/config/index.ts`.
 - **Depends on:** Batch 3; Domain Review items 8, 10.
 - **Acceptance criteria:** A real query against real indexed content returns
   relevant chunks; global scope proven (no `organizationId` anywhere in the
@@ -974,10 +1021,36 @@ copy-pasting the existing migration pattern without adjusting it.
   is excluded when the deployment flag says production-only).
 - **Tests:** Real hybrid search against real embedded content; a
   deliberately-forced test proving a `DEVELOPMENT_ONLY` row is excluded
-  under the production-gated flag.
-- **Risks:** `'simple'`-config full-text quality for Arabic is unproven until
-  tested against real queries — budget time to evaluate result quality, not
-  just "does the query execute."
+  under the production-gated flag; article-number-lookup tests (plain
+  integer, sub-numbered, no-article-in-question unchanged path, article
+  number absent from corpus doesn't error, direct match respects the same
+  `legal_status`/`license_status` scoping as the two hybrid legs,
+  instrument-named lookup scopes to and boosts only the correct source when
+  the same number exists elsewhere too, no-instrument-named ambiguous lookup
+  withholds the boost and falls back to hybrid results without erroring).
+  30/30 passing in `search.test.ts`, 77/77 shared-package-wide. Live
+  (non-mocked) re-verification of all three article-number-lookup cases
+  (instrument-scoped, ambiguous-fallback, unique-unchanged) against the real
+  database — see this section's cross-source ambiguity note above for the
+  actual before/after evidence.
+- **Risks:** ~~`'simple'`-config full-text quality for Arabic is unproven
+  until tested against real queries — budget time to evaluate result
+  quality, not just "does the query execute."~~ **Resolved (2026-08-14),
+  evidence-based:** manually reviewed against a 20-question real sample
+  (Code of Obligations and Contracts) covering specific-article, conceptual,
+  casual-phrasing, and single-keyword queries. 17/20 questions had a
+  completely empty `fullTextCandidates` (expected — `'simple'` has no
+  Arabic stopword list, so a full natural-language question ANDs every word
+  including function words); only 1/20 had a full-text-only chunk reach the
+  final fused top-8, well under the 20% "actively misleading" threshold set
+  for this decision, and that one hit was plausibly relevant. Full-text
+  performed as designed on its best case (single-keyword queries) without
+  polluting results elsewhere. **Decision: hybrid retrieval ships as
+  originally designed — no vector-only fallback.** Separately, this same
+  review surfaced that vector search alone also missed on three genuinely
+  hard semantic queries (tortious liability, express resolutory clause,
+  unjust enrichment) — logged as a retrieval-quality gap in
+  `DOMAIN_REVIEW_BACKLOG.md`, explicitly out of scope for Phase 6 to chase.
 
 ### Batch 5 — Citation verification + legal query API
 
