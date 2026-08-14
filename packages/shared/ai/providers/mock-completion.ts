@@ -13,6 +13,17 @@ import type { CompletionProvider, CompletionProviderResult } from "./types";
 const SOURCE_BLOCK_PATTERN = /\[SOURCE id=([0-9a-fA-F-]{36})[^\]]*\]([\s\S]*?)\[\/SOURCE\]/g;
 export const FORCE_INVALID_CITATION_MARKER = "__MOCK_FORCE_INVALID_CITATION__";
 
+// Same convention, one parameter: appends a controllable "المادة <N>"
+// mention to the mock answer's prose, with a citation that otherwise stays
+// valid — isolates testing Legal KB's article-existence check (an
+// additional check layered on top of citation verification, not a
+// replacement for it) from citation verification itself. The number is
+// caller-supplied so the same marker exercises a nonexistent number, a
+// number that only exists in a different (uncited) source, or a genuinely
+// valid one, depending on what the test's mocked DB fixture says.
+const FORCE_ARTICLE_MENTION_PATTERN = /__MOCK_FORCE_ARTICLE_MENTION__:(\S+)/;
+export const FORCE_ARTICLE_MENTION_MARKER = "__MOCK_FORCE_ARTICLE_MENTION__";
+
 interface ParsedSource {
   chunkId: string;
   content: string;
@@ -36,6 +47,9 @@ export async function mockComplete(
   const lastUserMessage =
     [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
   const forceInvalid = lastUserMessage.includes(FORCE_INVALID_CITATION_MARKER);
+  const articleMentionMatch = lastUserMessage.match(
+    FORCE_ARTICLE_MENTION_PATTERN,
+  );
 
   if (sources.length === 0) {
     const content = JSON.stringify({
@@ -52,8 +66,12 @@ export async function mockComplete(
     ? `FABRICATED EXCERPT NOT PRESENT IN SOURCE: ${chosen.content.slice(0, 40)}`
     : chosen.content.slice(0, Math.min(80, chosen.content.length));
 
+  const answer = articleMentionMatch
+    ? `Mock answer grounded in ${sources.length} retrieved source(s). المادة ${articleMentionMatch[1]} تنص على الحكم المطلوب.`
+    : `Mock answer grounded in ${sources.length} retrieved source(s).`;
+
   const content = JSON.stringify({
-    answer: `Mock answer grounded in ${sources.length} retrieved source(s).`,
+    answer,
     sources: [{ chunkId: chosen.chunkId, excerpt }],
     confidence: forceInvalid ? 50 : 85,
   });

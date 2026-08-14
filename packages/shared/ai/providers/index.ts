@@ -16,7 +16,10 @@ export type {
   CompletionProvider,
   CompletionProviderResult,
 } from "./types";
-export { FORCE_INVALID_CITATION_MARKER } from "./mock-completion";
+export {
+  FORCE_INVALID_CITATION_MARKER,
+  FORCE_ARTICLE_MENTION_MARKER,
+} from "./mock-completion";
 export {
   countTokens,
   batchTextsByTokenLimit,
