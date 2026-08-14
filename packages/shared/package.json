@@ -13,7 +13,8 @@
     "db:generate": "dotenv -e ../../.env -- prisma generate",
     "db:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "db:seed": "dotenv -e ../../.env -- prisma db seed",
-    "eval": "dotenv -e ../../.env -- tsx scripts/run-eval.ts"
+    "eval": "dotenv -e ../../.env -- tsx scripts/run-eval.ts",
+    "legal-kb-search-debug": "dotenv -e ../../.env -- tsx scripts/legal-kb-search-debug.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1087.0",
