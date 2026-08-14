@@ -60,3 +60,9 @@ export interface RiskOverviewDto {
   redFlags: RiskFlagDto[];
   timeline: TimelineEntryDto[];
 }
+
+export interface SummaryOverviewDto {
+  analysisId: string;
+  createdAt: string;
+  text: string;
+}

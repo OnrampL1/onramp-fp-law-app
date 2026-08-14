@@ -10,12 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  contractDetails,
-  contractPagesById,
-  contractTimelineById,
-  internalNotesById,
-} from "@/lib/data";
 import type { ContractStatus } from "@/lib/data";
 import {
   ChevronRight,
@@ -37,6 +31,8 @@ import { ContractContentViewer } from "@/components/contracts/ContractContentVie
 import { ContractInsights } from "@/components/contracts/ContractInsights";
 import { ContractTimeline } from "@/components/contracts/ContractTimeline";
 import { useContractDetail } from "@/hooks/useContractDetail";
+import { useTriggerContractAnalysis } from "@/hooks/useContractAnalysis";
+import { isAxiosError } from "axios";
 
 const statuses: ContractStatus[] = ["Draft", "Active", "Expired", "Terminated"];
 
@@ -56,20 +52,11 @@ function formatDate(value: string | null): string {
   });
 }
 
-// Insights/Timeline/Notes are not backed by a real API yet (no AI analysis
-// or audit-log read endpoint for the frontend) — still sourced from mock
-// fixtures until those features exist. Everything else on this page (title,
-// counterparty, status, dates, tags, uploader, document content) is real.
-const MOCK_DATA_KEY = "CTR-10470";
-
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: contract, isLoading, isError } = useContractDetail(id);
-
-  const pages = contractPagesById[MOCK_DATA_KEY];
-  const timeline = contractTimelineById[MOCK_DATA_KEY];
-  const notes = internalNotesById[MOCK_DATA_KEY];
+  const triggerAnalysis = useTriggerContractAnalysis(id);
 
   if (isLoading) {
     return (
@@ -145,9 +132,10 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {/* Action buttons — Analyze Contract / Download / Witness Link remain
-            non-functional placeholders until those features are built.
-            Edit Contract and Clause Investigator are wired to real pages. */}
+        {/* Action buttons — Download / Witness Link remain non-functional
+    placeholders until those features are built. Edit Contract,
+    Clause Investigator, and Analyze Contract are wired to real
+    pages/endpoints. */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -168,9 +156,20 @@ export default function ContractDetailPage() {
               <DropdownMenuGroup>
                 <DropdownMenuLabel>AI Tools</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem
+                  className="gap-2"
+                  disabled={
+                    triggerAnalysis.isPending ||
+                    contract.processingStatus === "PENDING_EXTRACTION" ||
+                    contract.processingStatus === "EXTRACTION_FAILED" ||
+                    contract.processingStatus === "AI_PENDING"
+                  }
+                  onClick={() => triggerAnalysis.mutate()}
+                >
                   <ScrollText className="size-4 text-muted-foreground" />
-                  Analyze Contract
+                  {triggerAnalysis.isPending
+                    ? "Queuing..."
+                    : "Analyze Contract"}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2"
@@ -250,6 +249,14 @@ export default function ContractDetailPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        {triggerAnalysis.isError && (
+          <p className="text-sm text-destructive">
+            {isAxiosError(triggerAnalysis.error) &&
+            triggerAnalysis.error.response?.status === 409
+              ? "This contract hasn't finished text extraction yet."
+              : "Couldn't queue analysis. Please try again."}
+          </p>
+        )}
       </div>
 
       {/* 3-column workspace */}
@@ -266,14 +273,14 @@ export default function ContractDetailPage() {
         </div>
         <div className="lg:col-span-3">
           <ContractInsights
-            contract={contractDetails[MOCK_DATA_KEY]}
-            notes={notes}
+            contractId={contract.id}
+            processingStatus={contract.processingStatus}
           />
         </div>
       </div>
 
       {/* Bottom: activity timeline */}
-      <ContractTimeline events={timeline} />
+      <ContractTimeline key={contract.id} contractId={contract.id} />
     </div>
   );
 }
