@@ -14,6 +14,13 @@ export interface RetrievedChunk {
   headingPath: string | null;
   content: string;
   score: number;
+  // Legal KB only — Contract/Organization Brain chunks have no article
+  // number and their candidate rows never select one, so this stays
+  // undefined (not present on the object at all, not merely null) for
+  // those corpora rather than forcing a meaningless field onto their
+  // shape. See formatSourceBlocks() in investigator.ts for the one place
+  // this is read.
+  articleNumber?: string | null;
 }
 
 // Reciprocal Rank Fusion: combines two ranked lists (vector similarity,
@@ -35,6 +42,11 @@ interface CandidateRow {
   chunk_index: number;
   heading_path: string | null;
   content: string;
+  // Only ever selected by Legal KB's candidate queries (legal_chunks has
+  // the column; contract_chunks/organization_brain_chunks don't) — absent
+  // on the object entirely for the other two corpora's rows, not merely
+  // null. See hybridSearch()'s mapping below.
+  article_number?: string | null;
 }
 
 // Exported for direct unit testing — the RRF dedup/scoring math (a chunk
@@ -107,6 +119,11 @@ async function hybridSearch(
       headingPath: row.heading_path,
       content: row.content,
       score,
+      // Conditional, not `row.article_number ?? null`: Contract/
+      // Organization Brain rows never have this key at all, and this
+      // keeps it genuinely absent on their RetrievedChunk objects rather
+      // than present-but-always-null.
+      ...(row.article_number !== undefined ? { articleNumber: row.article_number } : {}),
     }));
 
   return optimizeContext(results);
@@ -244,7 +261,7 @@ export function legalKbCandidateFetcher(): CandidateFetcher {
     vectorCandidates: (queryEmbedding, candidateLimit) => {
       const vectorLiteral = `[${queryEmbedding.join(",")}]`;
       return prisma.$queryRaw<CandidateRow[]>`
-        SELECT id, legal_source_id AS source_id, chunk_index, heading_path, content
+        SELECT id, legal_source_id AS source_id, chunk_index, heading_path, content, article_number
         FROM legal_chunks
         WHERE ${legalScopeSql()}
           AND embedding IS NOT NULL
@@ -258,7 +275,7 @@ export function legalKbCandidateFetcher(): CandidateFetcher {
     // mismatch the generated column's own tokenization.
     fullTextCandidates: (query, candidateLimit) =>
       prisma.$queryRaw<CandidateRow[]>`
-        SELECT id, legal_source_id AS source_id, chunk_index, heading_path, content
+        SELECT id, legal_source_id AS source_id, chunk_index, heading_path, content, article_number
         FROM legal_chunks
         WHERE ${legalScopeSql()}
           AND content_tsv @@ websearch_to_tsquery('simple', ${query})
@@ -344,7 +361,7 @@ function articleNumberCandidates(
     : Prisma.empty;
 
   return prisma.$queryRaw<CandidateRow[]>`
-    SELECT id, legal_source_id AS source_id, chunk_index, heading_path, content
+    SELECT id, legal_source_id AS source_id, chunk_index, heading_path, content, article_number
     FROM legal_chunks
     WHERE ${legalScopeSql()}
       AND article_number = ${articleNumber}
@@ -417,6 +434,11 @@ export async function searchLegalKbChunks(
     headingPath: row.heading_path,
     content: row.content,
     score: Number.POSITIVE_INFINITY,
+    // This function's own WHERE clause already filtered on
+    // article_number = ${articleNumber}, so row.article_number is always
+    // set here — always populated, not conditional like hybridSearch()'s
+    // mapping (which also serves Contract/Organization Brain rows).
+    articleNumber: row.article_number ?? null,
   }));
 
   const directIds = new Set(directResults.map((r) => r.id));

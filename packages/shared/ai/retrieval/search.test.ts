@@ -493,6 +493,48 @@ describe("searchLegalKbChunks", () => {
     expect(results[0].score).toBe(Number.POSITIVE_INFINITY);
   });
 
+  // Batch 6 diagnosis (2026-08-14): the model had no way to know a
+  // guaranteed-inclusion chunk's article number unless the chunk's own
+  // text happened to restate it, and correctly declined to attribute a
+  // claim it couldn't verify — even holding the exact right content. This
+  // is the fix's DB-to-RetrievedChunk half; formatSourceBlocks()'s tests
+  // (investigator.test.ts) cover the other half.
+  it("carries the real article_number onto the guaranteed-inclusion result's articleNumber field", async () => {
+    const directRow: CandidateRow & { article_number: string } = {
+      id: "direct-1",
+      source_id: "src-1",
+      chunk_index: 0,
+      heading_path: null,
+      content: "Article 654 text",
+      article_number: "654",
+    };
+    mockPrisma.$queryRaw.mockImplementation((...args: unknown[]) => {
+      const { text } = composedQuery(args);
+      return Promise.resolve(text.includes("article_number =") ? [directRow] : [rowA]);
+    });
+
+    const results = await searchLegalKbChunks({ query: "ماذا تنص المادة 654؟" });
+
+    expect(results[0].id).toBe("direct-1");
+    expect(results[0].articleNumber).toBe("654");
+  });
+
+  it("carries article_number onto hybrid-leg (vector/full-text) results too, not just the direct-lookup leg", async () => {
+    const hybridRowWithArticle: CandidateRow & { article_number: string } = {
+      id: "hybrid-1",
+      source_id: "src-1",
+      chunk_index: 5,
+      heading_path: null,
+      content: "some hybrid-ranked article text",
+      article_number: "42",
+    };
+    mockPrisma.$queryRaw.mockResolvedValue([hybridRowWithArticle]);
+
+    const results = await searchLegalKbChunks({ query: "ما هي مدة الإشعار؟" });
+
+    expect(results[0].articleNumber).toBe("42");
+  });
+
   it("scopes the direct article-number lookup with the same legal_status/license_status filter as the hybrid legs, in production mode", async () => {
     process.env.LEGAL_KB_LICENSE_MODE = "production";
 
