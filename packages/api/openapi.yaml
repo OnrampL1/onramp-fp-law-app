@@ -24,6 +24,11 @@ tags:
     description: Organization settings and preferences
   - name: Organization Brain
     description: Organization-owned templates, policies, clauses, and guidelines
+  - name: Legal Knowledge Base
+    description: >
+      Read-only, globally-shared Lebanese legal reference corpus (Phase 6).
+      Not organization-scoped — every authenticated user queries the same
+      underlying content.
 
 # ─── Reusable components ───────────────────────────────────────────────────────
 components:
@@ -655,6 +660,114 @@ components:
           minLength: 1
           maxLength: 500000
           example: Liability is capped at fees paid in the previous 12 months.
+
+    InvestigatorHistoryTurn:
+      type: object
+      required: [question, answer]
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        answer:
+          type: string
+          minLength: 1
+
+    AskLegalKbBody:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          example: "ماذا تنص المادة 654 من قانون الموجبات والعقود؟"
+        history:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/InvestigatorHistoryTurn"
+
+    LegalKbOfficialGazetteReference:
+      type: object
+      nullable: true
+      properties:
+        number:
+          type: string
+          nullable: true
+        publishDate:
+          type: string
+          format: date
+          nullable: true
+        page:
+          type: string
+          nullable: true
+
+    LegalKbInvestigatorSource:
+      type: object
+      description: >
+        promulgatingAuthority (the Lebanese Republic) is the source's legal
+        authority; compilerSource (e.g. the Lebanese University) is only the
+        copy Clausio indexed, never the authority itself — kept as two
+        distinct fields deliberately, never merged.
+      properties:
+        chunkId:
+          type: string
+          format: uuid
+        excerpt:
+          type: string
+        sourceId:
+          type: string
+          format: uuid
+        headingPath:
+          type: string
+          nullable: true
+        instrumentTitle:
+          type: string
+          example: Code of Obligations and Contracts (قانون الموجبات والعقود)
+        articleNumber:
+          type: string
+          nullable: true
+          example: "654"
+        officialGazetteReference:
+          $ref: "#/components/schemas/LegalKbOfficialGazetteReference"
+        amendingInstrument:
+          type: string
+          nullable: true
+        amendmentEffectiveDate:
+          type: string
+          format: date
+          nullable: true
+        promulgatingAuthority:
+          type: string
+          example: Lebanese Republic
+        compilerSource:
+          type: string
+          example: Lebanese University
+        sourceUrl:
+          type: string
+          format: uri
+        lastVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AskLegalKbResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalKbInvestigatorSource"
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+        chunksRetrieved:
+          type: integer
+          example: 8
 
     AuditAction:
       type: string
@@ -1500,6 +1613,74 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /legal-kb/ask:
+    post:
+      tags: [Legal Knowledge Base]
+      summary: Ask a question against the Lebanese Legal Knowledge Base
+      operationId: askLegalKb
+      description: >
+        Answers a question about Lebanese law using hybrid retrieval (vector
+        + full-text + article-number-aware direct lookup) over a globally
+        shared, platform-ingested corpus — not organization-scoped. Every
+        citation is verified against retrieved chunk content, and every
+        article number the answer mentions in prose is separately checked
+        against the specific cited source's real article numbers before the
+        answer is returned. Not organization-scoped, but the asking
+        organization is still recorded for AI usage cost attribution.
+
+        Engineering-complete does not mean cleared for real end users: per
+        Phase 6's standing gate, this endpoint must not be shown to a real
+        end user in production without a qualified legal reviewer engaged,
+        independent of test coverage.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskLegalKbBody"
+      responses:
+        "200":
+          description: Citation-verified answer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AskLegalKbResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The Legal Knowledge Base has no indexed content yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "502":
+          description: Could not produce a verifiable, citation- and article-existence-checked answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Legal Knowledge Base search is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /contracts:
     get:
