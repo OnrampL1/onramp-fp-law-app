@@ -23,7 +23,7 @@ import { QUESTION as CASE_021_QUESTION } from "./fixtures/legal-kb/021-citation-
 import { QUESTION as CASE_022_QUESTION } from "./fixtures/legal-kb/022-hallucinated-article-number";
 import { QUESTION as CASE_023_QUESTION } from "./fixtures/legal-kb/023-cross-source-ambiguity";
 import { QUESTION as CASE_024_QUESTION } from "./fixtures/legal-kb/024-insufficient-source";
-import { QUESTION as CASE_025_QUESTION } from "./fixtures/legal-kb/025-known-issue-ordinal-conversion";
+import { QUESTION as CASE_025_QUESTION } from "./fixtures/legal-kb/025-ordinal-normalization";
 import { QUESTION as CASE_026_QUESTION } from "./fixtures/legal-kb/026-known-issue-ellipsis-elision";
 import { QUESTION as CASE_027_QUESTION } from "./fixtures/legal-kb/027-adversarial-outside-knowledge";
 import {
@@ -498,21 +498,32 @@ export const LEGAL_KB_GOLDEN_SET: LegalKbGoldenExample[] = [
     score: scoreLegalKbInsufficientSourceDecline,
   },
 
-  // ── KNOWN-ISSUE REGRESSION WATCH (see the fixtures for full context —
-  // PASS means "still exactly the documented Batch 5 residual behavior,"
-  // NOT "this is correct behavior." A FAIL means investigate what
-  // changed, not that the system regressed. Do not "fix" these to pass
-  // more strictly; that defeats their purpose.) ──────────────────────
+  // Formerly a KNOWN-ISSUE REGRESSION WATCH alongside 026 below — now
+  // fixed (citations.ts ordinal<->digit normalization) and reclassified as
+  // an ordinary groundedness case, same bar as 021. See the fixture's own
+  // comment and DOMAIN_REVIEW_BACKLOG.md for the before/after evidence.
   {
     id: "025",
     source: "engineering",
-    category: "negative_case",
-    scenario: "negative",
+    category: "groundedness",
+    scenario: "normal",
     jurisdiction: "LB",
     question: CASE_025_QUESTION,
+    // No mustMentionAnywhere: the model doesn't reliably restate "177" in
+    // its prose (it answers with the conditions themselves), and this
+    // case's whole point is proving verifyCitations() accepts the excerpt
+    // regardless of which of the two equivalent ordinal/digit forms the
+    // model happens to use when quoting — scoreLegalKbGrounding's own
+    // accepted + sourced + verifyCitations() checks are exactly that proof.
     expected: {},
-    score: scoreLegalKbKnownIssueStillReproduces,
+    score: scoreLegalKbGrounding,
   },
+
+  // ── KNOWN-ISSUE REGRESSION WATCH (see the fixture for full context —
+  // PASS means "still exactly the documented Batch 5 residual behavior,"
+  // NOT "this is correct behavior." A FAIL means investigate what
+  // changed, not that the system regressed. Do not "fix" this to pass
+  // more strictly; that defeats its purpose.) ─────────────────────────
   {
     id: "026",
     source: "engineering",

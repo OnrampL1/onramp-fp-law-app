@@ -28,10 +28,47 @@ const ALEF_HAMZA_VARIANTS = /[أإآٱ]/g;
 // the stray space. Stripped for both Latin and Arabic punctuation.
 const WHITESPACE_BEFORE_PUNCTUATION = /\s+([.,;:!?،؛؟])/g;
 
+// Fixed, curated equivalence table for the first ten Arabic spelled-out
+// ordinals — legal enumerated lists in this corpus essentially never go
+// beyond ten items (confirmed: Code of Obligations and Contracts Article
+// 177 uses اولا-خامسا for a 5-item list). Unlike the prompt-instruction
+// approach tried first (which measurably did not change the model's
+// behavior — it converted ordinals to digits identically on repeated
+// attempts), this is a fixed, unambiguous, curated mapping, same
+// justification standard as the alef-hamza/whitespace fixes above: it
+// never changes which item is being referred to, only which of two
+// standard ways of numbering it is used. Applied one-directionally (word
+// -> digit) during normalize(), so whichever side (the stored source text,
+// which uses the spelled-out form, or the model's excerpt, which may use
+// either) ends up compared in the same canonical digit form.
+const ARABIC_ORDINALS: ReadonlyArray<readonly [string, string]> = [
+  ["اولا", "1"],
+  ["ثانيا", "2"],
+  ["ثالثا", "3"],
+  ["رابعا", "4"],
+  ["خامسا", "5"],
+  ["سادسا", "6"],
+  ["سابعا", "7"],
+  ["ثامنا", "8"],
+  ["تاسعا", "9"],
+  ["عاشرا", "10"],
+];
+const ORDINAL_TO_DIGIT: Record<string, string> = Object.fromEntries(ARABIC_ORDINALS);
+// Arabic letters aren't part of JS regex's \w, so \b never fires around
+// them — using explicit Arabic-letter lookaround instead of \b to require
+// a whole-word match (e.g. not matching "اولا" as a substring of some
+// longer, unrelated word).
+const ARABIC_LETTER = "\\u0600-\\u06FF";
+const ORDINAL_PATTERN = new RegExp(
+  `(?<![${ARABIC_LETTER}])(${ARABIC_ORDINALS.map(([word]) => word).join("|")})(?![${ARABIC_LETTER}])`,
+  "g",
+);
+
 function normalize(text: string): string {
   return text
     .toLowerCase()
     .replace(ALEF_HAMZA_VARIANTS, "ا")
+    .replace(ORDINAL_PATTERN, (word) => ORDINAL_TO_DIGIT[word])
     .replace(WHITESPACE_BEFORE_PUNCTUATION, "$1")
     .replace(/\s+/g, " ")
     .trim();
