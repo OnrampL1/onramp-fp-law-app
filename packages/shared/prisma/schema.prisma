@@ -521,6 +521,13 @@ enum LegalStatus {
   UNKNOWN
 }
 
+/// CLEARED_FOR_PRODUCTION on a row is not self-executing: searchLegalKbChunks()
+/// (packages/shared/ai/retrieval/search.ts) only serves a
+/// CLEARED_FOR_PRODUCTION source in production mode if its id also appears
+/// in the checked-in packages/shared/ai/retrieval/legal-kb-production-clearances.ts
+/// registry. Setting this status without that registry entry requires the
+/// actual legal/licensing risk-acceptance review to have happened first —
+/// do not set CLEARED_FOR_PRODUCTION as a shortcut to unblock a query bug.
 enum LegalLicenseStatus {
   DEVELOPMENT_ONLY
   UNDER_REVIEW
