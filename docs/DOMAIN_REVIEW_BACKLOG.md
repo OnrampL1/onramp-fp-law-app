@@ -160,11 +160,11 @@ what we noticed.
 - Notes — what's still causing rejections after both fixes, per the
   live re-measurement:
   - **Ordinal-to-digit list reformatting** (e.g. اولا/ثانيا/ثالثا →
-    1/2/3): the prompt instruction not to do this did not stop it on the
-    one question in the sample that triggers it every time
-    ("ما هي شروط صحة الرضى في العقد؟") — reproduced identically on both
-    generation attempts, pre- and post-prompt-change. This is a real,
-    unresolved prompt-compliance gap, not a hypothesis.
+    1/2/3): **resolved, 2026-08-15** — see the "Legal KB Ordinal-to-Digit
+    Citation Normalization" entry under Resolved Items below. A third
+    prompt-instruction attempt was deliberately not tried, since the first
+    one measurably did nothing; fixed instead by a curated citations.ts
+    normalization, same category as the whitespace/alef-hamza fixes above.
   - **Elision without a literal ellipsis**: on
     "هل يمكن فسخ عقد الايجار لعدم الدفع؟", attempt 1 (pre-fix behavior)
     used "..." to splice two non-adjacent list items into one excerpt;
@@ -173,7 +173,26 @@ what we noticed.
     remaining text with a bare newline — same non-contiguous-splice
     problem, just without the character the prompt told it not to use.
     The instruction addressed the letter of the pattern, not the
-    underlying behavior.
+    underlying behavior. **A second, differently-shaped fix was tried
+    (2026-08-15) and also failed**: rather than another "don't do X"
+    instruction, `legal-kb-ask/v1.md` was rewritten to explicitly direct
+    the model to cite non-adjacent relevant spans as separate entries in
+    "sources" (the schema already supports multiple citations per answer —
+    confirmed, not assumed), with a concrete worked example mirroring this
+    exact failure shape. Live re-verified, 2/2, against the real pipeline:
+    the model ignored the new instruction entirely and spliced with a
+    literal "..." again, identically to the original behavior. Unlike the
+    ordinal case, no citations.ts normalization fix is safe here either —
+    there's no curated, unambiguous way to reconstruct which two
+    non-adjacent spans were meant to be joined without weakening the
+    fabrication check for genuinely-spliced fabricated text. The prompt
+    rewrite was reverted afterward, since it didn't help and there's no
+    reason to carry an ineffective change — `legal-kb-ask/v1.md` is back to
+    its original wording (the excerpt-must-be-contiguous rule as it existed
+    before this attempt). **Confirmed unresolved after two independent fix
+    attempts; not chased further** —
+    see case 026 in `LEGAL_KB_GOLDEN_SET` (still a known-issue regression
+    watch, now the last one).
   - **Cross-chunk misattribution** (real text, attached to the wrong
     `chunkId` among several similar source blocks): the one question that
     exhibited this in the original sample
@@ -196,6 +215,69 @@ what we noticed.
     zero in Phase 6" reasoning applies.
 
 ## Resolved Items
+
+### Labour Law Flat-View Parser — "Preliminary Provisions" Articles Left with a Null Heading Path
+
+- Identified: Post-Batch-6 review of Labour Law extraction output
+  (2026-08-15).
+- Classification: Real, narrow parser gap — the Labour Law's own table of
+  contents (in the real fixture page) lists "احكام اولية" (Preliminary
+  Provisions, articles 1-9) as its own top-level section before "الباب
+  الاول", a fourth `<h2>` heading kind alongside Book/Chapter/article that
+  `legal-source-flatview-parser.ts` didn't recognize. Its 9 articles fell
+  through to `headingPath: null` since neither `currentBook` nor
+  `currentChapter` had been set yet at that point in the document.
+- Status: **Resolved (2026-08-15).**
+- Fix: added `PRELIMINARY_PROVISIONS_HEADING_PATTERN` (matching `^احكام
+  \s*اولية`) alongside the existing Book/Chapter patterns, treated as
+  Book-level (sets `currentBook`, resets `currentChapter`) since it plays
+  the same top-level-section role structurally.
+- Verification: before the fix, exactly 9 of 125 real Labour Law articles
+  (articles 1-9) had `headingPath: null`; after, 0 of 125 do — confirmed
+  directly against the real fixture page, not assumed. Two new tests added
+  (`legal-source-flatview-parser.test.ts`): one asserting article 1 gets a
+  real, single-level heading path, one asserting no article in the real
+  page has a null heading path at all. Full parser suite: 11/11 (was 9/9).
+
+### Legal KB Ordinal-to-Digit Citation Normalization
+
+- Identified: Batch 5 diagnostic sample (2026-08-14) — see the "Legal KB
+  Answer Generation — Residual Citation-Rejection Causes" entry above for
+  the original finding.
+- Classification: Real, provably-safe normalization gap — same category as
+  the whitespace-before-punctuation and alef-hamza fixes, not a new kind of
+  fix. A prompt-instruction-only attempt (Batch 5) was tried first and
+  measurably failed: the model converted spelled-out Arabic ordinals
+  (اولا/ثانيا/ثالثا/رابعا/خامسا) to digits (1/2/3/4/5) identically on
+  repeated attempts, before and after the instruction was added.
+- Status: **Resolved (2026-08-15).**
+- Fix: `citations.ts`'s `normalize()` gained a fixed, curated equivalence
+  table for the first ten Arabic spelled-out ordinals (اولا through عاشرا,
+  1 through 10) — legal enumerated lists in this corpus essentially never
+  go beyond ten items. Applied one-directionally (ordinal word → digit)
+  during normalization, so the stored source text (which uses the
+  spelled-out form) and the model's excerpt (whichever form it happens to
+  use) end up compared in the same canonical digit form. Matched with
+  Arabic-letter lookaround (not `\b`, which never fires around Arabic in
+  JS regex) to avoid matching a substring of some unrelated longer word.
+- Verification: 3 new unit tests in `citations.test.ts` — accepts an
+  excerpt using the real Code of Obligations and Contracts Article 177
+  5-item list converted to digits; accepts a mid-list ordinal converted in
+  isolation; and, the regression case that must never break, still rejects
+  a fabricated excerpt that reuses a real digit/ordinal token attached to
+  the wrong list item's content. Live re-verified, 2/2, against the real
+  pipeline with the real question ("ما هي شروط صحة الرضى في العقد؟"): the
+  model still converts the ordinals to digits exactly as before (unchanged
+  model behavior — this was never a model-behavior fix), but the citation
+  now passes because both sides normalize to the same form. Full
+  regression: shared 96/96 (was 93/93), Legal KB golden set 9/9 including
+  the now-fixed case 025 (`fixtures/legal-kb/025-ordinal-normalization.ts`,
+  renamed from its former known-issue name and reclassified from
+  `scoreLegalKbKnownIssueStillReproduces` to the ordinary
+  `scoreLegalKbGrounding` bar used by case 021).
+- **Not resolved by the same approach**: the ellipsis/elision splicing
+  pattern (case 026) — see the Residual Causes entry above for why a second
+  fix attempt there also failed and was not chased further.
 
 ### Legal KB Direct Article Lookup — Model Declines Despite an Exact Guaranteed-Inclusion Match
 

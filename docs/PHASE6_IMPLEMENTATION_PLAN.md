@@ -1113,6 +1113,22 @@ copy-pasting the existing migration pattern without adjusting it.
   item — Batch 5 does not require zero rejections to be complete, only
   that the safe fixes are applied and the residual risk is honestly
   measured and documented.
+- **Follow-up (2026-08-15) — one of the two residual near-misses fixed,
+  the other confirmed still unresolved after a second attempt:**
+  Ordinal-to-digit conversion is now fixed via a curated ordinal↔digit
+  equivalence table in `citations.ts`'s `normalize()` (same category as the
+  whitespace/alef-hamza fixes), not a third prompt-instruction attempt —
+  live re-verified 2/2 on the real question that reproduced it. Ellipsis
+  elision was retried with a differently-shaped fix (directing the model to
+  cite non-adjacent relevant spans as separate `sources` entries instead of
+  another "don't do X" instruction) and, live re-verified 2/2, the model
+  ignored it and spliced with "..." exactly as before — confirmed
+  unresolved, not chased further. That prompt rewrite was reverted
+  afterward (it didn't help, so it isn't kept); `legal-kb-ask/v1.md` is
+  unchanged from its pre-Batch-6 wording on this rule. Full detail,
+  before/after evidence, and the golden-set/backlog updates in
+  `DOMAIN_REVIEW_BACKLOG.md`'s "Legal KB
+  Ordinal-to-Digit Citation Normalization" (resolved) entry.
 
 ### Batch 6 — Evaluation and hardening
 
