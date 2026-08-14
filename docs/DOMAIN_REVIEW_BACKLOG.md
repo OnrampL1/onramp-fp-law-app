@@ -131,7 +131,155 @@ what we noticed.
   requiring its own evidence-based decision (`AI_ROADMAP.md` Section 7),
   not a Phase 6 patch.
 
+### Legal KB Answer Generation — Residual Citation-Rejection Causes (post-normalization-fix)
+
+- Identified: Batch 5 diagnostic sample (5 + 15 = 20 real Arabic questions
+  against the live API, 2026-08-14), root-caused per-citation rather than
+  guessed at.
+- Classification: Prompt-quality/model-behavior limitation, not a
+  citations.ts defect — deliberately left unfixed per the plan's principle
+  that this needs real iteration over time, not a Phase 6 patch chased to
+  zero. `verifyCitations()`'s strict-match design (AI_ARCHITECTURE.md
+  Section 6 — "never show a fabricated citation") is intentionally
+  preserved; these are cases where the model itself produced text that
+  doesn't verbatim-match its source, which no normalization can safely fix
+  without weakening the fabrication check.
+- Status: Open. Two rounds of fixes already applied and measured (see
+  `PHASE6_IMPLEMENTATION_PLAN.md` Batch 5 section for full before/after
+  numbers); what's below is what survived both rounds.
+- Fixes already applied (do not re-attempt these — already shipped):
+  - `citations.ts`: whitespace-before-punctuation and alef-hamza
+    (أ/إ/آ/ٱ↔ا) orthographic normalization, added to `normalize()` — both
+    confirmed provably meaning-preserving, regression-tested to still
+    reject genuinely reworded/fabricated excerpts, and confirmed live to
+    fix a real case in the fresh sample.
+  - `legal-kb-ask/v1.md`: explicit instructions added not to convert
+    spelled-out Arabic ordinals to digits, not to splice non-adjacent text
+    with an ellipsis, and to attribute each excerpt to its exact
+    `chunkId` when several similar source blocks are present.
+- Notes — what's still causing rejections after both fixes, per the
+  live re-measurement:
+  - **Ordinal-to-digit list reformatting** (e.g. اولا/ثانيا/ثالثا →
+    1/2/3): the prompt instruction not to do this did not stop it on the
+    one question in the sample that triggers it every time
+    ("ما هي شروط صحة الرضى في العقد؟") — reproduced identically on both
+    generation attempts, pre- and post-prompt-change. This is a real,
+    unresolved prompt-compliance gap, not a hypothesis.
+  - **Elision without a literal ellipsis**: on
+    "هل يمكن فسخ عقد الايجار لعدم الدفع؟", attempt 1 (pre-fix behavior)
+    used "..." to splice two non-adjacent list items into one excerpt;
+    after the prompt change, attempt 2 stopped using "..." but instead
+    silently dropped the two skipped list items and concatenated the
+    remaining text with a bare newline — same non-contiguous-splice
+    problem, just without the character the prompt told it not to use.
+    The instruction addressed the letter of the pattern, not the
+    underlying behavior.
+  - **Cross-chunk misattribution** (real text, attached to the wrong
+    `chunkId` among several similar source blocks): the one question that
+    exhibited this in the original sample
+    ("ما هي أحكام حماية البيانات الشخصية؟") was accepted clean in the
+    fresh re-measurement. Encouraging, but it's one data point on one
+    question — not confirmed fixed, just not reproduced this time.
+  - **New, distinct finding**: `verifyArticleExistence()` (unrelated to
+    this batch's changes) rejected
+    "ما هي الشروط الواجب توافرها في الشيك؟" — the model's cited excerpt
+    was 100% accurate and verbatim, but the quoted source text itself
+    contains a cross-reference to "المادة 409 من قانون التجارة البرية" (a
+    different instrument's article), and the model's answer prose
+    repeated that number. The source-scoped existence check (correctly,
+    per the Batch 4 cross-source lesson) can't verify an article number
+    against an instrument that wasn't actually cited — even when the
+    number only appears because the cited text itself mentions it as a
+    cross-reference. Not a fabrication; a real edge case in how
+    "mentioned article numbers" are extracted from prose that itself
+    quotes a cross-reference. Logged, not fixed — same "don't chase to
+    zero in Phase 6" reasoning applies.
+
 ## Resolved Items
+
+### Legal KB Direct Article Lookup — Model Declines Despite an Exact Guaranteed-Inclusion Match
+
+- Identified: Batch 6 golden-set case design (2026-08-14), building cases
+  022/029 for `LEGAL_KB_GOLDEN_SET`.
+- Classification: Real, narrow, code-fixable gap — not open-ended
+  prompt-quality risk. Initially suspected to be in the same family as the
+  Batch 5 residual causes (model-behavior variance not safely fixable),
+  but a live diagnostic pass (not assumed) found and confirmed an actual
+  mechanism, then fixed it.
+- Status: **Resolved (2026-08-14).**
+- Root cause: `RetrievedChunk`/`formatSourceBlocks()` never told the model
+  which article number a SOURCE block actually was — only `id` and
+  `heading`. A chunk's article number lives only in `LegalChunk.
+  articleNumber` (DB metadata); when the chunk's own text doesn't happen
+  to restate "Article N" inline, the model had no citable basis to
+  attribute a claim to that article. Combined with the prompt's own
+  (correct, deliberate) rule that every claim must be attributed to a
+  specific article, the model correctly, conservatively declined rather
+  than guess the chunk-to-number mapping — even holding the exact right
+  content at guaranteed-inclusion priority (`score: Infinity`, chunk 0 of
+  8, independently confirmed via `searchLegalKbChunks()`).
+- How this was isolated, not assumed: two competing theories were tested
+  live and ruled out before the real cause was found. (1) Anchoring on the
+  prompt's own worked decline example ("The indexed legal texts do not
+  address this question.", echoed verbatim) — removing the example
+  entirely changed the decline's wording but not the outcome; ruled out.
+  (2) Distraction from surrounding irrelevant chunks — stripping the
+  context down to *only* the correct chunk, zero noise, still declined;
+  ruled out. Adding an explicit `article=N` attribute to the SOURCE tag,
+  sourced from the real `article_number` column, fixed both cases in both
+  single-chunk and full 8-chunk contexts — 4/4.
+- Fix: `search.ts`'s three Legal KB queries (vector leg, full-text leg,
+  direct article-number lookup) now select `article_number`;
+  `RetrievedChunk` carries it as `articleNumber?: string | null`, present
+  only for Legal KB rows (Contract/Organization Brain candidate rows never
+  select the column, so the field is genuinely absent — not
+  present-but-null — on their chunks, proven by a dedicated test).
+  `formatSourceBlocks()` (now exported for direct unit testing, like
+  `buildMessages()`) emits ` article=N` on the tag when present, omits it
+  entirely otherwise. `legal-kb-ask/v1.md` gained one line telling the
+  model that tag is the authoritative article number and may be cited
+  directly without needing to find it in the body text too.
+- Live re-verification, both cases, all four configurations from the
+  diagnosis, through the committed code (not a scratch prompt variant):
+  full pipeline (`answerLegalKbQuestion()`, real 8-chunk context) and
+  single-chunk isolation, both grounded and correctly attributed —
+  `articleNumber: "52"` / `"94"` on the returned source, `confidence:
+  95–100`. Full `LEGAL_KB_GOLDEN_SET` re-run: **9/9**, including the 7
+  cases that already passed before this fix (Article 654 and the rest
+  unaffected) — no regression. Contract/Organization Brain's existing
+  test suites (unaffected by construction, since `articleNumber` is never
+  populated for their chunks) re-run clean: 93/93 shared, 258/258 api,
+  39/39 workers.
+
+### Legal KB Qualified-Legal-Reviewer Requirement — Scope Clarification (No Production Deployment)
+
+- Identified: Post-Batch-6 scope discussion (2026-08-14).
+- Classification: Documentation/status clarification, not an engineering
+  change. Does not touch, weaken, or waive any gating code.
+- Status: **Resolved (2026-08-14) — clarified as out of scope, not waived.**
+- Context: Every batch in this phase (Section 11's engineering-vs-legal-
+  reviewer table; the "Lebanese Legal Knowledge Base — Phase 6 Domain
+  Review" entry above; `PHASE6_IMPLEMENTATION_PLAN.md`'s Risks section) has
+  correctly and consistently flagged that a qualified legal reviewer is
+  needed before this system's content or answers could be trusted by real
+  users, and that no such reviewer exists yet. That remains true and
+  unchanged as a general statement about the system.
+- Clarification: this project has no real production deployment planned —
+  it is an educational/portfolio build, not a system serving real users.
+  The qualified-legal-reviewer requirement exists specifically to protect
+  real users from unreviewed legal content reaching them; that risk cannot
+  occur if there are no real users. The requirement is therefore genuinely
+  **out of scope** for this project as currently scoped — not satisfied,
+  not skipped under pressure, and not silently dropped. If this project's
+  scope ever changes to include a real deployment with real users, the
+  requirement (and the genuine need for a real legal reviewer at that
+  point) applies again exactly as designed, with nothing to re-derive.
+- Explicitly unchanged by this clarification: `LEGAL_KB_LICENSE_MODE`'s
+  fail-closed default, `DEVELOPMENT_ONLY` status on all five sources, and
+  the production-clearances registry guard all remain exactly as built.
+  None of that was contingent on this project having (or not having) real
+  users — it demonstrates a correct engineering pattern for the gate
+  regardless of current deployment plans, and stays in place unmodified.
 
 ### Legal KB Article-Number Lookup — Cross-Source Ambiguity
 

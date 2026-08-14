@@ -1079,6 +1079,40 @@ copy-pasting the existing migration pattern without adjusting it.
 - **Risks:** Prompt quality for Lebanese legal Arabic content is unproven —
   this is the first Arabic-primary content this pipeline has ever generated
   answers from; budget real iteration here, not just plumbing verification.
+- **Completed — real citation-rejection rate, root-caused and measured
+  (2026-08-14):** An initial 5-question live sample showed a ~40%
+  citation-rejection rate; per-citation diagnosis (real cited excerpt vs.
+  real `LegalChunk` content, side by side) plus a larger 15-question sample
+  (13/15 accepted, 2 rejected) put the trustworthy combined rate at 4/20 =
+  20%, split evenly at the question level between near-miss causes
+  (formatting/orthographic — whitespace-before-punctuation, alef-hamza
+  variance, ordinal-to-digit list reformatting, ellipsis-based elision) and
+  genuine-mismatch causes (cross-chunk misattribution of real text being
+  the dominant sub-type — 4 of 5 genuine citation instances — not
+  fabrication or paraphrase). Two narrow, provably meaning-preserving fixes
+  followed: `citations.ts`'s `normalize()` gained whitespace-before-
+  punctuation and alef-hamza (أ/إ/آ/ٱ↔ا) normalization (regression-tested
+  against all `verifyCitations()` callers — Contracts, Organization Brain,
+  Legal KB share one implementation — with an explicit test proving a
+  genuinely reworded excerpt still gets rejected after the change); and
+  `legal-kb-ask/v1.md` gained three targeted instructions (don't convert
+  ordinals to digits, don't splice non-adjacent text with an ellipsis,
+  attribute excerpts precisely when source blocks are similar). A fresh
+  re-measurement on the same 20-question sample plus the same diagnostic
+  method afterward showed 17/20 = 85% accepted (up from 16/20 = 80%): the
+  whitespace-before-punctuation fix confirmed live on a previously-untested
+  question, and the cross-chunk-misattribution question passed clean this
+  run. Two near-miss sub-types (ordinal-to-digit conversion, elision
+  without a literal ellipsis) reproduced even after the prompt change —
+  genuinely unresolved, not swept under the rug — and a new,
+  distinct rejection surfaced from the unrelated `verifyArticleExistence()`
+  check (a cross-reference to a different instrument's article embedded in
+  otherwise 100%-accurate quoted text). All residual causes are logged in
+  `DOMAIN_REVIEW_BACKLOG.md` under "Legal KB Answer Generation — Residual
+  Citation-Rejection Causes" as an acknowledged, ongoing prompt-quality
+  item — Batch 5 does not require zero rejections to be complete, only
+  that the safe fixes are applied and the residual risk is honestly
+  measured and documented.
 
 ### Batch 6 — Evaluation and hardening
 
@@ -1098,6 +1132,50 @@ copy-pasting the existing migration pattern without adjusting it.
   risk (easy to start writing cases that quietly require legal judgment this
   team doesn't have — see Section 11's engineering-vs-legal-reviewer table,
   re-apply it per case).
+- **Completed — golden set built, a real bug found and fixed, full phase
+  re-verified end to end (2026-08-14):** Nine Legal KB golden-set cases
+  added (`packages/shared/ai/evaluation/legal-kb-golden-set` machinery,
+  `LEGAL_KB_GOLDEN_SET` in `golden-set.ts`), run via a dedicated
+  `runLegalKbGoldenSet()` since the existing single-completion-call harness
+  can't exercise a RAG pipeline — reported together with the original
+  golden set under one `npm run eval`. Building the "temporal metadata"
+  and "hallucinated article number" cases surfaced a real, reproducible
+  bug: the model declined two direct-article-number questions despite
+  `searchLegalKbChunks()` correctly guaranteed-including the exact right
+  chunk. Diagnosed live (not assumed) — two competing theories (anchoring
+  on the prompt's worked decline example; distraction from surrounding
+  irrelevant chunks) were tested and ruled out; the real cause was that no
+  SOURCE block ever told the model which article number it was, so the
+  model had no citable basis to attribute a claim to "Article N" and
+  correctly declined rather than guess. Fixed by threading the real
+  `article_number` through `RetrievedChunk` (Legal KB only — proven absent,
+  not merely null, on Contract/Organization Brain chunks) into an
+  `article=N` SOURCE-block tag, plus one prompt line making that tag
+  citable directly. Full `LEGAL_KB_GOLDEN_SET` re-run post-fix: 9/9, no
+  regression on the 7 already-passing cases. Contract/Organization Brain's
+  existing suites re-run clean (93/93 shared, 258/258 api, 39/39 workers).
+  Separately, a full end-to-end pass across all six batches (schema/data,
+  retrieval, generation/citation, evaluation, and one cross-batch
+  integration question) re-confirmed every batch's own findings still
+  hold, and surfaced two pieces of information outside any single batch's
+  scope: a self-corrected gap in live-verification method (this session's
+  own scripts inconsistently forced `AI_PROVIDER_MODE`, and the mock
+  embedding provider silently zero-vectors pure-Arabic text — not a
+  product defect), and a real, general monorepo build-ordering fact (an
+  isolated `packages/api` production build resolves `@starter-kit/shared`
+  against `dist/`, not source — documented in the root `README.md`'s new
+  "Building" section, not specific to Phase 6). Full detail for both in
+  `docs/DOMAIN_REVIEW_BACKLOG.md`'s "Legal KB Direct Article Lookup" entry
+  (now resolved). **Phase 6 is complete, full stop** — not "complete
+  pending legal review": this project has no real production deployment
+  planned, so the qualified-legal-reviewer requirement (Section 11's
+  engineering-vs-legal-reviewer table; the Risks entry below) is genuinely
+  out of scope, not waived. See `docs/DOMAIN_REVIEW_BACKLOG.md`'s "Legal KB
+  Qualified-Legal-Reviewer Requirement" entry for the full reasoning. The
+  gating code itself (`LEGAL_KB_LICENSE_MODE` fail-closed default,
+  `DEVELOPMENT_ONLY` on all five sources, the production-clearances
+  registry) is unchanged and would matter again exactly as designed if that
+  ever stops being true.
 
 ---
 
@@ -1117,7 +1195,16 @@ copy-pasting the existing migration pattern without adjusting it.
   unchanged by this plan) — Phase 6 engineering can complete and the system
   can work correctly _as a retrieval pipeline_ while still not being
   legally trustworthy content — this gap is inherent to the phase, not a
-  Phase 6 engineering defect to solve.
+  Phase 6 engineering defect to solve. **Scope clarification (2026-08-14):**
+  this project has no real production deployment planned (educational/
+  portfolio build, no real users), and the reviewer requirement exists
+  specifically to protect real users from unreviewed legal content — a risk
+  that can't occur without real users. So for this project as currently
+  scoped, this item is out of scope rather than open; it is not waived, and
+  would apply again exactly as designed if the project's scope ever changed
+  to include a real deployment. Full reasoning in
+  `docs/DOMAIN_REVIEW_BACKLOG.md`'s "Legal KB Qualified-Legal-Reviewer
+  Requirement" entry.
 - **Licensing remains unresolved for all five sources** — this plan builds
   the mechanism to keep development and production cleanly separable, but
   does not and cannot resolve the underlying licensing question itself.
