@@ -88,9 +88,29 @@ async function riskOverview(
   }
 }
 
+async function summaryOverview(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id: contractId } = req.params as unknown as ContractIdParam;
+
+    const overview = await aiAnalysisService.getSummaryOverview(
+      contractId,
+      req.user.orgId,
+    );
+
+    res.json({ data: overview });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export const aiAnalysisController = {
   list,
   getById,
   trigger,
   riskOverview,
+  summaryOverview,
 };

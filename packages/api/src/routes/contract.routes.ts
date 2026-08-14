@@ -19,6 +19,13 @@ import {
 } from "../schemas/ai-analysis.schemas";
 import { contractInvestigatorController } from "../controllers/contract-investigator.controller";
 import { askInvestigatorBodySchema } from "../schemas/contract-investigator.schemas";
+import {
+  contractNoteIdParamSchema,
+  createContractNoteSchema,
+  listContractNotesQuerySchema,
+  updateContractNoteSchema,
+} from "../schemas/contract-note.schemas";
+import { contractNoteController } from "../controllers/contract-note.controller";
 
 const router = Router();
 
@@ -74,6 +81,15 @@ router.get(
 );
 
 router.get(
+  "/:id/timeline",
+  authenticate,
+  authorize("OWNER", "ADMIN", "INTERNAL"),
+  validate(contractIdParamSchema, "params"),
+  validate(listContractAuditLogsQuerySchema, "query"),
+  auditController.listTimelineForContract,
+);
+
+router.get(
   "/:id/analyses",
   authenticate,
   validate(contractIdParamSchema, "params"),
@@ -112,6 +128,47 @@ router.get(
   authenticate,
   validate(contractIdParamSchema, "params"),
   withAuth(aiAnalysisController.riskOverview),
+);
+
+router.get(
+  "/:id/summary-overview",
+  authenticate,
+  validate(contractIdParamSchema, "params"),
+  withAuth(aiAnalysisController.summaryOverview),
+);
+
+router.get(
+  "/:id/notes",
+  authenticate,
+  validate(contractIdParamSchema, "params"),
+  validate(listContractNotesQuerySchema, "query"),
+  withAuth(contractNoteController.list),
+);
+
+router.post(
+  "/:id/notes",
+  authenticate,
+  authorize("OWNER", "ADMIN", "INTERNAL"),
+  validate(contractIdParamSchema, "params"),
+  validate(createContractNoteSchema, "body"),
+  withAuth(contractNoteController.create),
+);
+
+router.put(
+  "/:id/notes/:noteId",
+  authenticate,
+  authorize("OWNER", "ADMIN", "INTERNAL"),
+  validate(contractNoteIdParamSchema, "params"),
+  validate(updateContractNoteSchema, "body"),
+  withAuth(contractNoteController.update),
+);
+
+router.delete(
+  "/:id/notes/:noteId",
+  authenticate,
+  authorize("OWNER", "ADMIN", "INTERNAL"),
+  validate(contractNoteIdParamSchema, "params"),
+  withAuth(contractNoteController.remove),
 );
 
 export { router as contractRouter };

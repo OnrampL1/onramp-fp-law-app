@@ -10,6 +10,7 @@ import { witnessPortalRouter } from "./witness-portal.routes";
 import { notificationRouter } from "./notification.routes";
 import { organizationBrainRouter } from "./organization-brain.routes";
 import { legalKbRouter } from "./legal-kb.routes";
+import { dashboardRouter } from "./dashboard.routes";
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.use("/users", userRouter);
 router.use("/users", witnessRouter);
 router.use("/invitations", invitationRouter);
 router.use("/contracts", contractRouter);
+router.use("/dashboard", dashboardRouter);
 router.use("/organization-brain", organizationBrainRouter);
 router.use("/legal-kb", legalKbRouter);
 router.use("/organizations", organizationRouter);
