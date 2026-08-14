@@ -17,10 +17,12 @@
 // Confirmed structural findings (2026-08-15, against the real page —
 // see __fixtures__/legal-source-flatview-parser/REAL_FIXTURES.md):
 //   - Content is a flat sequence of <h2> heading blocks, each followed by
-//     its own content <div>. Three kinds of <h2> occur, distinguished only
+//     its own content <div>. Four kinds of <h2> occur, distinguished only
 //     by their text (no distinguishing class observed): Book/Part and
-//     Chapter headings, which don't contain the article-number keyword;
-//     and article headings, which do.
+//     Chapter headings, and a one-off "احكام اولية" (Preliminary
+//     Provisions) heading preceding the first Book heading (articles 1-9
+//     on the Labour Law page) — none of these three contain the
+//     article-number keyword; article headings do.
 //   - Encoding: the HTTP Content-Type header says utf-8 and is correct;
 //     the in-page <meta charset="windows-1252"> tag is WRONG and must be
 //     ignored — confirmed directly (Python strict-UTF-8 decode succeeds,
@@ -68,6 +70,14 @@ const ARABIC_ENACTMENT_WORD = "اصدار"; // اصدار
 const ARABIC_BOOK_WORD = "الباب"; // الباب
 const ARABIC_CHAPTER_WORD = "الفصل"; // الفصل
 const ARABIC_SINGLE_CHAPTER_WORD = "فصل\\s*وحيد"; // فصل وحيد
+// The Labour Law's own table of contents (line 124 of the real fixture)
+// lists "احكام اولية (1-9)" as its own top-level section before "الباب
+// الاول" — a fourth <h2> heading kind alongside Book/Chapter/article,
+// confirmed on the real page. Treated as Book-level (its own
+// currentBook, resetting currentChapter) since it plays the same
+// "top-level section" role structurally, even though it isn't itself
+// labeled "الباب".
+const ARABIC_PRELIMINARY_PROVISIONS_PHRASE = "احكام\\s*اولية"; // احكام اولية
 const ARABIC_LAW_WORD = "قانون"; // قانون
 const ARABIC_EXECUTED_BY_DECREE = "منفذ\\s*بمرسوم"; // منفذ بمرسوم
 
@@ -105,6 +115,7 @@ const AMENDMENT_TAG_PATTERN = new RegExp(
 
 const BOOK_HEADING_PATTERN = new RegExp(`^${ARABIC_BOOK_WORD}`);
 const CHAPTER_HEADING_PATTERN = new RegExp(`^(${ARABIC_CHAPTER_WORD}|${ARABIC_SINGLE_CHAPTER_WORD})`);
+const PRELIMINARY_PROVISIONS_HEADING_PATTERN = new RegExp(`^${ARABIC_PRELIMINARY_PROVISIONS_PHRASE}`);
 
 function normalizeNumberLabel(raw: string): string {
   return raw.replace(/\s+/g, "");
@@ -144,6 +155,9 @@ export function parseFlatViewPage(html: string): FlatViewArticle[] {
         currentChapter = null;
       } else if (CHAPTER_HEADING_PATTERN.test(headingText)) {
         currentChapter = headingText;
+      } else if (PRELIMINARY_PROVISIONS_HEADING_PATTERN.test(headingText)) {
+        currentBook = headingText;
+        currentChapter = null;
       }
       continue;
     }

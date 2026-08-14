@@ -87,6 +87,25 @@ describe("parseFlatViewPage", () => {
     expect(article10?.headingPath?.split(" > ").length).toBe(2);
   });
 
+  it("attaches the Preliminary Provisions heading path to articles before the first Book heading", () => {
+    const articles = parseFlatViewPage(FIXTURE);
+    const article1 = articles.find((a) => a.articleNumber === "1");
+
+    // "احكام اولية" (Preliminary Provisions) is its own top-level <h2>
+    // section preceding "الباب الاول" in the real page's table of
+    // contents (articles 1-9) — a fourth heading kind alongside
+    // Book/Chapter/article, previously unrecognized and left null.
+    expect(article1?.headingPath).not.toBeNull();
+    expect(article1?.headingPath?.split(" > ").length).toBe(1);
+  });
+
+  it("leaves no article with a null heading path in the real Labour Law page", () => {
+    const articles = parseFlatViewPage(FIXTURE);
+    const nullHeadingArticles = articles.filter((a) => a.headingPath === null);
+
+    expect(nullHeadingArticles).toEqual([]);
+  });
+
   it("throws LegalSourceParseError when no article headings are found", () => {
     const html = "<html><body><h2>Not a law page</h2></body></html>";
     expect(() => parseFlatViewPage(html)).toThrow(LegalSourceParseError);
