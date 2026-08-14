@@ -104,4 +104,71 @@ describe("verifyCitations", () => {
     expect(result.invalidSources).toEqual([]);
     expect(result.reason).toBeUndefined();
   });
+
+  it("accepts an excerpt that differs from the source only by whitespace before punctuation", () => {
+    const retrieved = [
+      chunk({
+        content: "والغاء العقد مع طلب التعويض . وفي هذه الحالة يحق للفريق الآخر.",
+      }),
+    ];
+    const sources: CitedSource[] = [
+      { chunkId: retrieved[0].id, excerpt: "والغاء العقد مع طلب التعويض." },
+    ];
+
+    expect(verifyCitations(sources, retrieved).valid).toBe(true);
+  });
+
+  it("accepts an excerpt that differs from the source only by alef-hamza orthographic variance", () => {
+    const retrieved = [
+      chunk({
+        content: "يمكن حل العقد قبل حلول أجله بسبب إذا انتهت المدة أو لسبب آخر.",
+      }),
+    ];
+    const sources: CitedSource[] = [
+      {
+        chunkId: retrieved[0].id,
+        excerpt: "يمكن حل العقد قبل حلول اجله بسبب اذا انتهت المدة او لسبب اخر.",
+      },
+    ];
+
+    expect(verifyCitations(sources, retrieved).valid).toBe(true);
+  });
+
+  it("still rejects a genuinely reworded/paraphrased excerpt after normalization", () => {
+    // Same subject matter and vocabulary as a real near-miss case, but the
+    // clause order and connectors are actually different — normalization
+    // must not paper over a real paraphrase, only representation artifacts.
+    const retrieved = [
+      chunk({
+        content:
+          "على ان العقد لا يلغى حتما في هذه الحالة. فان الفريق الذي لم تنفذ حقوقه يستطيع ان يطالب بالتنفيذ.",
+      }),
+    ];
+    const sources: CitedSource[] = [
+      {
+        chunkId: retrieved[0].id,
+        excerpt:
+          "لكن، في هذه الحالة، العقد لا يلغى حتمًا. فإن الفريق الذي لم تُنفذ حقوقه...",
+      },
+    ];
+
+    const result = verifyCitations(sources, retrieved);
+
+    expect(result.valid).toBe(false);
+    expect(result.invalidSources).toEqual(sources);
+  });
+
+  it("still rejects an excerpt whose content is simply not present, even after normalization", () => {
+    const retrieved = [
+      chunk({ content: "أجرة العمل تستحق شهريا او كما اتفق عليه الفريقان." }),
+    ];
+    const sources: CitedSource[] = [
+      {
+        chunkId: retrieved[0].id,
+        excerpt: "اجرة العمل تستحق فورا عند انتهاء الخدمة مباشرة.",
+      },
+    ];
+
+    expect(verifyCitations(sources, retrieved).valid).toBe(false);
+  });
 });
