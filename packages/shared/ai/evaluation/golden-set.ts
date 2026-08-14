@@ -1,10 +1,39 @@
-import type { GoldenExample } from "./types";
+import type { GoldenExample, LegalKbGoldenExample } from "./types";
 import {
   scoreRiskExtraction,
   scoreSummaryGroundedness,
   type RiskGoldenExpectation,
   type SummaryGoldenExpectation,
 } from "./scoring";
+import {
+  scoreLegalKbGrounding,
+  scoreLegalKbHallucinationCheck,
+  scoreLegalKbCrossSourceAmbiguityGuard,
+  scoreLegalKbInsufficientSourceDecline,
+  scoreLegalKbKnownIssueStillReproduces,
+  scoreLegalKbTemporalMetadata,
+  scoreLegalKbAdversarialOutsideKnowledge,
+  scoreLegalKbAdversarialPersonalizedAdvice,
+  type LegalKbGroundingExpectation,
+  type LegalKbTemporalMetadataExpectation,
+  type LegalKbAdversarialAdviceExpectation,
+} from "./legal-kb-scoring";
+
+import { QUESTION as CASE_021_QUESTION } from "./fixtures/legal-kb/021-citation-grounding";
+import { QUESTION as CASE_022_QUESTION } from "./fixtures/legal-kb/022-hallucinated-article-number";
+import { QUESTION as CASE_023_QUESTION } from "./fixtures/legal-kb/023-cross-source-ambiguity";
+import { QUESTION as CASE_024_QUESTION } from "./fixtures/legal-kb/024-insufficient-source";
+import { QUESTION as CASE_025_QUESTION } from "./fixtures/legal-kb/025-known-issue-ordinal-conversion";
+import { QUESTION as CASE_026_QUESTION } from "./fixtures/legal-kb/026-known-issue-ellipsis-elision";
+import { QUESTION as CASE_027_QUESTION } from "./fixtures/legal-kb/027-adversarial-outside-knowledge";
+import {
+  QUESTION as CASE_028_QUESTION,
+  MUST_NOT_MENTION as CASE_028_MUST_NOT_MENTION,
+} from "./fixtures/legal-kb/028-adversarial-personalized-advice";
+import {
+  QUESTION as CASE_029_QUESTION,
+  EXPECTED_AMENDING_INSTRUMENT as CASE_029_EXPECTED_AMENDING_INSTRUMENT,
+} from "./fixtures/legal-kb/029-temporal-metadata";
 
 import { INPUT as CASE_001_INPUT } from "./fixtures/extraction/001-basic-metadata";
 import { INPUT as CASE_002_INPUT } from "./fixtures/extraction/002-contract-dates";
@@ -389,6 +418,134 @@ export const GOLDEN_SET: GoldenExample[] = [
       minOverallScore: 40,
     } satisfies RiskGoldenExpectation,
     score: risk(CASE_020_INPUT),
+  },
+];
+
+// Legal KB cases, run separately via runLegalKbGoldenSet() (run-legal-kb.ts)
+// — see LegalKbGoldenExample's comment in types.ts for why these can't run
+// through the same runGoldenSet() harness as GOLDEN_SET above. All real
+// jurisdiction ("LB"), not the "general" placeholder every case above still
+// uses — the first cases in this evaluation suite where jurisdiction is
+// populated for real. Deliberately spread across all five ingested
+// sources (Copyright, Labour, Code of Obligations and Contracts, Code of
+// Commerce, Electronic Transactions/Personal Data), not clustered on the
+// single Batch 3/4 proof source.
+export const LEGAL_KB_GOLDEN_SET: LegalKbGoldenExample[] = [
+  // ── GROUNDEDNESS ────────────────────────────────────────────────────
+  {
+    id: "021",
+    source: "engineering",
+    category: "groundedness",
+    scenario: "normal",
+    jurisdiction: "LB",
+    question: CASE_021_QUESTION,
+    expected: {
+      mustMentionAnywhere: ["الارسال اللاسلكي"],
+    } satisfies LegalKbGroundingExpectation,
+    score: scoreLegalKbGrounding,
+  },
+  {
+    id: "022",
+    source: "engineering",
+    category: "groundedness",
+    scenario: "normal",
+    jurisdiction: "LB",
+    question: CASE_022_QUESTION,
+    // No expectation fields needed beyond the mechanism itself — see
+    // scoreLegalKbHallucinationCheck: it proves both that this real
+    // question grounds normally AND that verifyArticleExistence() still
+    // catches a synthetic fabricated article number against the same real
+    // retrieved chunks.
+    expected: {},
+    score: scoreLegalKbHallucinationCheck,
+  },
+  {
+    id: "029",
+    source: "engineering",
+    category: "groundedness",
+    scenario: "normal",
+    jurisdiction: "LB",
+    question: CASE_029_QUESTION,
+    expected: {
+      expectedAmendingInstrument: CASE_029_EXPECTED_AMENDING_INSTRUMENT,
+    } satisfies LegalKbTemporalMetadataExpectation,
+    score: scoreLegalKbTemporalMetadata,
+  },
+
+  // ── NEGATIVE CASES ──────────────────────────────────────────────────
+  {
+    id: "023",
+    source: "engineering",
+    category: "negative_case",
+    scenario: "negative",
+    jurisdiction: "LB",
+    question: CASE_023_QUESTION,
+    // Regression proof for the Batch 4 cross-source-ambiguity fix — see
+    // scoreLegalKbCrossSourceAmbiguityGuard. Would have failed before that
+    // fix (both Article 654 chunks were force-included at equal,
+    // unverified guaranteed-inclusion priority).
+    expected: {},
+    score: scoreLegalKbCrossSourceAmbiguityGuard,
+  },
+  {
+    id: "024",
+    source: "engineering",
+    category: "negative_case",
+    scenario: "negative",
+    jurisdiction: "LB",
+    question: CASE_024_QUESTION,
+    expected: {},
+    score: scoreLegalKbInsufficientSourceDecline,
+  },
+
+  // ── KNOWN-ISSUE REGRESSION WATCH (see the fixtures for full context —
+  // PASS means "still exactly the documented Batch 5 residual behavior,"
+  // NOT "this is correct behavior." A FAIL means investigate what
+  // changed, not that the system regressed. Do not "fix" these to pass
+  // more strictly; that defeats their purpose.) ──────────────────────
+  {
+    id: "025",
+    source: "engineering",
+    category: "negative_case",
+    scenario: "negative",
+    jurisdiction: "LB",
+    question: CASE_025_QUESTION,
+    expected: {},
+    score: scoreLegalKbKnownIssueStillReproduces,
+  },
+  {
+    id: "026",
+    source: "engineering",
+    category: "negative_case",
+    scenario: "negative",
+    jurisdiction: "LB",
+    question: CASE_026_QUESTION,
+    expected: {},
+    score: scoreLegalKbKnownIssueStillReproduces,
+  },
+
+  // ── ADVERSARIAL ─────────────────────────────────────────────────────
+  {
+    id: "027",
+    source: "engineering",
+    category: "adversarial",
+    scenario: "adversarial",
+    jurisdiction: "LB",
+    question: CASE_027_QUESTION,
+    expected: {},
+    score: scoreLegalKbAdversarialOutsideKnowledge,
+  },
+  {
+    id: "028",
+    source: "engineering",
+    category: "adversarial",
+    scenario: "adversarial",
+    jurisdiction: "LB",
+    question: CASE_028_QUESTION,
+    expected: {
+      mustNotMention: CASE_028_MUST_NOT_MENTION,
+    } satisfies LegalKbAdversarialAdviceExpectation,
+    score: scoreLegalKbAdversarialPersonalizedAdvice,
   },
 ];
 
