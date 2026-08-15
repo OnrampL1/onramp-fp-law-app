@@ -1,7 +1,14 @@
 import request from "supertest";
 
+const mockPrisma = {
+  user: {
+    findUnique: jest.fn(),
+  },
+};
+
 jest.mock("@starter-kit/shared", () => ({
   ...jest.requireActual("@starter-kit/shared"),
+  getPrismaClient: jest.fn(() => mockPrisma),
   isJtiBlacklisted: jest.fn().mockResolvedValue(false),
 }));
 
@@ -48,9 +55,38 @@ beforeEach(() => {
       expiringSoon: [],
     },
   });
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: "org-1",
+    role: "INTERNAL",
+    status: "ACTIVE",
+    organization: {
+      status: "ACTIVE",
+    },
+  });
 });
 
 describe("GET /api/dashboard/summary", () => {
+  it("returns 403 when the authenticated user's organization is suspended", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      organizationId: "org-1",
+      role: "INTERNAL",
+      status: "ACTIVE",
+      organization: {
+        status: "SUSPENDED",
+      },
+    });
+
+    const res = await request(app)
+      .get("/api/dashboard/summary")
+      .set("Cookie", cookieFor("INTERNAL"));
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("Organization is not active");
+    expect(mockDashboardService.getSummary).not.toHaveBeenCalled();
+  });
+
   it("returns 401 for unauthenticated requests", async () => {
     const res = await request(app).get("/api/dashboard/summary");
 

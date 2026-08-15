@@ -1,7 +1,14 @@
 import request from "supertest";
 
+const mockPrisma = {
+  user: {
+    findUnique: jest.fn(),
+  },
+};
+
 jest.mock("@starter-kit/shared", () => ({
   ...jest.requireActual("@starter-kit/shared"),
+  getPrismaClient: jest.fn(() => mockPrisma),
   isJtiBlacklisted: jest.fn().mockResolvedValue(false),
 }));
 
@@ -19,14 +26,51 @@ import { userService } from "../../src/services/user.service";
 
 const mockUserService = userService as jest.Mocked<typeof userService>;
 
-function cookieFor(role: "OWNER" | "ADMIN" | "INTERNAL") {
+function cookieFor(
+  role: "OWNER" | "ADMIN" | "INTERNAL",
+  organizationStatus: "ACTIVE" | "SUSPENDED" | "ARCHIVED" = "ACTIVE",
+) {
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: "org-1",
+    role,
+    status: "ACTIVE",
+    organization: {
+      status: organizationStatus,
+    },
+  });
+
   const token = signAccessToken({ userId: "user-1", orgId: "org-1", role });
   return `accessToken=${token}`;
 }
 
+beforeEach(() => {
+  jest.clearAllMocks();
+
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: "org-1",
+    role: "INTERNAL",
+    status: "ACTIVE",
+    organization: {
+      status: "ACTIVE",
+    },
+  });
+});
+
 // ─── GET /api/users ────────────────────────────────────────────────────────────
 
 describe("GET /api/users", () => {
+  it("returns 403 when the authenticated user's organization is suspended", async () => {
+    const res = await request(app)
+      .get("/api/users")
+      .set("Cookie", cookieFor("OWNER", "SUSPENDED"));
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("Organization is not active");
+    expect(mockUserService.listUsers).not.toHaveBeenCalled();
+  });
+
   it("returns 401 with no session", async () => {
     const res = await request(app).get("/api/users");
     expect(res.status).toBe(401);
