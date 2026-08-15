@@ -1,9 +1,11 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { PlatformProtectedRoute } from "./PlatformProtectedRoute";
 import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { Login } from "../pages/auth/Login";
 import { AcceptInvitation } from "../pages/auth/AcceptInvitation";
+import { PlatformLogin } from "../pages/platform/PlatformLogin";
 import { Dashboard } from "../pages/dashboard/Dashboard";
 import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
@@ -19,7 +21,6 @@ import { UserManagement } from "../pages/dashboard/UserManagement";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import { AuditLogPage } from "../pages/AuditLogPage";
 import { OrganizationBrain } from "../pages/dashboard/OrganizationBrain";
-// import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
   return (
@@ -33,7 +34,22 @@ export function AppRoutes() {
         />
       </Route>
 
+      <Route path="/platform/login" element={<PlatformLogin />} />
+
       <Route path="/witness/:token" element={<WitnessReview />} />
+
+      {/* Protected platform routes */}
+      <Route element={<PlatformProtectedRoute />}>
+        <Route
+          path="/platform/organizations"
+          element={
+            <PlaceholderPage
+              title="Platform Organizations"
+              description="Organization management console"
+            />
+          }
+        />
+      </Route>
 
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>
