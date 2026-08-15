@@ -45,7 +45,7 @@ full direction agreed for each.
 | 3 — Clause Investigator | ✅ Complete |
 | 4 — Organization Brain Ingestion | ✅ Complete |
 | 5 — Organization Brain Retrieval | ✅ Complete |
-| 6 — Lebanese Legal Knowledge Base | 🚧 In progress — Domain Review approved 2026-08-12, Batch 1 pending (see `docs/AI_ROADMAP.md`, `docs/PHASE6_IMPLEMENTATION_PLAN.md`) |
+| 6 — Lebanese Legal Knowledge Base | ✅ Complete — Batches 1–6 (see `docs/AI_ROADMAP.md`, `docs/PHASE6_IMPLEMENTATION_PLAN.md`) |
 | 7–8 | ⏳ Future — not started (see `docs/AI_ROADMAP.md`) |
 
 ### Phase 1 (AI Foundation) — ✅ Complete

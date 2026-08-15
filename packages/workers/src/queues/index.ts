@@ -11,6 +11,7 @@ import { processExtractionJob } from "../jobs/extraction.job";
 import { processAIAnalysisJob } from "../jobs/ai-analysis.job";
 import { processAIAnalysisAggregateJob } from "../jobs/ai-analysis-aggregate.job";
 import { processOrganizationBrainEmbeddingsJob } from "../jobs/organization-brain-embeddings.job";
+import { processLegalKbEmbeddingsJob } from "../jobs/legal-kb-embeddings.job";
 
 const INVITATION_EXPIRY_SWEEP_JOB_ID = "invitation-expiry-sweep";
 const INVITATION_EXPIRY_INTERVAL_MS = 60 * 60 * 1000; // hourly
@@ -94,6 +95,15 @@ export function createWorkers(): Worker[] {
     },
   );
 
+  const legalKbEmbeddingsWorker = new Worker(
+    QUEUE_NAMES.LEGAL_KB_EMBEDDINGS,
+    processLegalKbEmbeddingsJob,
+    {
+      connection,
+      concurrency: 5,
+    },
+  );
+
   const workers = [
     emailWorker,
     embeddingsWorker,
@@ -102,6 +112,7 @@ export function createWorkers(): Worker[] {
     aiAnalysisWorker,
     aiAnalysisAggregateWorker,
     organizationBrainEmbeddingsWorker,
+    legalKbEmbeddingsWorker,
   ];
 
   workers.forEach((worker) => {

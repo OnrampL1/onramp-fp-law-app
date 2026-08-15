@@ -64,3 +64,47 @@ export function getMaxChunksPerOrganizationBrainItem(): number {
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 500;
 }
+
+// Same rationale and pattern as the two ceilings above, checked before any
+// embedding calls fire for a legal source's chunks (summed across all its
+// articles, not per-article). 1,500 default: the largest known source (Code
+// of Obligations and Contracts) has 1,107 articles; 1,500 gives real
+// headroom for longer articles splitting into multiple 500-800 token
+// chunks, while still being a genuine ceiling that would catch something
+// actually gone wrong (e.g. a crawl bug producing far more chunks than any
+// real source should).
+export function getMaxChunksPerLegalSource(): number {
+  const raw = process.env.LEGAL_KB_MAX_CHUNKS_PER_SOURCE;
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1500;
+}
+
+// Environment-level switch, same shape and rationale as AiProviderMode
+// above — a deployment-wide setting, not a per-call param, so a production
+// deployment can never accidentally serve unreviewed legal content just
+// because one call site forgot to pass the right flag. Gates which
+// LegalLicenseStatus values searchLegalKbChunks() is allowed to return.
+// Defaults to "production" (the restrictive option) rather than mirroring
+// AiProviderMode's default-to-full-functionality choice: an unset
+// AI_PROVIDER_MODE only risks spending real money on a mock-intended call,
+// but an unset LEGAL_KB_LICENSE_MODE in a real production deployment risks
+// serving DEVELOPMENT_ONLY/UNDER_REVIEW legal content to end users — a
+// correctness/liability risk, not a cost risk, so this fails closed. Local
+// dev must explicitly opt in via LEGAL_KB_LICENSE_MODE=development.
+export type LegalKbLicenseMode = "development" | "production";
+
+export function getLegalKbLicenseMode(): LegalKbLicenseMode {
+  return process.env.LEGAL_KB_LICENSE_MODE === "development" ? "development" : "production";
+}
+
+// The concrete status list each mode is allowed to query. Development sees
+// everything ingested (including UNDER_REVIEW/DEVELOPMENT_ONLY) so it can
+// actually be reviewed; production is CLEARED_FOR_PRODUCTION only, further
+// gated per-source by legal-kb-production-clearances.ts (search.ts
+// cross-checks both — see that file's doc comment for why one flag isn't
+// enough).
+export function getAllowedLegalLicenseStatuses(): string[] {
+  return getLegalKbLicenseMode() === "development"
+    ? ["DEVELOPMENT_ONLY", "UNDER_REVIEW", "CLEARED_FOR_PRODUCTION"]
+    : ["CLEARED_FOR_PRODUCTION"];
+}
