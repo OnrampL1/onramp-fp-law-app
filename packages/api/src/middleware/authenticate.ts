@@ -1,5 +1,9 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { verifyAccessToken, isJtiBlacklisted } from "@starter-kit/shared";
+import {
+  getPrismaClient,
+  verifyAccessToken,
+  isJtiBlacklisted,
+} from "@starter-kit/shared";
 import type { AccessTokenPayload } from "@starter-kit/shared";
 import type { AuthenticatedRequest } from "../types/express.types";
 
@@ -7,6 +11,12 @@ type DecodedAccessToken = Omit<AccessTokenPayload, "actorType"> & {
   actorType?: string;
   platformUserId?: string;
 };
+
+const prisma = getPrismaClient();
+
+function organizationAllowsMemberAccess(status: string): boolean {
+  return status === "ACTIVE";
+}
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -71,6 +81,49 @@ export async function authenticate(
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
+
+  let authenticatedUser;
+  try {
+    authenticatedUser = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: {
+        id: true,
+        organizationId: true,
+        role: true,
+        status: true,
+        organization: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("[authenticate] User status check failed:", err);
+    res
+      .status(503)
+      .json({ error: "Authentication service temporarily unavailable" });
+    return;
+  }
+
+  if (
+    !authenticatedUser ||
+    authenticatedUser.status !== "ACTIVE" ||
+    authenticatedUser.organizationId !== payload.orgId
+  ) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  if (!organizationAllowsMemberAccess(authenticatedUser.organization.status)) {
+    res.status(403).json({ error: "Organization is not active" });
+    return;
+  }
+
+  payload = {
+    ...payload,
+    role: authenticatedUser.role,
+  };
 
   req.user = payload;
   next();

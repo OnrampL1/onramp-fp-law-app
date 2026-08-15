@@ -15,6 +15,10 @@ import { auditService } from "./audit.service";
 
 const prisma = getPrismaClient();
 
+function organizationAllowsMemberAccess(status: string): boolean {
+  return status === "ACTIVE";
+}
+
 interface LoginInput {
   email: string;
   password: string;
@@ -61,10 +65,20 @@ export class AuthService {
     const tokenHash = hashToken(input.invitationToken);
     const invitation = await prisma.invitation.findUnique({
       where: { tokenHash },
+      include: {
+        organization: {
+          select: {
+            status: true,
+          },
+        },
+      },
     });
 
     if (!invitation) {
       throw createError("Invalid invitation", 400);
+    }
+    if (!organizationAllowsMemberAccess(invitation.organization.status)) {
+      throw createError("Organization is not active", 403);
     }
     if (invitation.status === "ACCEPTED") {
       throw createError("This invitation has already been used", 409);
@@ -144,6 +158,13 @@ export class AuthService {
   async login(input: LoginInput) {
     const user = await prisma.user.findUnique({
       where: { email: input.email },
+      include: {
+        organization: {
+          select: {
+            status: true,
+          },
+        },
+      },
     });
     if (!user) {
       throw createError("Invalid credentials", 401);
@@ -155,6 +176,9 @@ export class AuthService {
     }
     if (user.status !== "ACTIVE") {
       throw createError("This account is not active", 401);
+    }
+    if (!organizationAllowsMemberAccess(user.organization.status)) {
+      throw createError("Organization is not active", 403);
     }
 
     await prisma.user.update({
@@ -185,9 +209,19 @@ export class AuthService {
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
+      include: {
+        organization: {
+          select: {
+            status: true,
+          },
+        },
+      },
     });
     if (!user || user.status !== "ACTIVE") {
       throw createError("Invalid or expired refresh token", 401);
+    }
+    if (!organizationAllowsMemberAccess(user.organization.status)) {
+      throw createError("Organization is not active", 403);
     }
 
     // Rotation: the token just used can never be presented again.
@@ -237,8 +271,23 @@ export class AuthService {
   }
 
   async getProfile(userId: string): Promise<AuthUser> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        organization: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+
     if (!user) throw createError("User not found", 404);
+
+    if (!organizationAllowsMemberAccess(user.organization.status)) {
+      throw createError("Organization is not active", 403);
+    }
+
     return toPublicUser(user);
   }
 }
