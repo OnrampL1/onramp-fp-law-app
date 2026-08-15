@@ -30,3 +30,24 @@ export async function fetchAuditLogList(
 
   return { items: response.data.data, pagination: response.data.meta.pagination };
 }
+
+export interface OrganizationActivityParams {
+  page: number;
+  limit: number;
+}
+
+// Dashboard's curated activity feed — /organizations/:id/activity always
+// applies a fixed action whitelist server-side (mirrors the per-contract
+// timeline), so this only ever sends page/limit, never a caller-supplied
+// action filter.
+export async function fetchOrganizationActivity(
+  organizationId: string,
+  params: OrganizationActivityParams,
+): Promise<AuditLogListResult> {
+  const response = await apiClient.get<ApiEnvelope<AuditLogListResult["items"][number]>>(
+    `/organizations/${organizationId}/activity`,
+    { params },
+  );
+
+  return { items: response.data.data, pagination: response.data.meta.pagination };
+}

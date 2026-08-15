@@ -8,6 +8,7 @@ const ACTIVE_PROMPT_VERSIONS: Record<string, string> = {
   "organization-brain-ask": "v1",
   summary: "v1",
   risk: "v2",
+  metadata: "v1",
 };
 
 const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {
@@ -15,6 +16,7 @@ const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {
   investigator: "v1",
   summary: "v1",
   risk: "v2",
+  metadata: "v1",
 };
 
 export function getActivePromptVersion(promptId: string): string {

@@ -70,9 +70,6 @@ export const createContractMetadataSchema = z.object({
     .default([]),
 
   expirationDate: contractDateSchema("Expiration date"),
-
-  // Single source of truth: the Prisma enum, not a hand-copied string list.
-  legalState: z.nativeEnum(ContractLegalState).optional(),
 });
 
 export type CreateContractMetadataInput = z.infer<
@@ -104,10 +101,6 @@ export const updateContractMetadataSchema = z.object({
 
   effectiveDate: contractDateSchema("Effective date"),
   expirationDate: contractDateSchema("Expiration date"),
-
-  // Nullable (not just optional): the full-replace contract lets the caller
-  // explicitly clear a previously-set legal state back to unset.
-  legalState: z.nativeEnum(ContractLegalState).nullable(),
 
   version: z
     .number()
@@ -179,5 +172,24 @@ export type ListContractsQuery = z.infer<typeof listContractsQuerySchema>;
 export const contractIdParamSchema = z.object({
   id: z.string().uuid("Invalid contract id"),
 });
+
+// ─── Legal state (terminate / reactivate) ──────────────────────────────
+
+// TERMINATED is the one legal state a user sets directly (Owner/Admin
+// only, DDS-agreed). Every other value is derived from dates by
+// deriveLegalState — see packages/shared/contracts/legal-state.ts.
+// "reactivate" doesn't pick a target state; it clears the override and
+// lets the service recompute from the dates.
+export const setContractLegalStateSchema = z.object({
+  action: z.enum(["terminate", "reactivate"]),
+  version: z
+    .number()
+    .int()
+    .positive("A contract version is required for concurrency checking"),
+});
+
+export type SetContractLegalStateInput = z.infer<
+  typeof setContractLegalStateSchema
+>;
 
 export type ContractIdParam = z.infer<typeof contractIdParamSchema>;

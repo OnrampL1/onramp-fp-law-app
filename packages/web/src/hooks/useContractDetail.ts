@@ -1,10 +1,14 @@
 import {
   fetchContractContent,
   fetchContractDetail,
+  setContractLegalState,
   updateContractMetadata,
 } from "../services/contract-detail.service";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { UpdateContractMetadataPayload } from "../types/contracts";
+import type {
+  UpdateContractMetadataPayload,
+  SetContractLegalStatePayload,
+} from "../types/contracts";
 
 export function useContractDetail(id: string | undefined) {
   return useQuery({
@@ -28,6 +32,18 @@ export function useUpdateContractMetadata(id: string | undefined) {
   return useMutation({
     mutationFn: (payload: UpdateContractMetadataPayload) =>
       updateContractMetadata(id as string, payload),
+    onSuccess: (contract) => {
+      queryClient.setQueryData(["contract", id], contract);
+    },
+  });
+}
+
+export function useSetContractLegalState(id: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: SetContractLegalStatePayload) =>
+      setContractLegalState(id as string, payload),
     onSuccess: (contract) => {
       queryClient.setQueryData(["contract", id], contract);
     },

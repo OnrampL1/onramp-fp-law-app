@@ -24,7 +24,6 @@ const initialMetadata: ContractMetadata = {
   counterparty: "",
   tags: [],
   expirationDate: "",
-  legalState: "",
 };
 
 export function UploadContract() {

@@ -48,10 +48,6 @@ export async function uploadContractFile({
     formData.append("expirationDate", metadata.expirationDate);
   }
 
-  if (metadata.legalState) {
-    formData.append("legalState", metadata.legalState);
-  }
-
   const response = await apiClient.post<{ data: UploadContractResponse }>(
     "/contracts",
     formData,

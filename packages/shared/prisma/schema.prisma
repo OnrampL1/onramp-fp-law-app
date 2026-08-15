@@ -210,7 +210,7 @@ model Contract {
   businessStatus   ContractBusinessStatus   @default(DRAFT) @map("business_status")
   processingStatus ContractProcessingStatus @default(PENDING_EXTRACTION) @map("processing_status")
   processingError  String?                  @map("processing_error") @db.Text
-  legalState       ContractLegalState?      @map("legal_state")
+  legalState       ContractLegalState?      @default(DRAFT) @map("legal_state")
 
   tags           String[]
   effectiveDate  DateTime? @map("effective_date") @db.Date
@@ -340,6 +340,7 @@ enum AIAnalysisType {
   SUMMARY
   RISK
   CLAUSE_QUERY
+  METADATA
 }
 
 enum AIAnalysisStatus {
@@ -521,6 +522,7 @@ enum AuditAction {
   CONTRACT_METADATA_UPDATED
   CONTRACT_BUSINESS_STATUS_CHANGED
   CONTRACT_PROCESSING_STATUS_CHANGED
+  CONTRACT_LEGAL_STATE_CHANGED
   CONTRACT_SOFT_DELETED
 
   NOTE_ADDED

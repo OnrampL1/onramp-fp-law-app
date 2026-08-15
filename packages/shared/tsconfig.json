@@ -5,6 +5,13 @@
     "outDir": "./dist",
     "baseUrl": "."
   },
-  "include": ["src/**/*", "auth/**/*", "ai/**/*", "queue/**/*", "db/**/*"],
+  "include": [
+    "src/**/*",
+    "auth/**/*",
+    "ai/**/*",
+    "queue/**/*",
+    "db/**/*",
+    "contracts/**/*"
+  ],
   "exclude": ["node_modules", "dist"]
 }

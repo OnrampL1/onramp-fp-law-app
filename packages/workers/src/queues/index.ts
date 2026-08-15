@@ -2,11 +2,13 @@ import { Worker } from "bullmq";
 import {
   getRedisConnection,
   invitationExpiryQueue,
+  contractLegalStateSweepQueue,
   QUEUE_NAMES,
 } from "@starter-kit/shared";
 import { processEmailJob } from "../jobs/email.job";
 import { processEmbeddingsJob } from "../jobs/embeddings.job";
 import { processInvitationExpiryJob } from "../jobs/invitation-expiry.job";
+import { processContractLegalStateSweepJob } from "../jobs/contract-legal-state-sweep.job";
 import { processExtractionJob } from "../jobs/extraction.job";
 import { processAIAnalysisJob } from "../jobs/ai-analysis.job";
 import { processAIAnalysisAggregateJob } from "../jobs/ai-analysis-aggregate.job";
@@ -14,6 +16,9 @@ import { processOrganizationBrainEmbeddingsJob } from "../jobs/organization-brai
 
 const INVITATION_EXPIRY_SWEEP_JOB_ID = "invitation-expiry-sweep";
 const INVITATION_EXPIRY_INTERVAL_MS = 60 * 60 * 1000; // hourly
+
+const CONTRACT_LEGAL_STATE_SWEEP_JOB_ID = "contract-legal-state-sweep";
+const CONTRACT_LEGAL_STATE_SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000; // daily
 
 // Registers the recurring sweep. BullMQ keys repeatable jobs by their repeat
 // options + jobId, so calling this on every worker restart is idempotent —
@@ -25,6 +30,17 @@ export async function scheduleInvitationExpirySweep(): Promise<void> {
     {
       repeat: { every: INVITATION_EXPIRY_INTERVAL_MS },
       jobId: INVITATION_EXPIRY_SWEEP_JOB_ID,
+    },
+  );
+}
+
+export async function scheduleContractLegalStateSweep(): Promise<void> {
+  await contractLegalStateSweepQueue.add(
+    "sweep",
+    {},
+    {
+      repeat: { every: CONTRACT_LEGAL_STATE_SWEEP_INTERVAL_MS },
+      jobId: CONTRACT_LEGAL_STATE_SWEEP_JOB_ID,
     },
   );
 }
@@ -49,6 +65,15 @@ export function createWorkers(): Worker[] {
   const invitationExpiryWorker = new Worker(
     QUEUE_NAMES.INVITATION_EXPIRY,
     processInvitationExpiryJob,
+    {
+      connection,
+      concurrency: 1,
+    },
+  );
+
+  const contractLegalStateSweepWorker = new Worker(
+    QUEUE_NAMES.CONTRACT_LEGAL_STATE_SWEEP,
+    processContractLegalStateSweepJob,
     {
       connection,
       concurrency: 1,
@@ -98,6 +123,7 @@ export function createWorkers(): Worker[] {
     emailWorker,
     embeddingsWorker,
     invitationExpiryWorker,
+    contractLegalStateSweepWorker,
     extractionWorker,
     aiAnalysisWorker,
     aiAnalysisAggregateWorker,

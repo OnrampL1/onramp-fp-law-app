@@ -12,3 +12,6 @@ export * from "../ai";
 
 // Storage
 export * from "../storage";
+
+// Contracts
+export * from "../contracts";
