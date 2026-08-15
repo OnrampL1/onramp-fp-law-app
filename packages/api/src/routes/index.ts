@@ -10,10 +10,12 @@ import { witnessPortalRouter } from "./witness-portal.routes";
 import { notificationRouter } from "./notification.routes";
 import { organizationBrainRouter } from "./organization-brain.routes";
 import { dashboardRouter } from "./dashboard.routes";
+import { platformAuthRouter } from "./platform-auth.routes";
 
 const router = Router();
 
 router.use("/auth", authRouter);
+router.use("/platform/auth", platformAuthRouter);
 router.use("/users", userRouter);
 router.use("/users", witnessRouter);
 router.use("/invitations", invitationRouter);
