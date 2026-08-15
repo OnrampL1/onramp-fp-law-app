@@ -3,6 +3,11 @@ import { verifyAccessToken, isJtiBlacklisted } from "@starter-kit/shared";
 import type { AccessTokenPayload } from "@starter-kit/shared";
 import type { AuthenticatedRequest } from "../types/express.types";
 
+type DecodedAccessToken = Omit<AccessTokenPayload, "actorType"> & {
+  actorType?: string;
+  platformUserId?: string;
+};
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -25,8 +30,27 @@ export async function authenticate(
   }
 
   let payload: AccessTokenPayload;
+
   try {
-    payload = verifyAccessToken(token);
+    const decoded = verifyAccessToken(token) as DecodedAccessToken;
+
+    if (
+      decoded.actorType === "PLATFORM_USER" ||
+      decoded.platformUserId ||
+      !decoded.userId ||
+      !decoded.orgId
+    ) {
+      res.status(401).json({ error: "Invalid or expired token" });
+      return;
+    }
+
+    payload = {
+      actorType: "USER",
+      userId: decoded.userId,
+      orgId: decoded.orgId,
+      role: decoded.role,
+      jti: decoded.jti,
+    };
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
     return;
