@@ -14,6 +14,7 @@ const prisma = getPrismaClient();
 // Every seeded user shares this password so you can log in as any of them
 // while testing. Never reuse this pattern outside a local/demo database.
 //
+//   Platform Admin:   platform.admin@clausio.local
 //   Owner:            sarah.whitfield@ridgelinevoss.com
 //   Admin:             marcus.chen@ridgelinevoss.com
 //   Internal (Legal):  priya.nair@ridgelinevoss.com
@@ -24,6 +25,7 @@ const DEMO_PASSWORD = "Password123!";
 // Fixed UUIDs for every seeded row so this script is idempotent: re-running
 // it upserts the same rows to the same values instead of erroring on unique
 // constraints or duplicating data.
+const PLATFORM_SUPER_ADMIN_ID = "00000000-0000-4000-8000-000000000001";
 const ORG_ID = "00000000-0000-4000-8000-000000000001";
 
 const USER_OWNER_ID = "00000000-0000-4000-8000-000000000101";
@@ -70,6 +72,23 @@ async function main(): Promise<void> {
   console.info("Seeding Clausio demo data...");
 
   const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
+  // ─── Platform Super Admin ─────────────────────────────────────────────
+  // Platform users are Clausio operators, not Organization members. This
+  // seeded account exists outside any Organization and is used to test
+  // platform-only authentication and management flows.
+  await prisma.platformUser.upsert({
+    where: { id: PLATFORM_SUPER_ADMIN_ID },
+    update: { passwordHash: demoPasswordHash },
+    create: {
+      id: PLATFORM_SUPER_ADMIN_ID,
+      email: "platform.admin@clausio.local",
+      passwordHash: demoPasswordHash,
+      fullName: "Platform Admin",
+      role: "SUPER_ADMIN",
+      status: "ACTIVE",
+      createdAt: daysFromNow(-200),
+    },
+  });
 
   // ─── Organization ─────────────────────────────────────────────────────
   await prisma.organization.upsert({
