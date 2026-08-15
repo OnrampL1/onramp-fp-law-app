@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { PlatformProtectedRoute } from "./PlatformProtectedRoute";
+import { PlatformOrganizations } from "../pages/platform/PlatformOrganizations";
 import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { Login } from "../pages/auth/Login";
@@ -42,12 +43,7 @@ export function AppRoutes() {
       <Route element={<PlatformProtectedRoute />}>
         <Route
           path="/platform/organizations"
-          element={
-            <PlaceholderPage
-              title="Platform Organizations"
-              description="Organization management console"
-            />
-          }
+          element={<PlatformOrganizations />}
         />
       </Route>
 

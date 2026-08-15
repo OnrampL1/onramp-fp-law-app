@@ -111,7 +111,7 @@ export function PlatformLogin() {
                     id="platform-email"
                     type="email"
                     autoComplete="email"
-                    placeholder="platform.admin@clausio.local"
+                    placeholder="you@company.com"
                     className="pl-9"
                     {...register("email")}
                   />
