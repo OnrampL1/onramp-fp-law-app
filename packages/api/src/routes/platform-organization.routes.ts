@@ -8,6 +8,7 @@ import {
   createPlatformOrganizationSchema,
   listPlatformOrganizationsQuerySchema,
   platformOrganizationParamsSchema,
+  updatePlatformOrganizationStatusSchema,
 } from "../schemas/platform-organization.schemas";
 import { PLATFORM_SUPER_ADMIN_ROLES } from "@starter-kit/shared";
 
@@ -35,6 +36,14 @@ router.post(
   validate(platformOrganizationParamsSchema, "params"),
   validate(assignPlatformOrganizationOwnerSchema),
   platformOrganizationController.assignFirstOwner,
+);
+
+router.patch(
+  "/:id/status",
+  authorizePlatform(...PLATFORM_SUPER_ADMIN_ROLES),
+  validate(platformOrganizationParamsSchema, "params"),
+  validate(updatePlatformOrganizationStatusSchema),
+  platformOrganizationController.updateStatus,
 );
 
 router.get(

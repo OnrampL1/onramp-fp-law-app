@@ -46,3 +46,15 @@ export const assignPlatformOrganizationOwnerSchema = z.object({
 export type AssignPlatformOrganizationOwnerInput = z.infer<
   typeof assignPlatformOrganizationOwnerSchema
 >;
+
+export const updatePlatformOrganizationStatusSchema = z.object({
+  status: z.enum(["ACTIVE", "SUSPENDED", "ARCHIVED"], {
+    errorMap: () => ({
+      message: "Status must be one of: ACTIVE, SUSPENDED, ARCHIVED",
+    }),
+  }),
+});
+
+export type UpdatePlatformOrganizationStatusInput = z.infer<
+  typeof updatePlatformOrganizationStatusSchema
+>;

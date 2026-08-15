@@ -39,6 +39,26 @@ export const platformOrganizationController = {
     }
   },
 
+  async updateStatus(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const organization =
+        await platformOrganizationService.updateOrganizationStatus(
+          { id: req.platformUser!.id },
+          req.params.id as string,
+          req.body,
+          requestContextFrom(req),
+        );
+
+      res.json({ data: organization });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { data, pagination } =
