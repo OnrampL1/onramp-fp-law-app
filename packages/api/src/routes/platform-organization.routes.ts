@@ -4,6 +4,7 @@ import { authenticatePlatform } from "../middleware/authenticate-platform";
 import { authorizePlatform } from "../middleware/authorize-platform";
 import { validate } from "../middleware/validate";
 import {
+  assignPlatformOrganizationOwnerSchema,
   createPlatformOrganizationSchema,
   listPlatformOrganizationsQuerySchema,
   platformOrganizationParamsSchema,
@@ -26,6 +27,14 @@ router.get(
   "/",
   validate(listPlatformOrganizationsQuerySchema, "query"),
   platformOrganizationController.list,
+);
+
+router.post(
+  "/:id/owner",
+  authorizePlatform(...PLATFORM_SUPER_ADMIN_ROLES),
+  validate(platformOrganizationParamsSchema, "params"),
+  validate(assignPlatformOrganizationOwnerSchema),
+  platformOrganizationController.assignFirstOwner,
 );
 
 router.get(

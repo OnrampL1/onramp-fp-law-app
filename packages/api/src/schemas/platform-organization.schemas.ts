@@ -1,5 +1,6 @@
 import { OrganizationStatus } from "@prisma/client";
 import { z } from "zod";
+import { passwordPolicySchema } from "./auth.schemas";
 
 export const listPlatformOrganizationsQuerySchema = z.object({
   search: z.string().trim().min(1).max(100).optional(),
@@ -34,4 +35,14 @@ export const createPlatformOrganizationSchema = z.object({
 
 export type CreatePlatformOrganizationInput = z.infer<
   typeof createPlatformOrganizationSchema
+>;
+
+export const assignPlatformOrganizationOwnerSchema = z.object({
+  email: z.string().email().trim().toLowerCase(),
+  fullName: z.string().trim().min(2).max(100),
+  password: passwordPolicySchema,
+});
+
+export type AssignPlatformOrganizationOwnerInput = z.infer<
+  typeof assignPlatformOrganizationOwnerSchema
 >;
