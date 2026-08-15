@@ -1,7 +1,25 @@
 import type { Request, Response, NextFunction } from "express";
 import { platformOrganizationService } from "../services/platform-organization.service";
 
+function requestContextFrom(req: Request) {
+  return { ipAddress: req.ip, userAgent: req.get("user-agent") };
+}
+
 export const platformOrganizationController = {
+  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const organization = await platformOrganizationService.createOrganization(
+        { id: req.platformUser!.id },
+        req.body,
+        requestContextFrom(req),
+      );
+
+      res.status(201).json({ data: organization });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { data, pagination } =

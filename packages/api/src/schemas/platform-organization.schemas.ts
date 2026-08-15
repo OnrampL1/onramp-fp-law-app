@@ -15,3 +15,23 @@ export const platformOrganizationParamsSchema = z.object({
 export type ListPlatformOrganizationsQuery = z.infer<
   typeof listPlatformOrganizationsQuerySchema
 >;
+
+export const createPlatformOrganizationSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(2)
+    .max(80)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+      message:
+        "Slug must use lowercase letters, numbers, and single hyphens between words",
+    }),
+  timezone: z.string().trim().min(1).max(100).default("UTC"),
+  language: z.string().trim().min(2).max(10).default("en"),
+});
+
+export type CreatePlatformOrganizationInput = z.infer<
+  typeof createPlatformOrganizationSchema
+>;

@@ -4,14 +4,23 @@ import { authenticatePlatform } from "../middleware/authenticate-platform";
 import { authorizePlatform } from "../middleware/authorize-platform";
 import { validate } from "../middleware/validate";
 import {
+  createPlatformOrganizationSchema,
   listPlatformOrganizationsQuerySchema,
   platformOrganizationParamsSchema,
 } from "../schemas/platform-organization.schemas";
+import { PLATFORM_SUPER_ADMIN_ROLES } from "@starter-kit/shared";
 
 const router = Router();
 
 router.use(authenticatePlatform);
 router.use(authorizePlatform());
+
+router.post(
+  "/",
+  authorizePlatform(...PLATFORM_SUPER_ADMIN_ROLES),
+  validate(createPlatformOrganizationSchema),
+  platformOrganizationController.create,
+);
 
 router.get(
   "/",
