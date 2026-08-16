@@ -9,6 +9,7 @@ const ACTIVE_PROMPT_VERSIONS: Record<string, string> = {
   "legal-kb-ask": "v1",
   summary: "v1",
   risk: "v2",
+  metadata: "v1",
 };
 
 const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {
@@ -17,6 +18,7 @@ const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {
   "legal-kb": "v1",
   summary: "v1",
   risk: "v2",
+  metadata: "v1",
 };
 
 export function getActivePromptVersion(promptId: string): string {

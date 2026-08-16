@@ -1,6 +1,5 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/badges";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +9,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { ContractStatus } from "@/lib/data";
 import {
   ChevronRight,
   Pencil,
@@ -30,18 +28,15 @@ import { ContractMetadata } from "@/components/contracts/ContractMetaData";
 import { ContractContentViewer } from "@/components/contracts/ContractContentViewer";
 import { ContractInsights } from "@/components/contracts/ContractInsights";
 import { ContractTimeline } from "@/components/contracts/ContractTimeline";
-import { useContractDetail } from "@/hooks/useContractDetail";
+import {
+  useContractDetail,
+  useSetContractLegalState,
+} from "@/hooks/useContractDetail";
 import { useTriggerContractAnalysis } from "@/hooks/useContractAnalysis";
 import { isAxiosError } from "axios";
-
-const statuses: ContractStatus[] = ["Draft", "Active", "Expired", "Terminated"];
-
-const LEGAL_STATE_TO_STATUS: Record<string, ContractStatus> = {
-  DRAFT: "Draft",
-  ACTIVE: "Active",
-  EXPIRED: "Expired",
-  TERMINATED: "Terminated",
-};
+import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
+import { TerminateContractDialog } from "@/components/contracts/TerminateContractDialog";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -57,6 +52,9 @@ export default function ContractDetailPage() {
   const navigate = useNavigate();
   const { data: contract, isLoading, isError } = useContractDetail(id);
   const triggerAnalysis = useTriggerContractAnalysis(id);
+  const setLegalState = useSetContractLegalState(id);
+  const { user } = useAuth();
+  const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -78,9 +76,8 @@ export default function ContractDetailPage() {
     );
   }
 
-  const status = contract.legalState
-    ? LEGAL_STATE_TO_STATUS[contract.legalState]
-    : null;
+  const canManageLegalState = user?.role === "OWNER" || user?.role === "ADMIN";
+  const isTerminated = contract.legalState === "TERMINATED";
 
   return (
     <div className="space-y-6">
@@ -191,37 +188,33 @@ export default function ContractDetailPage() {
             Edit Contract
           </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" className="gap-2" />}
-            >
-              <span className="flex items-center gap-2">
-                Status
-                {status ? (
-                  <StatusBadge status={status} />
-                ) : (
-                  <span className="text-muted-foreground">Not set</span>
-                )}
-                <ChevronDown className="size-4 text-muted-foreground" />
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Set contract status</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {statuses.map((s) => (
-                  <DropdownMenuItem key={s} className="gap-2">
-                    <StatusBadge status={s} />
-                    {s === status && (
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        Current
-                      </span>
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            {canManageLegalState &&
+              (isTerminated ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={setLegalState.isPending}
+                  onClick={() =>
+                    setLegalState.mutate({
+                      action: "reactivate",
+                      version: contract.version,
+                    })
+                  }
+                >
+                  {setLegalState.isPending ? "Reactivating…" : "Reactivate"}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={setLegalState.isPending}
+                  onClick={() => setTerminateDialogOpen(true)}
+                >
+                  Terminate
+                </Button>
+              ))}
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -257,7 +250,24 @@ export default function ContractDetailPage() {
               : "Couldn't queue analysis. Please try again."}
           </p>
         )}
+        {setLegalState.isError && (
+          <p className="text-sm text-destructive">
+            Couldn't update the contract status. Reload and try again.
+          </p>
+        )}
       </div>
+
+      <TerminateContractDialog
+        open={terminateDialogOpen}
+        onOpenChange={setTerminateDialogOpen}
+        isPending={setLegalState.isPending}
+        onConfirm={() =>
+          setLegalState.mutate(
+            { action: "terminate", version: contract.version },
+            { onSuccess: () => setTerminateDialogOpen(false) },
+          )
+        }
+      />
 
       {/* 3-column workspace */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">

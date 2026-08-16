@@ -123,4 +123,38 @@ export const auditController = {
       next(err);
     }
   },
+
+  // GET /organizations/:id/activity — the dashboard's curated activity
+  // feed. Same fixed CONTRACT_TIMELINE_ACTIONS whitelist as the per-contract
+  // timeline above, applied org-wide instead of scoped to one contract, and
+  // never accepts a caller-supplied action filter — unlike /audit-logs
+  // (Owner/Admin oversight only, Domain & Business Rules Section 10), this
+  // never exposes the raw/unfiltered audit trail, so it's safe to open to
+  // every dashboard role including Internal.
+  async listActivityForOrganization(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (req.params.id !== req.user!.orgId) {
+        throw createError("Organization not found", 404);
+      }
+
+      const { page, limit } = req.query as unknown as {
+        page: number;
+        limit: number;
+      };
+
+      const { data, pagination } = await auditService.listAuditLogs(
+        req.user!.orgId,
+        { action: CONTRACT_TIMELINE_ACTIONS },
+        { page, limit },
+      );
+
+      res.json({ data, meta: { pagination } });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

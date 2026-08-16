@@ -3,6 +3,7 @@ export const QUEUE_NAMES = {
   EMAIL: "email",
   EMBEDDINGS: "embeddings",
   INVITATION_EXPIRY: "invitation-expiry",
+  CONTRACT_LEGAL_STATE_SWEEP: "contract-legal-state-sweep",
   EXTRACTION: "extraction",
   AI_ANALYSIS: "ai-analysis",
   AI_ANALYSIS_AGGREGATE: "ai-analysis-aggregate",
@@ -29,6 +30,10 @@ export interface EmbeddingsJobData {
 // "now". The (empty) data shape only exists so the queue can be typed.
 export type InvitationExpiryJobData = Record<string, never>;
 
+// Same shape as InvitationExpiryJobData — the sweep always recomputes
+// against "now", it takes no parameters.
+export type ContractLegalStateSweepJobData = Record<string, never>;
+
 export interface ExtractionJobData {
   contractId: string;
   fileKey: string;
@@ -48,6 +53,10 @@ export interface InvitationExpiryJobResult {
   expiredCount: number;
 }
 
+export interface ContractLegalStateSweepJobResult {
+  updatedCount: number;
+}
+
 export interface ExtractionJobResult {
   status: "EXTRACTION_COMPLETED" | "EXTRACTION_FAILED";
 }
@@ -56,7 +65,7 @@ export interface AIAnalysisJobData {
   contractId: string;
   organizationId: string;
   createdByUserId: string;
-  analysisType: "SUMMARY" | "RISK" | "CLAUSE_QUERY";
+  analysisType: "SUMMARY" | "RISK" | "CLAUSE_QUERY" | "METADATA";
   promptId: string;
   schemaId: string;
   extractedText: string;
@@ -127,6 +136,7 @@ export type JobData =
   | EmailJobData
   | EmbeddingsJobData
   | InvitationExpiryJobData
+  | ContractLegalStateSweepJobData
   | ExtractionJobData
   | AIAnalysisJobData
   | AIAnalysisAggregateJobData

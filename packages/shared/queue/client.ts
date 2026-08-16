@@ -6,6 +6,7 @@ import {
   type EmailJobData,
   type EmbeddingsJobData,
   type InvitationExpiryJobData,
+  type ContractLegalStateSweepJobData,
   type ExtractionJobData,
   type AIAnalysisJobData,
   type AIAnalysisAggregateJobData,
@@ -50,6 +51,11 @@ export const embeddingsQueue = createQueue<EmbeddingsJobData>(
 export const invitationExpiryQueue = createQueue<InvitationExpiryJobData>(
   QUEUE_NAMES.INVITATION_EXPIRY,
 );
+export const contractLegalStateSweepQueue =
+  createQueue<ContractLegalStateSweepJobData>(
+    QUEUE_NAMES.CONTRACT_LEGAL_STATE_SWEEP,
+  );
+
 export const extractionQueue = createQueue<ExtractionJobData>(
   QUEUE_NAMES.EXTRACTION,
 );

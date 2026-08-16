@@ -2,11 +2,7 @@ import { useId, useState, type KeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import {
-  CONTRACT_LEGAL_STATE_OPTIONS,
-  type ContractLegalState,
-  type ContractMetadata,
-} from "../../types/contracts";
+import { type ContractMetadata } from "../../types/contracts";
 import { cn } from "../../lib/utils";
 
 interface ContractMetadataFormProps {
@@ -24,7 +20,6 @@ export function ContractMetadataForm({
   const counterpartyId = useId();
   const tagInputId = useId();
   const expirationDateId = useId();
-  const legalStateId = useId();
 
   const [tagInput, setTagInput] = useState("");
 
@@ -91,27 +86,6 @@ export function ContractMetadataForm({
             updateMetadata({ counterparty: event.target.value })
           }
         />
-      </Field>
-
-      <Field label="Legal State" htmlFor={legalStateId}>
-        <select
-          id={legalStateId}
-          value={value.legalState}
-          disabled={disabled}
-          className={selectClassName}
-          onChange={(event) =>
-            updateMetadata({
-              legalState: event.target.value as ContractLegalState | "",
-            })
-          }
-        >
-          <option value="">Not specified</option>
-          {CONTRACT_LEGAL_STATE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
       </Field>
 
       <Field
@@ -195,6 +169,3 @@ function Field({ label, htmlFor, hint, className, children }: FieldProps) {
     </div>
   );
 }
-
-const selectClassName =
-  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";

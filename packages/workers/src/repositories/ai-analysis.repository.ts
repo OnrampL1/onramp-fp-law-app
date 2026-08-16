@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 const prisma = getPrismaClient();
 
-type AnalysisType = "SUMMARY" | "RISK" | "CLAUSE_QUERY";
+type AnalysisType = "SUMMARY" | "RISK" | "CLAUSE_QUERY" | "METADATA";
 
 export interface CompletedAnalysisInput {
   contractId: string;

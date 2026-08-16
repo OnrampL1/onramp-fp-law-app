@@ -1,9 +1,13 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import type { ContractLegalState } from "@prisma/client";
-import { extractionQueue, getPrismaClient } from "@starter-kit/shared";
+import {
+  extractionQueue,
+  getPrismaClient,
+  uploadFile,
+  deriveLegalState,
+} from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
-import { uploadFile } from "@starter-kit/shared";
 import {
   contractRepository,
   type ContractDetailRow,
@@ -12,6 +16,7 @@ import {
 } from "../repositories/contract.repository";
 import type {
   CreateContractMetadataInput,
+  SetContractLegalStateInput,
   UpdateContractMetadataInput,
 } from "../schemas/contract.schemas";
 import type {
@@ -190,7 +195,6 @@ async function uploadContract(
     counterparty: input.metadata.counterparty,
     tags: input.metadata.tags,
     expirationDate: input.metadata.expirationDate,
-    legalState: input.metadata.legalState,
     fileKey,
     fileChecksum,
     extractedText: null,
@@ -209,7 +213,6 @@ async function uploadContract(
         counterparty: createInput.counterparty,
         tags: createInput.tags,
         expirationDate: createInput.expirationDate?.toISOString() ?? null,
-        legalState: createInput.legalState ?? null,
       },
       ipAddress: input.requestContext.ipAddress,
       userAgent: input.requestContext.userAgent,
@@ -273,6 +276,12 @@ async function updateContractMetadata(
     throw createError("Contract not found", 404);
   }
 
+  const nextLegalState = deriveLegalState(
+    existing.legalState,
+    input.effectiveDate,
+    input.expirationDate,
+  );
+
   const updated = await contractRepository.updateMetadata(
     id,
     user.organizationId,
@@ -283,7 +292,7 @@ async function updateContractMetadata(
       tags: input.tags,
       effectiveDate: input.effectiveDate,
       expirationDate: input.expirationDate,
-      legalState: input.legalState,
+      legalState: nextLegalState,
     },
     {
       action: "CONTRACT_METADATA_UPDATED",
@@ -291,7 +300,74 @@ async function updateContractMetadata(
       actorUserId: user.id,
       organizationId: user.organizationId,
       oldValue: contractMetadataSnapshot(existing),
-      newValue: contractMetadataSnapshot(input),
+      newValue: contractMetadataSnapshot({
+        ...input,
+        legalState: nextLegalState,
+      }),
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+    },
+  );
+
+  if (!updated) {
+    throw createError(
+      "This contract was updated by someone else. Reload to see the latest version.",
+      409,
+    );
+  }
+
+  return toContractDetailDto(updated);
+}
+
+// ─── Legal state (terminate / reactivate) ──────────────────────────────
+
+export interface SetContractLegalStateActor {
+  userId: string;
+  organizationId: string;
+}
+
+async function setContractLegalState(
+  id: string,
+  input: SetContractLegalStateInput,
+  actor: SetContractLegalStateActor,
+  requestContext: { ipAddress?: string; userAgent?: string },
+): Promise<ContractDetailDto> {
+  const user = await getActiveOrganizationUser(
+    actor.userId,
+    actor.organizationId,
+  );
+
+  const existing = await contractRepository.findById(id, user.organizationId);
+
+  if (!existing) {
+    throw createError("Contract not found", 404);
+  }
+
+  if (input.action === "terminate" && existing.legalState === "TERMINATED") {
+    throw createError("Contract is already terminated", 409);
+  }
+
+  if (input.action === "reactivate" && existing.legalState !== "TERMINATED") {
+    throw createError("Contract is not terminated", 409);
+  }
+
+  const nextLegalState: ContractLegalState =
+    input.action === "terminate"
+      ? "TERMINATED"
+      : deriveLegalState(null, existing.effectiveDate, existing.expirationDate);
+
+  const updated = await contractRepository.setLegalState(
+    id,
+    user.organizationId,
+    input.version,
+    nextLegalState,
+    {
+      action: "CONTRACT_LEGAL_STATE_CHANGED",
+      actorType: "USER",
+      actorUserId: user.id,
+      organizationId: user.organizationId,
+      oldValue: { legalState: existing.legalState },
+      newValue: { legalState: nextLegalState },
       ipAddress: requestContext.ipAddress,
       userAgent: requestContext.userAgent,
     },
@@ -408,6 +484,7 @@ async function getContractContent(
 export const contractService = {
   uploadContract,
   updateContractMetadata,
+  setContractLegalState,
   listContracts,
   getContractById,
   getContractContent,

@@ -9,6 +9,7 @@ import { ADMIN_ROLES } from "@starter-kit/shared";
 import {
   contractIdParamSchema,
   listContractsQuerySchema,
+  setContractLegalStateSchema,
   updateContractMetadataSchema,
 } from "../schemas/contract.schemas";
 import { listContractAuditLogsQuerySchema } from "../schemas/audit.schemas";
@@ -67,6 +68,19 @@ router.put(
   validate(contractIdParamSchema, "params"),
   validate(updateContractMetadataSchema, "body"),
   withAuth(contractController.updateMetadata),
+);
+
+// Manual override (Domain & Business Rules: TERMINATED is the sole
+// user-settable legal state; every other value is computed from dates by
+// the daily sweep / on metadata edit). Narrower than metadata edit's role
+// set — Owner/Admin only.
+router.put(
+  "/:id/legal-state",
+  authenticate,
+  authorize("OWNER", "ADMIN"),
+  validate(contractIdParamSchema, "params"),
+  validate(setContractLegalStateSchema, "body"),
+  withAuth(contractController.setLegalState),
 );
 
 // Thin wrapper over the same org-wide audit service, contractId pre-filled

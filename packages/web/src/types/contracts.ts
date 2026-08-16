@@ -14,28 +14,17 @@ export const MAX_CONTRACT_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 export const MIN_PASTED_CONTRACT_TEXT_LENGTH = 40;
 
-export const CONTRACT_LEGAL_STATE_OPTIONS = [
-  { value: "DRAFT", label: "Draft" },
-  { value: "ACTIVE", label: "Active" },
-  { value: "EXPIRED", label: "Expired" },
-  { value: "TERMINATED", label: "Terminated" },
-] as const;
-
 export type AcceptedContractFileExtension =
   (typeof ACCEPTED_CONTRACT_FILE_EXTENSIONS)[number];
 
 export type AcceptedContractMimeType =
   (typeof ACCEPTED_CONTRACT_MIME_TYPES)[number];
 
-export type ContractLegalState =
-  (typeof CONTRACT_LEGAL_STATE_OPTIONS)[number]["value"];
-
 export interface ContractMetadata {
   title: string;
   counterparty: string;
   tags: string[];
   expirationDate: string;
-  legalState: ContractLegalState | "";
 }
 
 export interface SelectedContractFile {
@@ -158,11 +147,15 @@ export interface UpdateContractMetadataPayload {
   tags: string[];
   effectiveDate: string; // "" or "YYYY-MM-DD"
   expirationDate: string; // "" or "YYYY-MM-DD"
-  legalState: ContractLegalStatus | null;
   version: number;
 }
 
 export interface ContractContentResponse {
   processingStatus: ContractDetailResponse["processingStatus"];
   extractedText: string | null;
+}
+
+export interface SetContractLegalStatePayload {
+  action: "terminate" | "reactivate";
+  version: number;
 }

@@ -4,18 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import {
-  CONTRACT_LEGAL_STATE_OPTIONS,
-  type ContractLegalStatus,
-} from "@/types/contracts";
 
 export interface ContractEditFormState {
   title: string;
@@ -23,38 +12,12 @@ export interface ContractEditFormState {
   tags: string[];
   effectiveDate: string; // "" or "YYYY-MM-DD"
   expirationDate: string; // "" or "YYYY-MM-DD"
-  legalState: ContractLegalStatus | "";
 }
 
 interface ContractEditFormProps {
   value: ContractEditFormState;
   disabled?: boolean;
   onChange: (value: ContractEditFormState) => void;
-}
-
-// Same hues as the Active/Draft/Expired/Terminated status badges (badges.tsx)
-// and the RiskBadge severity dots — no new colors introduced.
-const LEGAL_STATE_DOT_CLASS: Record<ContractLegalStatus, string> = {
-  DRAFT: "bg-amber-500",
-  ACTIVE: "bg-emerald-500",
-  EXPIRED: "bg-muted-foreground",
-  TERMINATED: "bg-red-500",
-};
-
-function LegalStateOption({ value }: { value: ContractLegalStatus }) {
-  const label = CONTRACT_LEGAL_STATE_OPTIONS.find(
-    (option) => option.value === value,
-  )?.label;
-
-  return (
-    <span className="flex items-center gap-2">
-      <span
-        className={cn("size-2 rounded-full", LEGAL_STATE_DOT_CLASS[value])}
-        aria-hidden="true"
-      />
-      {label}
-    </span>
-  );
 }
 
 export function ContractEditForm({
@@ -67,7 +30,6 @@ export function ContractEditForm({
   const tagInputId = useId();
   const effectiveDateId = useId();
   const expirationDateId = useId();
-  const legalStateId = useId();
 
   const [tagInput, setTagInput] = useState("");
 
@@ -129,9 +91,7 @@ export function ContractEditForm({
               value={value.counterparty}
               disabled={disabled}
               placeholder="e.g. Acme Corporation"
-              onChange={(event) =>
-                update({ counterparty: event.target.value })
-              }
+              onChange={(event) => update({ counterparty: event.target.value })}
             />
           </FormField>
 
@@ -183,9 +143,7 @@ export function ContractEditForm({
       </Card>
 
       <Card className="p-5">
-        <h2 className="mb-4 text-base font-semibold text-foreground">
-          Dates
-        </h2>
+        <h2 className="mb-4 text-base font-semibold text-foreground">Dates</h2>
 
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Effective Date" htmlFor={effectiveDateId}>
@@ -212,37 +170,6 @@ export function ContractEditForm({
             />
           </FormField>
         </div>
-      </Card>
-
-      <Card className="p-5">
-        <h2 className="mb-4 text-base font-semibold text-foreground">
-          Legal Status
-        </h2>
-
-        <FormField label="Status" htmlFor={legalStateId}>
-          <Select
-            value={value.legalState === "" ? null : value.legalState}
-            disabled={disabled}
-            onValueChange={(next) =>
-              update({ legalState: (next ?? "") as ContractLegalStatus | "" })
-            }
-          >
-            <SelectTrigger id={legalStateId} className="w-full">
-              <SelectValue placeholder="Not set">
-                {(current: ContractLegalStatus | null) =>
-                  current ? <LegalStateOption value={current} /> : "Not set"
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {CONTRACT_LEGAL_STATE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  <LegalStateOption value={option.value} />
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
       </Card>
     </div>
   );
