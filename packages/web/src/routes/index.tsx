@@ -4,6 +4,7 @@ import { PlatformProtectedRoute } from "./PlatformProtectedRoute";
 import { PlatformOrganizations } from "../pages/platform/PlatformOrganizations";
 import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
+import { PlatformLayout } from "../layouts/PlatformLayout";
 import { Login } from "../pages/auth/Login";
 import { AcceptInvitation } from "../pages/auth/AcceptInvitation";
 import { PlatformLogin } from "../pages/platform/PlatformLogin";
@@ -41,10 +42,12 @@ export function AppRoutes() {
 
       {/* Protected platform routes */}
       <Route element={<PlatformProtectedRoute />}>
-        <Route
-          path="/platform/organizations"
-          element={<PlatformOrganizations />}
-        />
+        <Route element={<PlatformLayout />}>
+          <Route
+            path="/platform/organizations"
+            element={<PlatformOrganizations />}
+          />
+        </Route>
       </Route>
 
       {/* Protected app routes */}
