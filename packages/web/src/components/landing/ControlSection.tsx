@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ScrollText, ShieldCheck, Eye } from "lucide-react";
 import { IconChip } from "./ContractArtifacts";
 import { RevealOnScroll } from "./RevealOnScroll";
@@ -15,6 +16,18 @@ const AUDIT_LOG: { time: string; action: string; actor: string }[] = [
   { time: "Yesterday", action: "Witness link issued", actor: "M. Okafor" },
 ];
 
+/** One panel pattern shared by all four Control cards -- border/focus emphasis on hover, nothing hidden behind it. */
+function ControlPanel({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      tabIndex={0}
+      className={`rounded-[10px] border border-border bg-surface p-5 outline-none transition-colors duration-200 hover:border-signal/40 focus-visible:border-signal/40 focus-visible:ring-2 focus-visible:ring-signal/30 ${className ?? ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** Intelligence you can act on and control -- not just AI output. */
 export function ControlSection() {
   return (
@@ -29,7 +42,7 @@ export function ControlSection() {
 
         <div className="mt-12 grid gap-4 lg:grid-cols-3">
           <RevealOnScroll className="lg:col-span-1">
-            <div className="h-full rounded-[10px] border border-border bg-surface p-5">
+            <ControlPanel className="h-full">
               <p className="label-mono">Legal state</p>
               <div className="mt-4 flex h-2 w-full overflow-hidden rounded-full bg-border">
                 {LEGAL_STATE.map((s) => (
@@ -52,11 +65,11 @@ export function ControlSection() {
                   </span>
                 ))}
               </div>
-            </div>
+            </ControlPanel>
           </RevealOnScroll>
 
           <RevealOnScroll delay={0.1} className="lg:col-span-1">
-            <div className="h-full rounded-[10px] border border-border bg-surface p-5">
+            <ControlPanel className="h-full">
               <div className="flex items-center gap-2">
                 <IconChip icon={ScrollText} size="sm" />
                 <p className="label-mono">Audit history</p>
@@ -72,11 +85,11 @@ export function ControlSection() {
                   </div>
                 ))}
               </div>
-            </div>
+            </ControlPanel>
           </RevealOnScroll>
 
           <RevealOnScroll delay={0.2} className="flex flex-col gap-4 lg:col-span-1">
-            <div className="rounded-[10px] border border-border bg-surface p-5">
+            <ControlPanel>
               <div className="flex items-center gap-2">
                 <IconChip icon={ShieldCheck} size="sm" />
                 <p className="label-mono">Role-based access</p>
@@ -85,8 +98,8 @@ export function ControlSection() {
                 Owner, Admin and User roles scope exactly what each person can
                 see and act on, within their organization only.
               </p>
-            </div>
-            <div className="rounded-[10px] border border-border bg-surface p-5">
+            </ControlPanel>
+            <ControlPanel>
               <div className="flex items-center gap-2">
                 <IconChip icon={Eye} size="sm" />
                 <p className="label-mono">Witness access</p>
@@ -95,7 +108,7 @@ export function ControlSection() {
                 Witness links grant time-boxed, read-only access for
                 signing — nothing more.
               </p>
-            </div>
+            </ControlPanel>
           </RevealOnScroll>
         </div>
       </div>

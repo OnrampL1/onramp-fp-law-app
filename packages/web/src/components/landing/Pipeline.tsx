@@ -50,21 +50,27 @@ export function Pipeline() {
           {PIPELINE.map((s) => (
             <Card
               key={s.label}
-              className="group relative border-border bg-surface p-0 shadow-none"
+              className="group relative h-full border-border bg-surface p-0 shadow-none transition-colors duration-200 hover:border-border-strong"
             >
-              <CardContent className="p-6 lg:p-7">
+              <CardContent className="flex h-full flex-col p-6 lg:p-7">
                 <div className="flex items-center justify-between">
-                  <IconChip icon={s.icon} />
+                  <div className="transition-transform duration-200 group-hover:-translate-y-0.5">
+                    <IconChip icon={s.icon} />
+                  </div>
                   <span className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
                     {s.label}
                   </span>
                 </div>
-                <h3 className="mt-6 text-[15px] leading-snug font-medium">{s.title}</h3>
+                <h3 className="mt-6 text-[15px] leading-snug font-medium transition-transform duration-200 group-hover:translate-x-0.5">
+                  {s.title}
+                </h3>
                 <p className="mt-2.5 text-[13px] leading-relaxed text-muted-foreground">
                   {s.body}
                 </p>
-                <div className="mt-7 h-px w-full bg-border">
-                  <div className="h-px w-0 bg-foreground/60 transition-all duration-700 group-hover:w-full" />
+                <div className="mt-auto pt-7">
+                  <div className="h-px w-full bg-border">
+                    <div className="h-px w-0 bg-foreground/60 transition-all duration-700 group-hover:w-full" />
+                  </div>
                 </div>
               </CardContent>
             </Card>

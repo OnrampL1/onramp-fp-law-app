@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowRight, Sparkle } from "lucide-react";
@@ -16,8 +17,8 @@ type Artifact = {
   x: number;
   y: number;
   rot: number;
-  doc: React.ReactNode;
-  card: React.ReactNode;
+  doc: ReactNode;
+  card: ReactNode;
 };
 
 const ARTIFACTS: Artifact[] = [
@@ -70,12 +71,24 @@ const ARTIFACTS: Artifact[] = [
   },
 ];
 
-const IDLE = 1400;
-const SWEEP = 3600;
-const HOLD = 5200;
-const RESET = 1200;
-const TOTAL = IDLE + SWEEP + HOLD + RESET;
+// easeInOutQuad -- identical curve used for both sweep directions, so the
+// machine and beam always travel at literally the same speed each way.
+function ease(p: number): number {
+  return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+}
 
+const IDLE = 1000; // paused at the left, before the pass begins
+const SWEEP = 3400; // one direction traversal -- same duration both ways
+const HOLD = 3400; // paused at the right, "structured" reads here
+const TOTAL = IDLE + SWEEP + HOLD + SWEEP;
+
+/**
+ * Drives one continuous physical pass: idle at left -> sweep right ->
+ * hold (structured) -> sweep left -> repeat. Progress never jumps --
+ * the return leg mirrors the same eased curve as the forward leg, so the
+ * beam and the machine (which both derive their position from this same
+ * `progress` value) are always in lock-step, in both directions.
+ */
 function useScanCycle() {
   const [progress, setProgress] = useState(0);
   const [scanning, setScanning] = useState(false);
@@ -96,15 +109,15 @@ function useScanCycle() {
         setProgress(0);
         setScanning(false);
       } else if (t < IDLE + SWEEP) {
-        const p = (t - IDLE) / SWEEP;
-        setProgress(p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+        setProgress(ease((t - IDLE) / SWEEP));
         setScanning(true);
       } else if (t < IDLE + SWEEP + HOLD) {
         setProgress(1);
         setScanning(false);
       } else {
-        setProgress(0);
-        setScanning(false);
+        const localT = t - (IDLE + SWEEP + HOLD);
+        setProgress(1 - ease(localT / SWEEP));
+        setScanning(true);
       }
       raf.current = requestAnimationFrame(tick);
     };
@@ -125,7 +138,7 @@ const CAPABILITIES: [string, string][] = [
 
 export function Hero() {
   const { progress, scanning } = useScanCycle();
-  const beam = 8 + progress * 70; // % across the stage
+  const beam = 8 + progress * 70; // % across the content viewport
 
   return (
     <section className="relative overflow-hidden border-b border-border">
@@ -189,9 +202,9 @@ export function Hero() {
             <div className="absolute inset-0 stage-grid opacity-40" />
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_55%_at_50%_45%,oklch(0.24_0.004_260/0.9),transparent_75%)]" />
 
-            {/* rail */}
-            <div className="absolute inset-x-0 top-0 h-9 border-b border-border bg-surface/70">
-              <div className="absolute inset-x-6 top-1/2 h-px -translate-y-1/2 bg-border-strong" />
+            {/* header / control panel -- own layer, always above the content viewport */}
+            <div className="absolute inset-x-0 top-0 z-30 h-9 border-b border-border bg-surface/95 backdrop-blur-[1px]">
+              <div className="absolute inset-x-6 top-11 h-px -translate-y-1/2 bg-border-strong" />
               <div className="absolute top-2.5 left-4 font-mono text-[9px] tracking-[0.18em] text-muted-foreground uppercase">
                 Clausio · optical intake
               </div>
@@ -204,83 +217,83 @@ export function Hero() {
               </div>
             </div>
 
-            {/* artifacts */}
-            {ARTIFACTS.map((a, i) => {
-              const passed = 8 + progress * 70 > a.x + 3;
-              return (
-                <div
-                  key={i}
-                  className="absolute"
-                  style={{
-                    left: `${a.x}%`,
-                    top: `${a.y}%`,
-                    width: 0,
-                    height: 0,
-                  }}
-                >
-                  <div className="relative">
-                    <AnimatePresence initial={false} mode="wait">
-                      {passed ? (
-                        <motion.div
-                          key="card"
-                          initial={{ opacity: 0, y: 12, scale: 0.97 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                          transition={{
-                            duration: 0.45,
-                            ease: [0.22, 1, 0.36, 1],
-                          }}
-                        >
-                          {a.card}
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="doc"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1, rotate: a.rot }}
-                          exit={{
-                            opacity: 0,
-                            filter: "blur(6px)",
-                            scale: 0.96,
-                          }}
-                          transition={{ duration: 0.4 }}
-                          style={{ rotate: a.rot }}
-                        >
-                          {a.doc}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+            {/* content viewport -- the only layer that clips/contains moving artifacts */}
+            <div className="absolute inset-x-0 top-9 bottom-11 overflow-hidden">
+              {/* artifacts */}
+              {ARTIFACTS.map((a, i) => {
+                const passed = 8 + progress * 70 > a.x + 3;
+                return (
+                  <div
+                    key={i}
+                    className="absolute"
+                    style={{
+                      left: `${a.x}%`,
+                      top: `${a.y}%`,
+                      width: 0,
+                      height: 0,
+                    }}
+                  >
+                    <div className="relative">
+                      <AnimatePresence initial={false} mode="wait">
+                        {passed ? (
+                          <motion.div
+                            key="card"
+                            initial={{ opacity: 0, y: 12, scale: 0.97 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                            transition={{
+                              duration: 0.45,
+                              ease: [0.22, 1, 0.36, 1],
+                            }}
+                          >
+                            {a.card}
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="doc"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1, rotate: a.rot }}
+                            exit={{
+                              opacity: 0,
+                              filter: "blur(6px)",
+                              scale: 0.96,
+                            }}
+                            transition={{ duration: 0.4 }}
+                            style={{ rotate: a.rot }}
+                          >
+                            {a.doc}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
-            {/* scan beam */}
-            <div
-              className="pointer-events-none absolute top-9 bottom-0 w-px"
-              style={{
-                left: `${beam}%`,
-                opacity: scanning ? 1 : 0,
-                transition: "opacity 400ms ease",
-              }}
-            >
-              <div className="absolute inset-y-0 -left-10 w-20 bg-[linear-gradient(90deg,transparent,color-mix(in_oklab,var(--signal)_18%,transparent),transparent)]" />
-              <div className="absolute inset-y-0 left-0 w-px bg-signal/70" />
+              {/* scan beam -- position and opacity both driven by the same progress value as the machine */}
+              <div
+                className="pointer-events-none absolute inset-y-0 w-px"
+                style={{
+                  left: `${beam}%`,
+                  opacity: scanning ? 1 : 0,
+                  transition: "opacity 300ms ease",
+                }}
+              >
+                <div className="absolute inset-y-0 -left-10 w-20 bg-[linear-gradient(90deg,transparent,color-mix(in_oklab,var(--signal)_18%,transparent),transparent)]" />
+                <div className="absolute inset-y-0 left-0 w-px bg-signal/70" />
+              </div>
+
+              {/* machine carriage -- same beam %, no independent CSS transition, so it can never lag or outrun the line */}
+              <div
+                className="pointer-events-none absolute top-2 z-20"
+                style={{ left: `calc(${beam}% - 98px)` }}
+              >
+                <IntelligenceMachine active={scanning} />
+              </div>
             </div>
 
-            {/* machine carriage */}
-            <div
-              className="pointer-events-none absolute top-2 z-20"
-              style={{
-                left: `calc(${beam}% - 98px)`,
-                transition: "left 60ms linear",
-              }}
-            >
-              <IntelligenceMachine active={scanning} />
-            </div>
-
-            {/* readout */}
-            <div className="absolute right-4 bottom-4 left-4 flex items-center justify-between border-t border-border pt-3 font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
+            {/* footer / readout -- own layer, always above the content viewport */}
+            <div className="absolute inset-x-0 bottom-0 z-30 flex h-11 items-center justify-between border-t border-border bg-surface/95 px-4 font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase backdrop-blur-[1px]">
               <span>Intake → parse → structure</span>
               <span className={cn(scanning && "text-signal")}>
                 {String(Math.round(progress * 100)).padStart(3, "0")}%

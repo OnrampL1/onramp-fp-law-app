@@ -5,9 +5,7 @@ export function LandingNav() {
     <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 lg:px-10">
         <a href="#top" className="flex items-center gap-2.5">
-          <span className="flex size-6 items-center justify-center rounded-[6px] border border-border-strong bg-surface">
-            <span className="block size-2 rounded-[2px] bg-foreground" />
-          </span>
+          <img src="/favicon.svg" alt="" className="size-6 shrink-0" />
           <span className="text-[14px] font-medium tracking-[-0.01em]">Clausio</span>
         </a>
         <nav className="hidden items-center gap-7 md:flex">
