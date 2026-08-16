@@ -24,6 +24,10 @@ tags:
     description: Organization settings and preferences
   - name: Organization Brain
     description: Organization-owned templates, policies, clauses, and guidelines
+  - name: Platform Auth
+    description: Platform-user authentication and session management
+  - name: Platform Organizations
+    description: Platform-level organization provisioning and lifecycle management
 
 # ─── Reusable components ───────────────────────────────────────────────────────
 components:
@@ -33,6 +37,14 @@ components:
       in: cookie
       name: accessToken
       description: HttpOnly access token cookie set on login
+    platformCookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+      description: >
+        HttpOnly access token cookie for PlatformUser sessions. Platform users
+        are separate from organization Users and are authorized by
+        PlatformUserRole, not organization UserRole.
     witnessSessionAuth:
       type: apiKey
       in: cookie
@@ -105,6 +117,147 @@ components:
           type: string
           minLength: 1
           example: Password1
+
+    PlatformUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 00000000-0000-4000-8000-000000000001
+        email:
+          type: string
+          format: email
+          example: platform.admin@example.com
+        fullName:
+          type: string
+          example: Platform Admin
+        role:
+          type: string
+          enum: [SUPER_ADMIN, SUPPORT_ENGINEER]
+          example: SUPER_ADMIN
+
+    PlatformLoginBody:
+      allOf:
+        - $ref: "#/components/schemas/LoginBody"
+
+    PlatformOrganizationOwner:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        role:
+          type: string
+          enum: [OWNER, ADMIN, INTERNAL]
+        status:
+          type: string
+          enum: [INVITED, ACTIVE, SUSPENDED, DEACTIVATED]
+
+    PlatformOrganizationCounts:
+      type: object
+      properties:
+        members:
+          type: integer
+          example: 3
+        invitations:
+          type: integer
+          example: 0
+        contracts:
+          type: integer
+          example: 8
+        auditLogs:
+          type: integer
+          example: 12
+
+    PlatformOrganization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Acme Legal Ops
+        slug:
+          type: string
+          example: acme-legal-ops
+        status:
+          type: string
+          enum: [CREATED, OWNER_ASSIGNED, ACTIVE, SUSPENDED, ARCHIVED]
+          example: ACTIVE
+        ownerAssignedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        owner:
+          $ref: "#/components/schemas/PlatformOrganizationOwner"
+        counts:
+          $ref: "#/components/schemas/PlatformOrganizationCounts"
+
+    CreatePlatformOrganizationBody:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+          example: Acme Legal Ops
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 80
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          example: acme-legal-ops
+        timezone:
+          type: string
+          default: UTC
+          example: UTC
+        language:
+          type: string
+          default: en
+          example: en
+
+    AssignPlatformOrganizationOwnerBody:
+      type: object
+      required: [email, fullName, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: owner@example.com
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Owner User
+        password:
+          type: string
+          minLength: 8
+          description: Must contain at least one uppercase letter and one number
+          example: Password1
+
+    UpdatePlatformOrganizationStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, ARCHIVED]
+          example: SUSPENDED
 
     CreateNoteBody:
       type: object
@@ -1252,6 +1405,380 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /platform/auth/login:
+    post:
+      tags: [Platform Auth]
+      summary: Login as a platform user
+      operationId: platformLogin
+      description: >
+        Authenticates a PlatformUser. Platform users are separate from
+        organization Users and have no organizationId or organization role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlatformLoginBody"
+      responses:
+        "200":
+          description: Platform login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      platformUser:
+                        $ref: "#/components/schemas/PlatformUser"
+        "401":
+          description: Invalid credentials or inactive platform account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /platform/auth/refresh:
+    post:
+      tags: [Platform Auth]
+      summary: Refresh a platform session
+      operationId: platformRefreshToken
+      description: Reads the platform refreshToken cookie and issues new platform auth cookies.
+      responses:
+        "200":
+          description: Platform tokens refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Missing or invalid platform refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /platform/auth/logout:
+    post:
+      tags: [Platform Auth]
+      summary: Logout a platform user
+      operationId: platformLogout
+      security:
+        - platformCookieAuth: []
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /platform/auth/me:
+    get:
+      tags: [Platform Auth]
+      summary: Get the current platform user
+      operationId: getPlatformProfile
+      security:
+        - platformCookieAuth: []
+      responses:
+        "200":
+          description: Current platform user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlatformUser"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /platform/organizations:
+    get:
+      tags: [Platform Organizations]
+      summary: List organizations for platform operators
+      operationId: listPlatformOrganizations
+      description: >
+        Returns platform-level organization metadata and counts only. This
+        endpoint does not expose contracts, file keys, extracted text, notes,
+        analyses, organization private settings, or workspace content.
+        Available to active PlatformUsers.
+      security:
+        - platformCookieAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [CREATED, OWNER_ASSIGNED, ACTIVE, SUSPENDED, ARCHIVED]
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Paginated organization directory
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformOrganization"
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Not authenticated as a platform user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+    post:
+      tags: [Platform Organizations]
+      summary: Create a new organization
+      operationId: createPlatformOrganization
+      description: >
+        Requires PlatformUserRole SUPER_ADMIN. Creates an organization in
+        CREATED status and creates its OrganizationSettings. The first Owner
+        is assigned through POST /platform/organizations/{id}/owner.
+      security:
+        - platformCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlatformOrganizationBody"
+      responses:
+        "201":
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlatformOrganization"
+        "401":
+          description: Not authenticated as a platform user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Platform user lacks SUPER_ADMIN role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Organization slug is already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /platform/organizations/{id}:
+    get:
+      tags: [Platform Organizations]
+      summary: Get platform organization details
+      operationId: getPlatformOrganization
+      security:
+        - platformCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Organization metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlatformOrganization"
+        "401":
+          description: Not authenticated as a platform user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Organization not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /platform/organizations/{id}/owner:
+    post:
+      tags: [Platform Organizations]
+      summary: Assign the first organization Owner
+      operationId: assignPlatformOrganizationOwner
+      description: >
+        Requires PlatformUserRole SUPER_ADMIN. Bootstraps the first OWNER user
+        for a newly CREATED organization, then moves the organization to
+        OWNER_ASSIGNED. This endpoint cannot assign additional owners and
+        cannot be used after owner assignment.
+      security:
+        - platformCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignPlatformOrganizationOwnerBody"
+      responses:
+        "200":
+          description: First Owner assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlatformOrganization"
+        "401":
+          description: Not authenticated as a platform user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Platform user lacks SUPER_ADMIN role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Organization not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Owner already assigned, invalid lifecycle state, or email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /platform/organizations/{id}/status:
+    patch:
+      tags: [Platform Organizations]
+      summary: Update organization lifecycle status
+      operationId: updatePlatformOrganizationStatus
+      description: >
+        Requires PlatformUserRole SUPER_ADMIN. Supports activation,
+        suspension, reactivation, and archival. ARCHIVED is terminal.
+      security:
+        - platformCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformOrganizationStatusBody"
+      responses:
+        "200":
+          description: Organization status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlatformOrganization"
+        "401":
+          description: Not authenticated as a platform user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Platform user lacks SUPER_ADMIN role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Organization not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Invalid lifecycle transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
 
   /organization-brain:
     get:
