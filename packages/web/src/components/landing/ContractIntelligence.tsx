@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
+  ChevronDown,
   ChevronRight,
   FileText,
   Scale,
@@ -10,201 +13,417 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Sheet, IconChip, StatusPill } from "./ContractArtifacts";
+import { StatusPill } from "./ContractArtifacts";
 import { RevealOnScroll } from "./RevealOnScroll";
+import { SensorPulse } from "./SensorPulse";
+
+gsap.registerPlugin(ScrollTrigger);
 
 /**
- * One structural pattern for every stage: fixed size, header row pinned to
- * the top, body allowed to flex, meta/footer pinned to the bottom via
- * mt-auto -- so title and footer positions line up across all five cards
- * regardless of how much body content each one has.
+ * One shape for every stage, including the payoff -- a wide horizontal
+ * banner (icon left, content right), not a small vertical box. Escalating
+ * glow (none/sm -> risk -> full signal) is the only thing that visually
+ * separates "still being processed" from "worth noticing" from "the
+ * destination," everything else about the shape is identical.
  */
-function StageCard({
-  icon,
+function PipelineBanner({
+  icon: Icon,
   label,
-  children,
-  meta,
+  pill,
   active,
   dimmed,
+  glow,
+  children,
 }: {
   icon: LucideIcon;
   label: string;
-  children: ReactNode;
-  meta: ReactNode;
+  pill?: ReactNode;
   active: boolean;
   dimmed: boolean;
+  glow?: "risk" | "signal";
+  children: ReactNode;
 }) {
   return (
     <div
       className={cn(
-        "flex h-44 w-44 flex-col rounded-[10px] border bg-surface/95 p-3.5 backdrop-blur-[2px] transition-all duration-200",
-        active ? "border-signal/50" : "border-border",
+        "mx-auto flex w-full max-w-2xl flex-col items-center gap-4 rounded-[20px] border bg-surface/95 px-8 py-10 text-center backdrop-blur-[2px] transition-all duration-200 sm:flex-row sm:items-start sm:gap-6 sm:text-left",
+        glow === "signal"
+          ? "glow-surface"
+          : glow === "risk"
+            ? "glow-surface-risk"
+            : "glow-surface-sm",
+        active ? "-translate-y-1 border-signal/60" : glow ? "border-signal/30" : "border-border",
         dimmed && "opacity-50",
       )}
     >
-      <div className="flex items-center gap-2">
-        <IconChip icon={icon} size="sm" />
-        <p className="label-mono truncate">{label}</p>
+      <div
+        className={cn(
+          "flex size-14 shrink-0 items-center justify-center rounded-2xl border",
+          glow
+            ? "border-signal/30 bg-signal/10 text-signal"
+            : "border-border bg-surface-raised text-muted-foreground",
+        )}
+      >
+        <Icon className="size-6" strokeWidth={1.75} />
       </div>
-      <div className="mt-2.5 flex-1 overflow-hidden text-[12px] leading-relaxed text-foreground">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-center gap-2.5 sm:justify-start">
+          <p className="label-mono">{label}</p>
+          {pill}
+        </div>
         {children}
       </div>
-      <div className="mt-auto pt-2.5">{meta}</div>
     </div>
   );
 }
 
-function ContractStage() {
+function BannerStatement({ children }: { children: ReactNode }) {
   return (
-    <div className="relative h-full w-full overflow-hidden">
-      <div className="absolute top-0 right-0 rotate-[6deg] opacity-50">
-        <Sheet lines={5} width={92} />
+    <p className="mt-3 text-lg leading-snug font-medium text-balance text-foreground sm:text-xl">
+      {children}
+    </p>
+  );
+}
+
+function BannerCaption({ children }: { children: ReactNode }) {
+  return <p className="mt-2 text-[13px] text-muted-foreground">{children}</p>;
+}
+
+/**
+ * A connector between two stages. On mobile it's always a vertical
+ * line+chevron (the flow stacks in one column). On desktop, connectors
+ * between a row's two cards switch to a horizontal line+chevron via
+ * `horizontalOnDesktop`; connectors between rows stay vertical.
+ */
+function Connector({
+  area,
+  horizontalOnDesktop,
+  refCallback,
+}: {
+  area: string;
+  horizontalOnDesktop?: boolean;
+  refCallback: (el: HTMLDivElement | null) => void;
+}) {
+  return (
+    <div ref={refCallback} style={{ gridArea: area }} className="flex items-center justify-center py-2 lg:py-0">
+      <div className={cn("flex flex-col items-center", horizontalOnDesktop && "lg:hidden")}>
+        <div className="h-8 w-px bg-gradient-to-b from-border to-signal/50" />
+        <ChevronDown className="-mt-1 size-4 text-signal" strokeWidth={1.75} />
       </div>
-      <div className="absolute bottom-0 left-0 max-w-[130px] rounded-md border border-border bg-surface-raised/95 px-2 py-1.5">
-        <p className="truncate text-[11px] font-medium text-foreground">
-          Master Services Agmt.
-        </p>
-        <p className="truncate text-[10px] text-muted-foreground">
-          Halden &amp; Roe LLP
-        </p>
-      </div>
+      {horizontalOnDesktop && (
+        <div className="hidden items-center lg:flex">
+          <div className="h-px w-10 bg-gradient-to-r from-border to-signal/50" />
+          <ChevronRight className="-ml-1 size-4 text-signal" strokeWidth={1.75} />
+        </div>
+      )}
     </div>
   );
 }
 
-/** The pipeline flythrough: a contract decomposing into structured records. */
+function StageSlot({
+  area,
+  index,
+  stage,
+  hovered,
+  setHovered,
+  refCallback,
+}: {
+  area: string;
+  index: number;
+  stage: {
+    label: string;
+    icon: LucideIcon;
+    pill: ReactNode;
+    glow?: "risk" | "signal";
+    content: ReactNode;
+  };
+  hovered: number | null;
+  setHovered: (i: number | null) => void;
+  refCallback: (el: HTMLDivElement | null) => void;
+}) {
+  return (
+    <div
+      style={{ gridArea: area }}
+      ref={refCallback}
+      tabIndex={0}
+      className="w-full rounded-[20px] outline-none focus-visible:ring-2 focus-visible:ring-signal/50"
+      onMouseEnter={() => setHovered(index)}
+      onMouseLeave={() => setHovered(null)}
+      onFocus={() => setHovered(index)}
+      onBlur={() => setHovered(null)}
+    >
+      <PipelineBanner
+        icon={stage.icon}
+        label={stage.label}
+        pill={stage.pill}
+        active={hovered === index}
+        dimmed={hovered !== null && hovered !== index}
+        glow={stage.glow}
+      >
+        {stage.content}
+      </PipelineBanner>
+    </div>
+  );
+}
+
+/** The pipeline flythrough: a contract decomposing into structured records, culminating in the synthesized insight. */
 export function ContractIntelligence() {
   const [hovered, setHovered] = useState<number | null>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const bannerRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const connectorRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const stages: {
     label: string;
     icon: LucideIcon;
-    body: ReactNode;
-    meta: ReactNode;
+    pill: ReactNode;
+    glow?: "risk" | "signal";
+    content: ReactNode;
   }[] = [
     {
-      label: "Contract",
+      label: "01 / Contract",
       icon: FileText,
-      body: <ContractStage />,
-      meta: <StatusPill tone="ok">Active</StatusPill>,
+      pill: <StatusPill tone="ok">Active</StatusPill>,
+      content: (
+        <>
+          <BannerStatement>
+            Master Services Agreement — Halden &amp; Roe LLP
+          </BannerStatement>
+          <BannerCaption>
+            Recognized and structured before a single clause is read.
+          </BannerCaption>
+        </>
+      ),
     },
     {
-      label: "Clause 8.2",
+      label: "02 / Clause 8.2",
       icon: Scale,
-      body: (
-        <p>
-          Aggregate liability capped at{" "}
-          <span className="text-foreground">120% of fees paid</span> in the
-          preceding 12 months.
-        </p>
+      pill: <StatusPill tone="signal">Extracted</StatusPill>,
+      content: (
+        <>
+          <BannerStatement>
+            Aggregate liability capped at 120% of fees paid in the preceding
+            12 months.
+          </BannerStatement>
+          <BannerCaption>
+            Every clause becomes a typed record with a citation back to its
+            source line.
+          </BannerCaption>
+        </>
       ),
-      meta: <StatusPill tone="signal">Extracted</StatusPill>,
     },
     {
-      label: "Obligation",
+      label: "03 / Obligation",
       icon: CalendarClock,
-      body: <p>Renewal notice window opens</p>,
-      meta: (
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[11px] text-muted-foreground">
-            2026-09-14
-          </span>
-          <StatusPill tone="risk">T-30d</StatusPill>
-        </div>
+      pill: <StatusPill tone="risk">T-30d</StatusPill>,
+      content: (
+        <>
+          <BannerStatement>
+            Renewal notice window opens — 2026-09-14.
+          </BannerStatement>
+          <BannerCaption>Thirty days out, and already on the record.</BannerCaption>
+        </>
       ),
     },
     {
-      label: "Risk",
+      label: "04 / Risk",
       icon: ShieldAlert,
-      body: <p>Uncapped indemnity detected</p>,
-      meta: (
-        <div className="space-y-2">
-          <div className="h-1 w-full overflow-hidden rounded-full bg-accent">
+      glow: "risk",
+      pill: <StatusPill tone="risk">High</StatusPill>,
+      content: (
+        <>
+          <BannerStatement>Uncapped indemnity detected.</BannerStatement>
+          <BannerCaption>
+            Flagged with a severity rating and the exact line it came from.
+          </BannerCaption>
+          <div className="mt-3 h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-accent">
             <div className="h-full w-[72%] rounded-full bg-risk" />
           </div>
-          <div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
-            <span>Severity</span>
-            <span className="text-risk">High</span>
-          </div>
-        </div>
+        </>
       ),
     },
     {
-      label: "Insight",
+      label: "05 / Insight",
       icon: Sparkles,
-      body: (
-        <p>
-          Liability is capped, but indemnity is not — renewal notice opens in
-          30 days.
-        </p>
+      glow: "signal",
+      pill: <StatusPill tone="signal">Synthesized</StatusPill>,
+      content: (
+        <>
+          <BannerStatement>
+            Liability is capped, but indemnity is not — and the renewal
+            notice window opens in 30 days.
+          </BannerStatement>
+          <BannerCaption>Four passes, one contract, no page left unread.</BannerCaption>
+        </>
       ),
-      meta: <StatusPill tone="signal">Synthesized</StatusPill>,
     },
   ];
 
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const mm = gsap.matchMedia();
+
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const bannerEls = bannerRefs.current.filter(Boolean) as HTMLDivElement[];
+        const connectorEls = connectorRefs.current.filter(Boolean) as HTMLDivElement[];
+
+        gsap.set(bannerEls, { opacity: 0, y: 28 });
+        gsap.set(connectorEls, { opacity: 0, scaleY: 0, transformOrigin: "top" });
+
+        const step = 1;
+        // Kill on completion, then reassert final values with an
+        // independent gsap.set(). Killing a scrub-tied ScrollTrigger
+        // reverts the tween's properties back to their pre-animation
+        // state rather than freezing them, and just holding progress at 1
+        // loses a tug-of-war with scrub's own smoothing -- both were
+        // tried and both left elements stuck mid-transition.
+        let locked = false;
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 78%",
+            end: "bottom 60%",
+            scrub: 0.6,
+            onUpdate: (self) => {
+              if (locked || self.progress < 1) return;
+              locked = true;
+              self.kill();
+              gsap.set(bannerEls, { opacity: 1, y: 0 });
+              gsap.set(connectorEls, { opacity: 1, scaleY: 1 });
+            },
+          },
+        });
+
+        bannerEls.forEach((banner, i) => {
+          tl.to(banner, { opacity: 1, y: 0, duration: step * 0.7 }, i * step);
+          const connector = connectorEls[i];
+          if (connector) {
+            tl.to(
+              connector,
+              { opacity: 1, scaleY: 1, duration: step * 0.5 },
+              i * step + step * 0.5,
+            );
+          }
+        });
+
+        return () => {
+          tl.scrollTrigger?.kill();
+          tl.kill();
+        };
+      });
+
+      mm.add("(prefers-reduced-motion: reduce)", () => {
+        const bannerEls = bannerRefs.current.filter(Boolean) as HTMLDivElement[];
+        const connectorEls = connectorRefs.current.filter(Boolean) as HTMLDivElement[];
+        gsap.set(bannerEls, { opacity: 1, y: 0 });
+        gsap.set(connectorEls, { opacity: 1, scaleY: 1 });
+      });
+    }, sectionRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <section id="structure" className="relative overflow-hidden border-b border-border">
+    <section
+      id="structure"
+      ref={sectionRef}
+      className="spotlight relative overflow-hidden border-b border-border"
+    >
       <div className="pointer-events-none absolute inset-0 stage-grid opacity-30" />
-      <div className="relative mx-auto max-w-[1400px] px-6 py-24 lg:px-10 lg:py-32">
+      <SensorPulse />
+      <div className="relative z-[1] mx-auto max-w-[1400px] px-6 py-28 lg:px-10 lg:py-36">
         <RevealOnScroll>
           <div className="max-w-2xl">
             <p className="label-mono">Contract intelligence</p>
-            <h2 className="mt-4 text-3xl leading-[1.1] font-medium tracking-[-0.03em] text-balance sm:text-[2.6rem]">
+            <h2 className="mt-4 text-3xl leading-[1.1] font-medium tracking-[-0.03em] text-balance sm:text-[2.8rem]">
               A contract stops being a document and becomes structured
               intelligence.
             </h2>
             <p className="mt-4 max-w-lg text-[14px] leading-relaxed text-muted-foreground">
               The same estate document, followed through the engine — from a
-              signed PDF to clauses, obligations, risks and a synthesized
-              read on what matters.
+              signed PDF to clauses, obligations and risks, ending in one
+              synthesized read on what matters.
             </p>
           </div>
         </RevealOnScroll>
 
-        <div className="mt-16 flex flex-col items-center gap-6 overflow-x-auto pb-4 lg:flex-row lg:items-start lg:justify-between lg:gap-2 lg:overflow-visible">
-          {stages.map((stage, i) => (
-            <div key={stage.label} className="flex items-center gap-2 lg:contents">
-              <RevealOnScroll delay={i * 0.12} className="flex flex-col items-center gap-3">
-                <span className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
-                  {String(i + 1).padStart(2, "0")} / {stage.label}
-                </span>
-                <div
-                  tabIndex={0}
-                  className="rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-signal/50"
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
-                  onFocus={() => setHovered(i)}
-                  onBlur={() => setHovered(null)}
-                >
-                  <StageCard
-                    icon={stage.icon}
-                    label={stage.label}
-                    meta={stage.meta}
-                    active={hovered === i}
-                    dimmed={hovered !== null && hovered !== i}
-                  >
-                    {stage.body}
-                  </StageCard>
-                </div>
-              </RevealOnScroll>
-              {i < stages.length - 1 && (
-                <RevealOnScroll
-                  delay={i * 0.12 + 0.06}
-                  className="hidden self-center lg:block"
-                >
-                  <ChevronRight
-                    className={cn(
-                      "size-5 shrink-0 transition-colors duration-200",
-                      hovered === i || hovered === i + 1
-                        ? "text-signal"
-                        : "text-muted-foreground/40",
-                    )}
-                    strokeWidth={1.5}
-                  />
-                </RevealOnScroll>
-              )}
-            </div>
-          ))}
+        <div className="ci-flow-grid relative mt-16">
+          <StageSlot
+            area="c1"
+            index={0}
+            stage={stages[0]}
+            hovered={hovered}
+            setHovered={setHovered}
+            refCallback={(el) => {
+              bannerRefs.current[0] = el;
+            }}
+          />
+          <Connector
+            area="n1"
+            horizontalOnDesktop
+            refCallback={(el) => {
+              connectorRefs.current[0] = el;
+            }}
+          />
+          <StageSlot
+            area="c2"
+            index={1}
+            stage={stages[1]}
+            hovered={hovered}
+            setHovered={setHovered}
+            refCallback={(el) => {
+              bannerRefs.current[1] = el;
+            }}
+          />
+          <Connector
+            area="n2"
+            refCallback={(el) => {
+              connectorRefs.current[1] = el;
+            }}
+          />
+          <StageSlot
+            area="c3"
+            index={2}
+            stage={stages[2]}
+            hovered={hovered}
+            setHovered={setHovered}
+            refCallback={(el) => {
+              bannerRefs.current[2] = el;
+            }}
+          />
+          <Connector
+            area="n3"
+            horizontalOnDesktop
+            refCallback={(el) => {
+              connectorRefs.current[2] = el;
+            }}
+          />
+          <StageSlot
+            area="c4"
+            index={3}
+            stage={stages[3]}
+            hovered={hovered}
+            setHovered={setHovered}
+            refCallback={(el) => {
+              bannerRefs.current[3] = el;
+            }}
+          />
+          <Connector
+            area="n4"
+            refCallback={(el) => {
+              connectorRefs.current[3] = el;
+            }}
+          />
+          <StageSlot
+            area="c5"
+            index={4}
+            stage={stages[4]}
+            hovered={hovered}
+            setHovered={setHovered}
+            refCallback={(el) => {
+              bannerRefs.current[4] = el;
+            }}
+          />
         </div>
       </div>
     </section>

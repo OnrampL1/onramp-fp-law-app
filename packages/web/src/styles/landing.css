@@ -106,3 +106,147 @@
     oklch(0.12 0.004 260 / 70%) 100%
   );
 }
+
+/*
+ * Elevation via layered light, not a flat border. An inset top highlight
+ * (the surface catching light) + a dark lift shadow + a signal-tinted
+ * ambient glow that's actually meant to be seen, not just theoretically
+ * present. Does NOT touch Hero or Investigator -- reserved for giving the
+ * rest of the page comparable presence.
+ */
+.landing-scope .glow-surface {
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 10%),
+    0 0 0 1px var(--border-strong),
+    0 40px 80px -32px oklch(0 0 0 / 75%),
+    0 0 120px -20px color-mix(in oklab, var(--signal) 45%, transparent);
+}
+
+/* A lighter version of the same language for secondary cards -- present, not loud. */
+.landing-scope .glow-surface-sm {
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 7%),
+    0 0 0 1px var(--border),
+    0 20px 40px -20px oklch(0 0 0 / 60%),
+    0 0 60px -20px color-mix(in oklab, var(--signal) 20%, transparent);
+}
+
+/* Same weight as glow-surface-sm, tinted with --risk instead of --signal -- for the one card that should read as "worth noticing." */
+.landing-scope .glow-surface-risk {
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 7%),
+    0 0 0 1px var(--border),
+    0 20px 40px -20px oklch(0 0 0 / 60%),
+    0 0 70px -16px color-mix(in oklab, var(--risk) 40%, transparent);
+}
+
+/*
+ * Section-level atmosphere: a real, visible spotlight wash behind the
+ * content -- not a hairline glow on one card, but light filling the room.
+ * Place on a section/wrapper; content should sit in a relatively
+ * positioned child above it (z-index stacking context via position).
+ */
+.landing-scope .spotlight {
+  position: relative;
+  isolation: isolate;
+}
+
+.landing-scope .spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    60% 70% at 50% 0%,
+    color-mix(in oklab, var(--signal) 16%, transparent) 0%,
+    color-mix(in oklab, var(--signal) 6%, transparent) 35%,
+    transparent 70%
+  );
+}
+
+/* Same idea, tuned for a card that should feel like the destination -- brighter, tighter. */
+.landing-scope .spotlight-tight::before {
+  background: radial-gradient(
+    45% 60% at 50% 30%,
+    color-mix(in oklab, var(--signal) 24%, transparent) 0%,
+    transparent 65%
+  );
+}
+
+/*
+ * Sensor pulse: sparse, slow points of light on the engineering grid --
+ * "the instrument is always scanning," not decorative stars. Each dot is
+ * placed inline via style props on individual spans (see SensorPulse.tsx).
+ */
+.landing-scope .sensor-pulse {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.landing-scope .sensor-pulse span {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--signal);
+  opacity: 0;
+  animation: sensor-pulse 7s ease-in-out infinite;
+  animation-delay: var(--pulse-delay, 0s);
+}
+
+@keyframes sensor-pulse {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-scope .sensor-pulse span {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/*
+ * Contract Intelligence's 5-stage flow. Mobile: a single stacked column
+ * (c1..c5 with a vertical connector between each). Desktop: a row-major
+ * 2x2 of stages 1-4 with stage 5 as the centered payoff below, so the
+ * pipeline still reads left-to-right, top-to-bottom in scan order.
+ */
+.landing-scope .ci-flow-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "c1"
+    "n1"
+    "c2"
+    "n2"
+    "c3"
+    "n3"
+    "c4"
+    "n4"
+    "c5";
+}
+
+@media (min-width: 1024px) {
+  .landing-scope .ci-flow-grid {
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    grid-template-areas:
+      "c1 n1 c2"
+      "n2 n2 n2"
+      "c3 n3 c4"
+      "n4 n4 n4"
+      "c5 c5 c5";
+  }
+}
