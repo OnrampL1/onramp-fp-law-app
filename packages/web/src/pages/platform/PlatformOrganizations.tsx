@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   CircleSlash,
   Clock3,
+  Eye,
+  EyeOff,
   KeyRound,
   Loader2,
   Plus,
@@ -177,6 +179,7 @@ export function PlatformOrganizations() {
   } | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showOwnerPassword, setShowOwnerPassword] = useState(false);
 
   const [createForm, setCreateForm] = useState<CreateOrganizationForm>({
     name: "",
@@ -229,6 +232,7 @@ export function PlatformOrganizations() {
       fullName: "",
       password: "",
     });
+    setShowOwnerPassword(false);
   }
 
   async function handleCreateOrganization(event: FormEvent<HTMLFormElement>) {
@@ -714,19 +718,36 @@ export function PlatformOrganizations() {
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="owner-password">Temporary Password</Label>
-                <Input
-                  id="owner-password"
-                  type="password"
-                  value={ownerForm.password}
-                  onChange={(event) =>
-                    setOwnerForm((current) => ({
-                      ...current,
-                      password: event.target.value,
-                    }))
-                  }
-                  placeholder="Minimum 8 characters"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="owner-password"
+                    type={showOwnerPassword ? "text" : "password"}
+                    value={ownerForm.password}
+                    onChange={(event) =>
+                      setOwnerForm((current) => ({
+                        ...current,
+                        password: event.target.value,
+                      }))
+                    }
+                    placeholder="Minimum 8 characters"
+                    className="pr-9"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOwnerPassword((value) => !value)}
+                    className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={
+                      showOwnerPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showOwnerPassword ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
