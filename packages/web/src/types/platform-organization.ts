@@ -52,3 +52,23 @@ export interface ListPlatformOrganizationsResponse {
     pagination: PaginationMeta;
   };
 }
+
+export interface CreatePlatformOrganizationPayload {
+  name: string;
+  slug: string;
+  timezone: string;
+  language: string;
+}
+
+export interface AssignPlatformOrganizationOwnerPayload {
+  email: string;
+  fullName: string;
+  password: string;
+}
+
+export interface UpdatePlatformOrganizationStatusPayload {
+  status: Extract<
+    PlatformOrganizationStatus,
+    "ACTIVE" | "SUSPENDED" | "ARCHIVED"
+  >;
+}
