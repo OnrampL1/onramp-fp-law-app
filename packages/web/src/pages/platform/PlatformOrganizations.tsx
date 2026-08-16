@@ -294,7 +294,7 @@ export function PlatformOrganizations() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <header className="flex flex-col gap-3 border-b pb-5 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
@@ -437,7 +437,7 @@ export function PlatformOrganizations() {
             </p>
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[960px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Organization</TableHead>

@@ -32,7 +32,7 @@ export function PlatformLayout() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex aspect-square size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Scale className="size-5" />
@@ -92,8 +92,10 @@ export function PlatformLayout() {
         </div>
       </header>
 
-      <main className="px-6 py-6">
-        <Outlet />
+      <main className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
