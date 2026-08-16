@@ -6,10 +6,12 @@ import {
   type EmailJobData,
   type EmbeddingsJobData,
   type InvitationExpiryJobData,
+  type ContractLegalStateSweepJobData,
   type ExtractionJobData,
   type AIAnalysisJobData,
   type AIAnalysisAggregateJobData,
   type OrganizationBrainEmbeddingsJobData,
+  type LegalKbEmbeddingsJobData,
 } from "./types";
 
 let redisConnection: IORedis | null = null;
@@ -49,6 +51,11 @@ export const embeddingsQueue = createQueue<EmbeddingsJobData>(
 export const invitationExpiryQueue = createQueue<InvitationExpiryJobData>(
   QUEUE_NAMES.INVITATION_EXPIRY,
 );
+export const contractLegalStateSweepQueue =
+  createQueue<ContractLegalStateSweepJobData>(
+    QUEUE_NAMES.CONTRACT_LEGAL_STATE_SWEEP,
+  );
+
 export const extractionQueue = createQueue<ExtractionJobData>(
   QUEUE_NAMES.EXTRACTION,
 );
@@ -63,6 +70,10 @@ export const organizationBrainEmbeddingsQueue =
   createQueue<OrganizationBrainEmbeddingsJobData>(
     QUEUE_NAMES.ORGANIZATION_BRAIN_EMBEDDINGS,
   );
+
+export const legalKbEmbeddingsQueue = createQueue<LegalKbEmbeddingsJobData>(
+  QUEUE_NAMES.LEGAL_KB_EMBEDDINGS,
+);
 
 let flowProducer: FlowProducer | null = null;
 

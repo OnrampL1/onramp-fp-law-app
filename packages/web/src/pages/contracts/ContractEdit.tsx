@@ -20,10 +20,7 @@ import {
   useContractDetail,
   useUpdateContractMetadata,
 } from "@/hooks/useContractDetail";
-import type {
-  ContractDetailResponse,
-  ContractLegalStatus,
-} from "@/types/contracts";
+import type { ContractDetailResponse } from "@/types/contracts";
 
 function toFormState(contract: ContractDetailResponse): ContractEditFormState {
   return {
@@ -32,7 +29,6 @@ function toFormState(contract: ContractDetailResponse): ContractEditFormState {
     tags: contract.tags,
     effectiveDate: contract.effectiveDate ?? "",
     expirationDate: contract.expirationDate ?? "",
-    legalState: (contract.legalState ?? "") as ContractLegalStatus | "",
   };
 }
 
@@ -41,12 +37,7 @@ export default function ContractEdit() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const {
-    data: contract,
-    isLoading,
-    isError,
-    refetch,
-  } = useContractDetail(id);
+  const { data: contract, isLoading, isError, refetch } = useContractDetail(id);
   const updateMutation = useUpdateContractMetadata(id);
 
   const [form, setForm] = useState<ContractEditFormState | null>(null);
@@ -66,7 +57,9 @@ export default function ContractEdit() {
     : undefined;
   const showConflictBanner = saveErrorStatus === 409;
   const showGenericSaveError =
-    updateMutation.isError && saveErrorStatus !== 409 && saveErrorStatus !== 404;
+    updateMutation.isError &&
+    saveErrorStatus !== 409 &&
+    saveErrorStatus !== 404;
 
   async function handleReload() {
     const result = await refetch();
@@ -86,7 +79,6 @@ export default function ContractEdit() {
         tags: form.tags,
         effectiveDate: form.effectiveDate,
         expirationDate: form.expirationDate,
-        legalState: form.legalState === "" ? null : form.legalState,
         version: contract.version,
       },
       {
@@ -94,7 +86,9 @@ export default function ContractEdit() {
           navigate(`/contracts/${id}`);
         },
         onError: (error) => {
-          const status = isAxiosError(error) ? error.response?.status : undefined;
+          const status = isAxiosError(error)
+            ? error.response?.status
+            : undefined;
           if (status === 404) {
             // The contract disappeared out from under this session (deleted
             // elsewhere) — the list query may still be caching the old,
@@ -141,7 +135,10 @@ export default function ContractEdit() {
         className="flex items-center gap-1.5 text-sm text-muted-foreground"
         aria-label="Breadcrumb"
       >
-        <Link to="/contracts" className="transition-colors hover:text-foreground">
+        <Link
+          to="/contracts"
+          className="transition-colors hover:text-foreground"
+        >
           Contracts
         </Link>
         <ChevronRight className="size-3.5" />

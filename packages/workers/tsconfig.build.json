@@ -7,5 +7,6 @@
       "@starter-kit/shared": ["../shared/dist/src/index"],
       "@starter-kit/shared/*": ["../shared/dist/src/*"]
     }
-  }
+  },
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

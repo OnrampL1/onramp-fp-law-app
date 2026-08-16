@@ -537,13 +537,50 @@ only in:
   for MVP.
 
 Two retrieval enhancements are enabled by `articleNumber` existing as a
-typed column, but are **not MVP-blocking** — recommended as a fast-follow
-once the base pipeline is proven:
+typed column. Originally scoped as **not MVP-blocking** — a fast-follow once
+the base pipeline is proven:
 
-- Direct exact-match article lookup (`WHERE article_number = $1`) when a
-  question cleanly references an article number, short-circuiting or
-  supplementing the embed-and-fuse path.
-- Direct exact-match law-number lookup against `LegalSource.instrumentNumber`.
+- **Implemented in Batch 4** (pulled forward from fast-follow — a scope
+  addition beyond Batch 4's original acceptance criteria, flagged as such in
+  its PR): direct exact-match article lookup (`WHERE article_number = $1`),
+  merged as a guaranteed-inclusion candidate ahead of the RRF-fused results
+  rather than fused into their scoring. Real-query evidence forced this
+  forward: "what does Article N say" questions returned
+  semantically-related-but-wrong articles from vector search alone (e.g.
+  Article 654 asked, Articles 96/249/118 returned) — an exact-match problem
+  vector similarity was never going to solve. Detection reuses the same
+  "المادة N" pattern shape already proven in
+  `legal-source-flatview-parser.ts`, extended to sub-numbered ("12-1") and
+  bis-style ("12-مكرر") labels, since Labour Law's real ingested data already
+  has both.
+  - **Cross-source ambiguity bug found and fixed same-day (2026-08-14),
+    during Batch 4 acceptance verification, not before ship.**
+    `article_number` is only unique *within* one source, not across all
+    five — live-DB proof: `article_number = '654'` matches a row in **both**
+    the Code of Obligations and Contracts (an employment/service-hire
+    termination clause) and the Code of Commerce (a bankruptcy-rehabilitation
+    clause) — two unrelated articles. The initial, unscoped implementation
+    surfaced **both** at the same guaranteed-inclusion (`score: Infinity`)
+    priority regardless of which instrument the question actually named —
+    false confidence on a wrong-source match. Fixed by: (1) a small,
+    deliberately non-exhaustive Arabic instrument-alias table
+    (`INSTRUMENT_ALIASES` in `search.ts`) that scopes the lookup to one
+    source via a `legal_source_id IN (SELECT id FROM legal_sources WHERE
+    title ILIKE ...)` subquery when the question names an instrument (e.g.
+    "قانون الموجبات والعقود", "قانون التجارة", "قانون العمل"); (2) when no
+    instrument is named and the unscoped lookup still returns rows from more
+    than one distinct source, the guaranteed-inclusion boost is withheld
+    entirely and the query falls back to hybrid search alone — no error, no
+    unverified guess presented as certain. **Live re-verification, same
+    Article 654 case, post-fix:** instrument named ("...من قانون الموجبات
+    والعقود") → exactly 1 boosted result, correctly from the Code of
+    Obligations and Contracts source; no instrument named (ambiguous) → 0
+    boosted results, 8 ordinary hybrid results returned, no error; no
+    instrument named + a confirmed-unique article number (654 in a
+    different, single-source instance — article 1000) → unchanged, still 1
+    boosted result — regression-clean.
+- Still a fast-follow, not yet implemented: direct exact-match law-number
+  lookup against `LegalSource.instrumentNumber`.
 
 `authorityTier` / `jurisdiction` filtering are present as structural query
 parameters, defaulted to "no-op" (all tiers, `jurisdiction = 'LB'`) — same
@@ -965,8 +1002,18 @@ copy-pasting the existing migration pattern without adjusting it.
 ### Batch 4 — Legal retrieval integration
 
 - **Scope:** `searchLegalKbChunks()` in `search.ts`; `'simple'`-config
-  full-text leg; `licenseStatus`/`legalStatus` filtering.
-- **Files:** `packages/shared/ai/retrieval/search.ts`.
+  full-text leg; `licenseStatus`/`legalStatus` filtering; `LEGAL_KB_LICENSE_MODE`
+  env flag + checked-in production-clearances registry
+  (`legal-kb-production-clearances.ts`) as the two-gate guard on top of
+  `licenseStatus`. **Scope addition beyond original acceptance criteria**
+  (flagged explicitly, not folded in silently): direct exact-match
+  article-number lookup (`WHERE article_number = $1`), pulled forward from
+  Section 9's fast-follow list after real-query evidence showed vector
+  search alone can't answer "what does Article N say" — see Section 9 for
+  the resolved discussion.
+- **Files:** `packages/shared/ai/retrieval/search.ts`,
+  `packages/shared/ai/retrieval/legal-kb-production-clearances.ts`,
+  `packages/shared/ai/config/index.ts`.
 - **Depends on:** Batch 3; Domain Review items 8, 10.
 - **Acceptance criteria:** A real query against real indexed content returns
   relevant chunks; global scope proven (no `organizationId` anywhere in the
@@ -974,10 +1021,36 @@ copy-pasting the existing migration pattern without adjusting it.
   is excluded when the deployment flag says production-only).
 - **Tests:** Real hybrid search against real embedded content; a
   deliberately-forced test proving a `DEVELOPMENT_ONLY` row is excluded
-  under the production-gated flag.
-- **Risks:** `'simple'`-config full-text quality for Arabic is unproven until
-  tested against real queries — budget time to evaluate result quality, not
-  just "does the query execute."
+  under the production-gated flag; article-number-lookup tests (plain
+  integer, sub-numbered, no-article-in-question unchanged path, article
+  number absent from corpus doesn't error, direct match respects the same
+  `legal_status`/`license_status` scoping as the two hybrid legs,
+  instrument-named lookup scopes to and boosts only the correct source when
+  the same number exists elsewhere too, no-instrument-named ambiguous lookup
+  withholds the boost and falls back to hybrid results without erroring).
+  30/30 passing in `search.test.ts`, 77/77 shared-package-wide. Live
+  (non-mocked) re-verification of all three article-number-lookup cases
+  (instrument-scoped, ambiguous-fallback, unique-unchanged) against the real
+  database — see this section's cross-source ambiguity note above for the
+  actual before/after evidence.
+- **Risks:** ~~`'simple'`-config full-text quality for Arabic is unproven
+  until tested against real queries — budget time to evaluate result
+  quality, not just "does the query execute."~~ **Resolved (2026-08-14),
+  evidence-based:** manually reviewed against a 20-question real sample
+  (Code of Obligations and Contracts) covering specific-article, conceptual,
+  casual-phrasing, and single-keyword queries. 17/20 questions had a
+  completely empty `fullTextCandidates` (expected — `'simple'` has no
+  Arabic stopword list, so a full natural-language question ANDs every word
+  including function words); only 1/20 had a full-text-only chunk reach the
+  final fused top-8, well under the 20% "actively misleading" threshold set
+  for this decision, and that one hit was plausibly relevant. Full-text
+  performed as designed on its best case (single-keyword queries) without
+  polluting results elsewhere. **Decision: hybrid retrieval ships as
+  originally designed — no vector-only fallback.** Separately, this same
+  review surfaced that vector search alone also missed on three genuinely
+  hard semantic queries (tortious liability, express resolutory clause,
+  unjust enrichment) — logged as a retrieval-quality gap in
+  `DOMAIN_REVIEW_BACKLOG.md`, explicitly out of scope for Phase 6 to chase.
 
 ### Batch 5 — Citation verification + legal query API
 
@@ -1006,6 +1079,56 @@ copy-pasting the existing migration pattern without adjusting it.
 - **Risks:** Prompt quality for Lebanese legal Arabic content is unproven —
   this is the first Arabic-primary content this pipeline has ever generated
   answers from; budget real iteration here, not just plumbing verification.
+- **Completed — real citation-rejection rate, root-caused and measured
+  (2026-08-14):** An initial 5-question live sample showed a ~40%
+  citation-rejection rate; per-citation diagnosis (real cited excerpt vs.
+  real `LegalChunk` content, side by side) plus a larger 15-question sample
+  (13/15 accepted, 2 rejected) put the trustworthy combined rate at 4/20 =
+  20%, split evenly at the question level between near-miss causes
+  (formatting/orthographic — whitespace-before-punctuation, alef-hamza
+  variance, ordinal-to-digit list reformatting, ellipsis-based elision) and
+  genuine-mismatch causes (cross-chunk misattribution of real text being
+  the dominant sub-type — 4 of 5 genuine citation instances — not
+  fabrication or paraphrase). Two narrow, provably meaning-preserving fixes
+  followed: `citations.ts`'s `normalize()` gained whitespace-before-
+  punctuation and alef-hamza (أ/إ/آ/ٱ↔ا) normalization (regression-tested
+  against all `verifyCitations()` callers — Contracts, Organization Brain,
+  Legal KB share one implementation — with an explicit test proving a
+  genuinely reworded excerpt still gets rejected after the change); and
+  `legal-kb-ask/v1.md` gained three targeted instructions (don't convert
+  ordinals to digits, don't splice non-adjacent text with an ellipsis,
+  attribute excerpts precisely when source blocks are similar). A fresh
+  re-measurement on the same 20-question sample plus the same diagnostic
+  method afterward showed 17/20 = 85% accepted (up from 16/20 = 80%): the
+  whitespace-before-punctuation fix confirmed live on a previously-untested
+  question, and the cross-chunk-misattribution question passed clean this
+  run. Two near-miss sub-types (ordinal-to-digit conversion, elision
+  without a literal ellipsis) reproduced even after the prompt change —
+  genuinely unresolved, not swept under the rug — and a new,
+  distinct rejection surfaced from the unrelated `verifyArticleExistence()`
+  check (a cross-reference to a different instrument's article embedded in
+  otherwise 100%-accurate quoted text). All residual causes are logged in
+  `DOMAIN_REVIEW_BACKLOG.md` under "Legal KB Answer Generation — Residual
+  Citation-Rejection Causes" as an acknowledged, ongoing prompt-quality
+  item — Batch 5 does not require zero rejections to be complete, only
+  that the safe fixes are applied and the residual risk is honestly
+  measured and documented.
+- **Follow-up (2026-08-15) — one of the two residual near-misses fixed,
+  the other confirmed still unresolved after a second attempt:**
+  Ordinal-to-digit conversion is now fixed via a curated ordinal↔digit
+  equivalence table in `citations.ts`'s `normalize()` (same category as the
+  whitespace/alef-hamza fixes), not a third prompt-instruction attempt —
+  live re-verified 2/2 on the real question that reproduced it. Ellipsis
+  elision was retried with a differently-shaped fix (directing the model to
+  cite non-adjacent relevant spans as separate `sources` entries instead of
+  another "don't do X" instruction) and, live re-verified 2/2, the model
+  ignored it and spliced with "..." exactly as before — confirmed
+  unresolved, not chased further. That prompt rewrite was reverted
+  afterward (it didn't help, so it isn't kept); `legal-kb-ask/v1.md` is
+  unchanged from its pre-Batch-6 wording on this rule. Full detail,
+  before/after evidence, and the golden-set/backlog updates in
+  `DOMAIN_REVIEW_BACKLOG.md`'s "Legal KB
+  Ordinal-to-Digit Citation Normalization" (resolved) entry.
 
 ### Batch 6 — Evaluation and hardening
 
@@ -1025,6 +1148,50 @@ copy-pasting the existing migration pattern without adjusting it.
   risk (easy to start writing cases that quietly require legal judgment this
   team doesn't have — see Section 11's engineering-vs-legal-reviewer table,
   re-apply it per case).
+- **Completed — golden set built, a real bug found and fixed, full phase
+  re-verified end to end (2026-08-14):** Nine Legal KB golden-set cases
+  added (`packages/shared/ai/evaluation/legal-kb-golden-set` machinery,
+  `LEGAL_KB_GOLDEN_SET` in `golden-set.ts`), run via a dedicated
+  `runLegalKbGoldenSet()` since the existing single-completion-call harness
+  can't exercise a RAG pipeline — reported together with the original
+  golden set under one `npm run eval`. Building the "temporal metadata"
+  and "hallucinated article number" cases surfaced a real, reproducible
+  bug: the model declined two direct-article-number questions despite
+  `searchLegalKbChunks()` correctly guaranteed-including the exact right
+  chunk. Diagnosed live (not assumed) — two competing theories (anchoring
+  on the prompt's worked decline example; distraction from surrounding
+  irrelevant chunks) were tested and ruled out; the real cause was that no
+  SOURCE block ever told the model which article number it was, so the
+  model had no citable basis to attribute a claim to "Article N" and
+  correctly declined rather than guess. Fixed by threading the real
+  `article_number` through `RetrievedChunk` (Legal KB only — proven absent,
+  not merely null, on Contract/Organization Brain chunks) into an
+  `article=N` SOURCE-block tag, plus one prompt line making that tag
+  citable directly. Full `LEGAL_KB_GOLDEN_SET` re-run post-fix: 9/9, no
+  regression on the 7 already-passing cases. Contract/Organization Brain's
+  existing suites re-run clean (93/93 shared, 258/258 api, 39/39 workers).
+  Separately, a full end-to-end pass across all six batches (schema/data,
+  retrieval, generation/citation, evaluation, and one cross-batch
+  integration question) re-confirmed every batch's own findings still
+  hold, and surfaced two pieces of information outside any single batch's
+  scope: a self-corrected gap in live-verification method (this session's
+  own scripts inconsistently forced `AI_PROVIDER_MODE`, and the mock
+  embedding provider silently zero-vectors pure-Arabic text — not a
+  product defect), and a real, general monorepo build-ordering fact (an
+  isolated `packages/api` production build resolves `@starter-kit/shared`
+  against `dist/`, not source — documented in the root `README.md`'s new
+  "Building" section, not specific to Phase 6). Full detail for both in
+  `docs/DOMAIN_REVIEW_BACKLOG.md`'s "Legal KB Direct Article Lookup" entry
+  (now resolved). **Phase 6 is complete, full stop** — not "complete
+  pending legal review": this project has no real production deployment
+  planned, so the qualified-legal-reviewer requirement (Section 11's
+  engineering-vs-legal-reviewer table; the Risks entry below) is genuinely
+  out of scope, not waived. See `docs/DOMAIN_REVIEW_BACKLOG.md`'s "Legal KB
+  Qualified-Legal-Reviewer Requirement" entry for the full reasoning. The
+  gating code itself (`LEGAL_KB_LICENSE_MODE` fail-closed default,
+  `DEVELOPMENT_ONLY` on all five sources, the production-clearances
+  registry) is unchanged and would matter again exactly as designed if that
+  ever stops being true.
 
 ---
 
@@ -1044,7 +1211,16 @@ copy-pasting the existing migration pattern without adjusting it.
   unchanged by this plan) — Phase 6 engineering can complete and the system
   can work correctly _as a retrieval pipeline_ while still not being
   legally trustworthy content — this gap is inherent to the phase, not a
-  Phase 6 engineering defect to solve.
+  Phase 6 engineering defect to solve. **Scope clarification (2026-08-14):**
+  this project has no real production deployment planned (educational/
+  portfolio build, no real users), and the reviewer requirement exists
+  specifically to protect real users from unreviewed legal content — a risk
+  that can't occur without real users. So for this project as currently
+  scoped, this item is out of scope rather than open; it is not waived, and
+  would apply again exactly as designed if the project's scope ever changed
+  to include a real deployment. Full reasoning in
+  `docs/DOMAIN_REVIEW_BACKLOG.md`'s "Legal KB Qualified-Legal-Reviewer
+  Requirement" entry.
 - **Licensing remains unresolved for all five sources** — this plan builds
   the mechanism to keep development and production cleanly separable, but
   does not and cannot resolve the underlying licensing question itself.

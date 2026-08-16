@@ -174,7 +174,7 @@ fresh discussion.
 
 ---
 
-## 6. Lebanese Legal Knowledge Base (frozen direction; implementation plan approved, Batch 1 not yet started)
+## 6. Lebanese Legal Knowledge Base (frozen direction; implemented — Batches 1–6 complete)
 
 ```
 Trusted Lebanese Legal Sources
@@ -188,16 +188,17 @@ LLM
 Grounded Answer + Citation
 ```
 
-**Status as of 2026-08-12: the direction below is frozen, and a detailed,
-implementation-ready plan now exists and has passed Domain Review** — see
-`docs/PHASE6_IMPLEMENTATION_PLAN.md` (design, domain model, Batch 1's
-complete schema specification, and the full batch breakdown) and
-`docs/DOMAIN_REVIEW_BACKLOG.md` ("Lebanese Legal Knowledge Base — Phase 6
-Domain Review" entry). **No schema, migration, or code has been written
-yet** — Batch 1 is approved but not started. The section below remains the
-agreed high-level *direction*; `PHASE6_IMPLEMENTATION_PLAN.md` is now the
+**Status as of 2026-08-14: Batches 1–6 are complete** — see
+`docs/PHASE6_IMPLEMENTATION_PLAN.md` (design, domain model, full schema
+specification, and the full batch breakdown, each batch section updated
+with real completion evidence) and `docs/DOMAIN_REVIEW_BACKLOG.md`
+("Lebanese Legal Knowledge Base — Phase 6 Domain Review" entry and the
+open items recorded since). The section below remains the agreed
+high-level *direction*; `PHASE6_IMPLEMENTATION_PLAN.md` is the
 authoritative source for implementation detail, the same relationship
 `AI_IMPLEMENTATION_GUIDE.md` has to this document for every other phase.
+Engineering-complete is not the same as legally trustworthy — see
+"Explicitly not claimed" below, unchanged by this status update.
 
 ### Source authority (eventual)
 

@@ -37,6 +37,7 @@ const workspaceNav = [
     href: "/organization-brain",
     icon: BrainCircuit,
   },
+  { title: "Legal Assistant", href: "/legal-assistant", icon: Scale },
 ];
 
 // requiresAdmin marks items the backend actually 403s for non-Owner/Admin

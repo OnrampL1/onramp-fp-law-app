@@ -71,7 +71,16 @@ function splitIntoSections(text: string): Section[] {
   return sections.filter((s) => s.content.length > 0);
 }
 
-function splitWithOverlap(text: string): string[] {
+// Exported for Phase 6 (Lebanese Legal Knowledge Base) ingestion, which
+// reuses only the token-budget-packing half of this module directly —
+// legal sources arrive with real, already-known article boundaries (from
+// legal-source-crawler.ts), so the heading-*detection* half above
+// (splitIntoSections/isHeadingLine, tuned for Latin-script "ARTICLE
+// IV"/"Section 9.4" conventions) doesn't apply and would never match
+// Arabic text regardless. chunkContractText() itself is NOT reused for
+// legal sources — it re-runs heading detection on a flattened string, which
+// throws away the ground truth the crawler already has.
+export function splitWithOverlap(text: string): string[] {
   const maxChars = MAX_CHUNK_TOKENS * CHARS_PER_TOKEN;
   const overlapChars = Math.floor(maxChars * OVERLAP_RATIO);
   const parts: string[] = [];
@@ -87,7 +96,7 @@ function splitWithOverlap(text: string): string[] {
   return parts;
 }
 
-function packSectionIntoChunks(
+export function packSectionIntoChunks(
   heading: string | null,
   content: string,
   startIndex: number,

@@ -45,7 +45,6 @@ export interface CreateUploadedContractInput {
   counterparty: string;
   tags: string[];
   expirationDate: Date | null;
-  legalState?: ContractLegalState;
   fileKey: string;
   fileChecksum: string;
   extractedText: string | null;
@@ -82,7 +81,6 @@ const createUploadedContract = async (
         counterparty: input.counterparty,
         tags: input.tags,
         expirationDate: input.expirationDate,
-        legalState: input.legalState,
         fileKey: input.fileKey,
         fileChecksum: input.fileChecksum,
         extractedText: input.extractedText,
@@ -150,6 +148,58 @@ const updateMetadata = async (
         effectiveDate: fields.effectiveDate,
         expirationDate: fields.expirationDate,
         legalState: fields.legalState,
+        version: { increment: 1 },
+      },
+    });
+
+    if (result.count !== 1) {
+      return null;
+    }
+
+    await auditService.logEvent(tx, {
+      organizationId: audit.organizationId,
+      actorType: audit.actorType,
+      actorUserId: audit.actorUserId,
+      action: audit.action,
+      targetEntityType: "Contract",
+      targetEntityId: id,
+      contractId: id,
+      oldValue: audit.oldValue as Prisma.InputJsonValue | undefined,
+      newValue: audit.newValue as Prisma.InputJsonValue | undefined,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+
+    return tx.contract.findFirst({
+      where: { id, organizationId },
+      select: CONTRACT_DETAIL_SELECT,
+    });
+  });
+};
+
+/**
+ * Optimistic-concurrency update for the manual Terminate/Reactivate action
+ * — same `version`-gated updateMany pattern as updateMetadata, but touching
+ * only legalState (title/counterparty/tags/dates are untouched by this
+ * action).
+ */
+const setLegalState = async (
+  id: string,
+  organizationId: string,
+  expectedVersion: number,
+  legalState: ContractLegalState,
+  audit: ContractAuditEntry,
+): Promise<ContractDetailRow | null> => {
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.contract.updateMany({
+      where: {
+        id,
+        organizationId,
+        version: expectedVersion,
+        deletedAt: null,
+      },
+      data: {
+        legalState,
         version: { increment: 1 },
       },
     });
@@ -285,6 +335,7 @@ const findContentById = async (
 export const contractRepository = {
   createUploadedContract,
   updateMetadata,
+  setLegalState,
   findMany,
   count,
   findById,

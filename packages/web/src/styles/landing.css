@@ -1,0 +1,108 @@
+@import "@fontsource/geist-mono";
+
+/*
+ * Landing-page-only design tokens.
+ *
+ * These are intentionally NOT declared on :root. They are scoped under
+ * .landing-scope so they can never override the authenticated application's
+ * tokens in globals.css, even though several names collide (--background,
+ * --card, --border, --primary, --accent, --muted, --chart-1..5, --radius).
+ * Both files define the same shadcn-derived variable names on purpose --
+ * scoping is what keeps them from fighting over :root.
+ *
+ * This stylesheet is imported only by the Landing page, never by main.tsx,
+ * so it is never loaded on authenticated routes.
+ */
+
+.landing-scope {
+  --radius: 0.625rem; /* matches the app's base radius, not the prototype's 0.5rem */
+
+  --background: oklch(0.17 0.004 260);
+  --foreground: oklch(0.965 0.002 260);
+
+  --surface: oklch(0.205 0.004 260);
+  --surface-raised: oklch(0.235 0.005 260);
+
+  --card: oklch(0.205 0.004 260);
+  --card-foreground: oklch(0.965 0.002 260);
+  --popover: oklch(0.205 0.004 260);
+  --popover-foreground: oklch(0.965 0.002 260);
+
+  --primary: oklch(0.965 0.002 260);
+  --primary-foreground: oklch(0.17 0.004 260);
+  --secondary: oklch(0.245 0.005 260);
+  --secondary-foreground: oklch(0.94 0.002 260);
+  --muted: oklch(0.245 0.005 260);
+  --muted-foreground: oklch(0.66 0.006 260);
+  --accent: oklch(0.26 0.005 260);
+  --accent-foreground: oklch(0.965 0.002 260);
+
+  --destructive: oklch(0.62 0.17 25);
+  --destructive-foreground: oklch(0.98 0.002 260);
+
+  --border: oklch(1 0 0 / 9%);
+  --border-strong: oklch(1 0 0 / 16%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.72 0.06 240);
+
+  /* Landing-only narrative accent (creative-direction §4). Not a Clausio
+     brand color -- do not reference this token outside .landing-scope. */
+  --signal: oklch(0.72 0.1 236);
+  --signal-foreground: oklch(0.17 0.004 260);
+  --risk: oklch(0.78 0.13 78);
+  --ok: oklch(0.75 0.11 158);
+
+  --paper: oklch(0.9 0.006 90);
+  --paper-foreground: oklch(0.3 0.004 260);
+
+  --metal: oklch(0.31 0.004 260);
+  --metal-edge: oklch(0.52 0.005 260);
+
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+.landing-scope ::selection {
+  background: color-mix(in oklab, var(--signal) 30%, transparent);
+}
+
+/* Fine engineering grid used behind the hero stage. */
+.landing-scope .stage-grid {
+  background-image:
+    linear-gradient(to right, oklch(1 0 0 / 4%) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 4%) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.landing-scope .hairline {
+  border: 1px solid var(--border);
+}
+
+.landing-scope .label-mono {
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.landing-scope .font-mono {
+  font-family: "Geist Mono", ui-monospace, monospace;
+}
+
+.landing-scope .vignette {
+  position: relative;
+}
+
+.landing-scope .vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 80% at 50% 40%,
+    transparent 40%,
+    oklch(0.12 0.004 260 / 70%) 100%
+  );
+}

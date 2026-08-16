@@ -10,7 +10,6 @@ import {
   Building2,
   FileText,
   NotebookPen,
-  ScrollText,
   ShieldAlert,
   Sparkles,
   UserPlus,
@@ -20,8 +19,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useAuditLogsList } from "@/hooks/useAuditLogsList";
-import { isAdminRole } from "@/lib/permissions";
+import { useOrganizationActivity } from "@/hooks/useOrganizationActivity";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { listUsers, type ApiUser } from "@/services/users.service";
 import {
@@ -125,25 +123,24 @@ function buildActivitySentence(
 
 export function ActivityFeed() {
   const { user } = useAuth();
-  const canReadAuditLogs = isAdminRole(user?.role);
-  const organizationId = canReadAuditLogs ? user?.organizationId : undefined;
+  const organizationId = user?.organizationId;
 
-  const auditParams = {
+  const activityParams = {
     page: 1,
     limit: 6,
   };
 
   const {
-    data: auditData,
+    data: activityData,
     isLoading,
     isError,
     refetch,
-  } = useAuditLogsList(organizationId, auditParams);
+  } = useOrganizationActivity(organizationId, activityParams);
 
   const { data: users } = useQuery({
     queryKey: ["users"],
     queryFn: listUsers,
-    enabled: canReadAuditLogs,
+    enabled: Boolean(organizationId),
   });
 
   const usersById = useMemo(
@@ -152,29 +149,18 @@ export function ActivityFeed() {
     [users],
   );
 
-  const entries = auditData?.items ?? [];
+  const entries = activityData?.items ?? [];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Activity Feed</CardTitle>
         <CardDescription>
-          Recent audited actions across your workspace
+          Recent activity across your workspace
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!canReadAuditLogs ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border p-8 text-center">
-            <ScrollText className="size-6 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">
-              Activity feed is restricted
-            </p>
-            <p className="max-w-sm text-xs text-muted-foreground">
-              Workspace audit activity is available to the organization Owner
-              and Administrators.
-            </p>
-          </div>
-        ) : isLoading ? (
+        {isLoading ? (
           <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
             Loading activity...
           </div>
@@ -190,7 +176,7 @@ export function ActivityFeed() {
           </div>
         ) : entries.length === 0 ? (
           <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-            No audited activity yet.
+            No activity yet.
           </div>
         ) : (
           <ol className="relative space-y-1">

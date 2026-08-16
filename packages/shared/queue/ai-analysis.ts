@@ -4,7 +4,11 @@ import { QUEUE_NAMES, type AIAnalysisJobData } from "./types";
 
 const prisma = getPrismaClient();
 
-const ANALYSIS_TYPES: AIAnalysisJobData["analysisType"][] = ["SUMMARY", "RISK"];
+const ANALYSIS_TYPES: AIAnalysisJobData["analysisType"][] = [
+  "SUMMARY",
+  "RISK",
+  "METADATA",
+];
 
 export interface EnqueueAnalysisInput {
   contractId: string;

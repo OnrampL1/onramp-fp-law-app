@@ -1,0 +1,5 @@
+-- AlterEnum
+ALTER TYPE "AuditAction" ADD VALUE 'CONTRACT_LEGAL_STATE_CHANGED';
+
+-- AlterTable
+ALTER TABLE "contracts" ALTER COLUMN "legal_state" SET DEFAULT 'DRAFT';

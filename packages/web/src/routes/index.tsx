@@ -1,10 +1,11 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { PlatformProtectedRoute } from "./PlatformProtectedRoute";
 import { PlatformOrganizations } from "../pages/platform/PlatformOrganizations";
 import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { PlatformLayout } from "../layouts/PlatformLayout";
+import { Landing } from "../pages/Landing";
 import { Login } from "../pages/auth/Login";
 import { AcceptInvitation } from "../pages/auth/AcceptInvitation";
 import { PlatformLogin } from "../pages/platform/PlatformLogin";
@@ -23,6 +24,8 @@ import { UserManagement } from "../pages/dashboard/UserManagement";
 import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import { AuditLogPage } from "../pages/AuditLogPage";
 import { OrganizationBrain } from "../pages/dashboard/OrganizationBrain";
+import LegalAssistantPage from "../pages/dashboard/LegalAssistant";
+// import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
   return (
@@ -49,11 +52,13 @@ export function AppRoutes() {
           />
         </Route>
       </Route>
+      {/* Public landing page */}
+      <Route path="/" element={<Landing />} />
+        
 
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/contracts" element={<Contracts />} />
           <Route path="/contracts/:id" element={<ContractDetailPage />} />
@@ -121,6 +126,7 @@ export function AppRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/upload" element={<UploadContract />} />
           <Route path="/organization-brain" element={<OrganizationBrain />} />
+          <Route path="/legal-assistant" element={<LegalAssistantPage />} />
         </Route>
       </Route>
 
