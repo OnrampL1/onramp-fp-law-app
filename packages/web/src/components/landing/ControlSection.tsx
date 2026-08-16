@@ -1,7 +1,12 @@
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollText, ShieldCheck, Eye } from "lucide-react";
 import { IconChip } from "./ContractArtifacts";
 import { RevealOnScroll } from "./RevealOnScroll";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const LEGAL_STATE: { label: string; width: string; className: string }[] = [
   { label: "Active", width: "62%", className: "bg-emerald-500" },
@@ -21,7 +26,7 @@ function ControlPanel({ children, className }: { children: ReactNode; className?
   return (
     <div
       tabIndex={0}
-      className={`rounded-[10px] border border-border bg-surface p-5 outline-none transition-colors duration-200 hover:border-signal/40 focus-visible:border-signal/40 focus-visible:ring-2 focus-visible:ring-signal/30 ${className ?? ""}`}
+      className={`glow-surface-sm rounded-[12px] border border-border bg-surface p-5 outline-none transition-all duration-200 hover:-translate-y-1 hover:border-signal/40 focus-visible:border-signal/40 focus-visible:ring-2 focus-visible:ring-signal/30 ${className ?? ""}`}
     >
       {children}
     </div>
@@ -30,8 +35,75 @@ function ControlPanel({ children, className }: { children: ReactNode; className?
 
 /** Intelligence you can act on and control -- not just AI output. */
 export function ControlSection() {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const barRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const logRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const mm = gsap.matchMedia();
+
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const bars = barRefs.current.filter(Boolean) as HTMLDivElement[];
+        const logRows = logRefs.current.filter(Boolean) as HTMLDivElement[];
+
+        // Capture each bar segment's authored target width before zeroing it out.
+        const targets = bars.map((el) => el.style.width || el.dataset.targetWidth || "0%");
+        bars.forEach((el, i) => {
+          el.dataset.targetWidth = targets[i];
+        });
+        gsap.set(bars, { width: "0%" });
+        gsap.set(logRows, { opacity: 0, x: -8 });
+
+        // Kill on completion, then reassert final values with an
+        // independent gsap.set() -- see ContractIntelligence for why this
+        // two-step is required (kill() alone reverts to pre-animation
+        // state; holding progress alone loses a tug-of-war with scrub's
+        // own smoothing).
+        let locked = false;
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: gridRef.current,
+            start: "top 75%",
+            end: "bottom 60%",
+            scrub: 0.6,
+            onUpdate: (self) => {
+              if (locked || self.progress < 1) return;
+              locked = true;
+              self.kill();
+              bars.forEach((el, i) => {
+                gsap.set(el, { width: targets[i] });
+              });
+              gsap.set(logRows, { opacity: 1, x: 0 });
+            },
+          },
+        });
+
+        bars.forEach((el, i) => {
+          tl.to(el, { width: targets[i], duration: 1 }, i * 0.35);
+        });
+
+        const barsEnd = bars.length * 0.35 + 0.5;
+        logRows.forEach((el, i) => {
+          tl.to(el, { opacity: 1, x: 0, duration: 0.8 }, barsEnd + i * 0.5);
+        });
+      });
+
+      mm.add("(prefers-reduced-motion: reduce)", () => {
+        const bars = barRefs.current.filter(Boolean) as HTMLDivElement[];
+        const logRows = logRefs.current.filter(Boolean) as HTMLDivElement[];
+        bars.forEach((el) => {
+          if (el.dataset.targetWidth) el.style.width = el.dataset.targetWidth;
+        });
+        gsap.set(logRows, { opacity: 1, x: 0 });
+      });
+    }, gridRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <section id="control" className="border-b border-border bg-[oklch(0.15_0.004_260)]">
+    <section id="control" className="spotlight border-b border-border bg-[oklch(0.15_0.004_260)]">
       <div className="mx-auto max-w-[1400px] px-6 py-20 lg:px-10 lg:py-24">
         <RevealOnScroll>
           <p className="label-mono">Control</p>
@@ -40,14 +112,17 @@ export function ControlSection() {
           </h2>
         </RevealOnScroll>
 
-        <div className="mt-12 grid gap-4 lg:grid-cols-3">
+        <div ref={gridRef} className="mt-12 grid gap-4 lg:grid-cols-3">
           <RevealOnScroll className="lg:col-span-1">
             <ControlPanel className="h-full">
               <p className="label-mono">Legal state</p>
               <div className="mt-4 flex h-2 w-full overflow-hidden rounded-full bg-border">
-                {LEGAL_STATE.map((s) => (
+                {LEGAL_STATE.map((s, i) => (
                   <div
                     key={s.label}
+                    ref={(el) => {
+                      barRefs.current[i] = el;
+                    }}
                     className={s.className}
                     style={{ width: s.width }}
                     title={s.label}
@@ -75,8 +150,14 @@ export function ControlSection() {
                 <p className="label-mono">Audit history</p>
               </div>
               <div className="mt-4 space-y-3">
-                {AUDIT_LOG.map((entry) => (
-                  <div key={entry.action} className="flex items-baseline gap-2.5 text-[12px]">
+                {AUDIT_LOG.map((entry, i) => (
+                  <div
+                    key={entry.action}
+                    ref={(el) => {
+                      logRefs.current[i] = el;
+                    }}
+                    className="flex items-baseline gap-2.5 text-[12px]"
+                  >
                     <span className="w-14 shrink-0 font-mono text-[10px] text-muted-foreground">
                       {entry.time}
                     </span>

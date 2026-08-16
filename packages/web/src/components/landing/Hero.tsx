@@ -11,6 +11,7 @@ import {
   ObligationCard,
   RiskCard,
 } from "./ContractArtifacts";
+import { SensorPulseActivate } from "./SensorPulse";
 import { cn } from "@/lib/utils";
 
 type Artifact = {
@@ -143,6 +144,7 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-border">
       <div className="pointer-events-none absolute inset-0 stage-grid opacity-[0.55]" />
+      <SensorPulseActivate />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_60%_at_50%_0%,transparent_35%,var(--background)_100%)]" />
 
       <div className="relative mx-auto grid max-w-[1400px] grid-cols-1 gap-14 px-6 pt-28 pb-20 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-10 lg:px-10 lg:pt-36 lg:pb-28">

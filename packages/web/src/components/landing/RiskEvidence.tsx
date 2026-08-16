@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Quote } from "lucide-react";
 import { SeverityBadge } from "@/components/ui/badges";
 import type { Severity } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { RevealOnScroll } from "./RevealOnScroll";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const FINDINGS: {
   severity: Severity;
@@ -40,26 +44,75 @@ const FINDINGS: {
 /** Every finding, traced back to the line it came from. */
 export function RiskEvidence() {
   const [hovered, setHovered] = useState<number | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const sourceRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const mm = gsap.matchMedia();
+
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const sources = sourceRefs.current.filter(Boolean) as HTMLDivElement[];
+        gsap.set(sources, { opacity: 0, y: 10, filter: "blur(4px)" });
+
+        // Kill on completion, then reassert final values with an
+        // independent gsap.set() -- see ContractIntelligence for why this
+        // two-step is required (kill() alone reverts to pre-animation
+        // state; holding progress alone loses a tug-of-war with scrub's
+        // own smoothing).
+        let locked = false;
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: gridRef.current,
+            start: "top 75%",
+            end: "bottom 60%",
+            scrub: 0.6,
+            onUpdate: (self) => {
+              if (locked || self.progress < 1) return;
+              locked = true;
+              self.kill();
+              gsap.set(sources, { opacity: 1, y: 0, filter: "blur(0px)" });
+            },
+          },
+        });
+
+        sources.forEach((el, i) => {
+          tl.to(
+            el,
+            { opacity: 1, y: 0, filter: "blur(0px)", duration: 1 },
+            i * 0.9,
+          );
+        });
+      });
+
+      mm.add("(prefers-reduced-motion: reduce)", () => {
+        const sources = sourceRefs.current.filter(Boolean) as HTMLDivElement[];
+        gsap.set(sources, { opacity: 1, y: 0, filter: "blur(0px)" });
+      });
+    }, gridRef);
+
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <section id="risk" className="border-b border-border">
+    <section id="risk" className="spotlight border-b border-border">
       <div className="mx-auto max-w-[1400px] px-6 py-24 lg:px-10 lg:py-32">
         <RevealOnScroll>
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div className="max-w-xl">
               <p className="label-mono">Risk → Severity → Source</p>
-              <h2 className="mt-4 text-3xl leading-[1.1] font-medium tracking-[-0.03em] text-balance sm:text-[2.6rem]">
-                Every finding is traceable to the contract.
+              <h2 className="mt-4 text-3xl leading-[1.1] font-medium tracking-[-0.03em] text-balance sm:text-[2.8rem]">
+                That uncapped indemnity was one flag. Here's the full range.
               </h2>
             </div>
             <p className="max-w-sm text-[14px] leading-relaxed text-muted-foreground">
-              Risk findings carry a real severity rating — Low, Medium, High
-              or Critical — and the exact source passage behind the call.
+              Every severity level — Low, Medium, High, Critical — carries
+              the same rule: no finding without the line it came from.
             </p>
           </div>
         </RevealOnScroll>
 
-        <div className="mt-14 grid gap-4 lg:grid-cols-3">
+        <div ref={gridRef} className="mt-14 grid gap-4 lg:grid-cols-3">
           {FINDINGS.map((f, i) => {
             const isHovered = hovered === i;
             const isDimmed = hovered !== null && hovered !== i;
@@ -72,7 +125,8 @@ export function RiskEvidence() {
                   onBlur={() => setHovered(null)}
                   tabIndex={0}
                   className={cn(
-                    "h-full rounded-[10px] border p-4 outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-signal/50",
+                    "h-full rounded-[12px] border p-5 outline-none transition-all duration-200 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-signal/50",
+                    f.severity === "Critical" ? "glow-surface-risk" : "glow-surface-sm",
                     isHovered
                       ? "border-signal/50 bg-surface"
                       : "border-border bg-surface",
@@ -94,6 +148,9 @@ export function RiskEvidence() {
                     {f.description}
                   </p>
                   <div
+                    ref={(el) => {
+                      sourceRefs.current[i] = el;
+                    }}
                     className={cn(
                       "mt-3.5 rounded-md border-l-2 p-2.5 transition-colors duration-200",
                       isHovered
