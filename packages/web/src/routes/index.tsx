@@ -1,7 +1,8 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
+import { Landing } from "../pages/Landing";
 import { Login } from "../pages/auth/Login";
 import { AcceptInvitation } from "../pages/auth/AcceptInvitation";
 import { Dashboard } from "../pages/dashboard/Dashboard";
@@ -36,10 +37,12 @@ export function AppRoutes() {
 
       <Route path="/witness/:token" element={<WitnessReview />} />
 
+      {/* Public landing page */}
+      <Route path="/" element={<Landing />} />
+
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/contracts" element={<Contracts />} />
           <Route path="/contracts/:id" element={<ContractDetailPage />} />
