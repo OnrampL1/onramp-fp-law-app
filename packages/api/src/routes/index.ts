@@ -11,10 +11,14 @@ import { notificationRouter } from "./notification.routes";
 import { organizationBrainRouter } from "./organization-brain.routes";
 import { legalKbRouter } from "./legal-kb.routes";
 import { dashboardRouter } from "./dashboard.routes";
+import { platformAuthRouter } from "./platform-auth.routes";
+import { platformOrganizationRouter } from "./platform-organization.routes";
 
 const router = Router();
 
 router.use("/auth", authRouter);
+router.use("/platform/auth", platformAuthRouter);
+router.use("/platform/organizations", platformOrganizationRouter);
 router.use("/users", userRouter);
 router.use("/users", witnessRouter);
 router.use("/invitations", invitationRouter);

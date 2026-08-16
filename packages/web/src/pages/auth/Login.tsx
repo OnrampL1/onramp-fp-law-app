@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -286,6 +286,16 @@ export function Login() {
               </CardContent>
             </form>
           </Card>
+
+          <div className="mt-4 text-center text-sm text-muted-foreground">
+            Platform operator?{" "}
+            <Link
+              to="/platform/login"
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Sign in to the platform console
+            </Link>
+          </div>
 
           {/* Security notice */}
           <div className="mt-5 rounded-lg border border-border bg-muted/30 p-4">

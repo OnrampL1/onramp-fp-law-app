@@ -1,5 +1,4 @@
 import request from "supertest";
-import { app } from "../../app";
 
 jest.mock("../../src/services/auth.service", () => ({
   authService: {
@@ -12,11 +11,19 @@ jest.mock("../../src/services/auth.service", () => ({
   },
 }));
 
+const mockPrisma = {
+  user: {
+    findUnique: jest.fn(),
+  },
+};
+
 jest.mock("@starter-kit/shared", () => ({
   ...jest.requireActual("@starter-kit/shared"),
+  getPrismaClient: jest.fn(() => mockPrisma),
   isJtiBlacklisted: jest.fn().mockResolvedValue(false),
 }));
 
+import { app } from "../../app";
 import { signAccessToken } from "@starter-kit/shared";
 import { authService } from "../../src/services/auth.service";
 const mockAuthService = authService as jest.Mocked<typeof authService>;
@@ -28,6 +35,15 @@ function cookieFor(role: "OWNER" | "ADMIN" | "INTERNAL" = "INTERNAL") {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: "org-1",
+    role: "INTERNAL",
+    status: "ACTIVE",
+    organization: {
+      status: "ACTIVE",
+    },
+  });
 });
 // ─── POST /api/auth/accept-invitation ─────────────────────────────────────────
 
@@ -112,6 +128,31 @@ describe("POST /api/auth/login", () => {
 });
 
 describe("POST /api/auth/change-password", () => {
+  it("blocks authenticated organization routes when the organization is suspended", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      organizationId: "org-1",
+      role: "OWNER",
+      status: "ACTIVE",
+      organization: {
+        status: "SUSPENDED",
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/auth/change-password")
+      .set("Cookie", cookieFor("OWNER"))
+      .send({
+        currentPassword: "Password123!",
+        newPassword: "NewPassword123",
+        confirmNewPassword: "NewPassword123",
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("Organization is not active");
+    expect(mockAuthService.changePassword).not.toHaveBeenCalled();
+  });
+
   it("returns 401 with no session", async () => {
     const res = await request(app).post("/api/auth/change-password").send({
       currentPassword: "Password123!",
