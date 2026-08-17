@@ -214,6 +214,53 @@ what we noticed.
     quotes a cross-reference. Logged, not fixed — same "don't chase to
     zero in Phase 6" reasoning applies.
 
+### AI Analysis Overview Endpoints 500 on Seeded Contracts — Seed Data Bug, Not Application Logic
+
+- Identified: Incidentally, while browser-testing the global search feature
+  (2026-08-17) — clicking a live search result for "Master Services
+  Agreement" (contract `00000000-0000-4000-8000-000000000301`) landed on
+  Contract Details with "Couldn't load the AI summary" and a 500 from both
+  `GET /contracts/:id/risk-overview` and `GET /contracts/:id/summary-overview`.
+  Not caused by, or related to, the search feature — search only navigated
+  there; this is pre-existing AI Analysis behavior. Root-caused directly
+  against the real dev DB, not guessed at.
+- Classification: Real, reproducible bug in `packages/shared/prisma/seed.ts`,
+  not an `ai-analysis.service.ts` logic bug — the service's 500s here are
+  arguably correct defensive behavior (refusing to serve a stored analysis
+  result that doesn't match its recorded schema) reacting to bad seed data.
+  Owner: wahabtlais (AI Analysis / seed data area).
+- Status: Open. Not fixed — out of scope for the search feature.
+- Root cause, confirmed by querying the dev DB directly
+  (`prisma.aIAnalysis.findMany` for this contract): both its `SUMMARY` and
+  `RISK` rows have `status: "COMPLETED"` but `schemaVersion: null` and
+  `result: null`. Two contributing bugs in `seed.ts`, both around line 800:
+  1. `AnalysisSeed` (the seed file's own interface, ~line 328) and the
+     `prisma.aIAnalysis.upsert(...)` `create` block never set
+     `schemaVersion` at all — so `getRiskOverview`'s
+     `if (!analysis.schemaVersion) throw createError(..., 500)` guard
+     (`ai-analysis.service.ts` line 189) will 500 for **every** seeded RISK
+     analysis on a fresh database, not just this one contract. This is
+     systemic, not contract-specific.
+  2. The upsert's `update: {}` (line 802) is a no-op on conflict — for a
+     contract ID that already exists in the target database from an earlier
+     seed-script revision, re-running `npm run db:seed` never refreshes
+     `result`/`modelVersion`/etc. to match what `seed.ts`'s source currently
+     defines. This contract's source code (`seed.ts` ~line 405) *does*
+     define a real `result: { text: "..." }` payload for both analyses, but
+     the DB has `result: null` — meaning this row predates that payload and
+     has silently drifted ever since, invisible to anyone just reading
+     `seed.ts`.
+  Both bugs likely affect the other seeded contracts with `aiAnalyses`
+  entries too (at least the ones referenced at `seed.ts` lines 596 and 743)
+  — not independently verified per-contract, only this one was traced end
+  to end.
+- Notes: Fixing likely needs both a `schemaVersion` value added to the seed
+  data/create call (so it actually matches whatever
+  `getRiskSchemaForVersion` expects) and either a real `update` clause on
+  the upsert (so re-seeding heals drifted rows) or a documented "wipe and
+  reseed" step for local dev. Neither attempted here — belongs to whoever
+  owns this area.
+
 ## Resolved Items
 
 ### Labour Law Flat-View Parser — "Preliminary Provisions" Articles Left with a Null Heading Path
