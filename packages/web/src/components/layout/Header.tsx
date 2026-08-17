@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, Clock, LogOut, Moon, Sparkles, Sun } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useGlobalSearch } from "@/hooks/useGlobalSearch";
+import { SearchDropdown } from "@/components/layout/search/SearchDropdown";
+import { SearchModal } from "@/components/layout/search/SearchModal";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import type { NotificationItem } from "@/types/notifications";
 
@@ -96,6 +99,46 @@ export function Header() {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  const search = useGlobalSearch();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const showDropdown = dropdownOpen && search.isActive && !modalOpen;
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!searchContainerRef.current?.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    function handleGlobalKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setDropdownOpen(false);
+        setModalOpen(true);
+      }
+    }
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
+
+  function handleDropdownSelect(route: string) {
+    navigate(route);
+    setDropdownOpen(false);
+    search.setQuery("");
+  }
+
+  function handleViewAll() {
+    setDropdownOpen(false);
+    setModalOpen(true);
+  }
+
   const { data: notifications, isLoading, isError } = useNotifications();
   const notificationCount = notifications?.length ?? 0;
 
@@ -147,9 +190,21 @@ export function Header() {
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur md:px-6">
       <SidebarTrigger />
       <Separator orientation="vertical" className="hidden h-6 lg:block" />
-      <div className="relative hidden flex-1 md:block md:max-w-md">
+      <div
+        ref={searchContainerRef}
+        className="relative hidden flex-1 md:block md:max-w-md"
+      >
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
+          value={search.query}
+          onChange={(event) => {
+            search.setQuery(event.target.value);
+            setDropdownOpen(true);
+          }}
+          onFocus={() => setDropdownOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setDropdownOpen(false);
+          }}
           placeholder="Search contracts, clauses, counterparties..."
           className="h-9 pl-9"
           aria-label="Global search"
@@ -157,7 +212,28 @@ export function Header() {
         <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground lg:inline-block">
           Ctrl K
         </kbd>
+
+        {showDropdown && (
+          <SearchDropdown
+            query={search.query}
+            groups={search.groups}
+            isLoadingLive={search.isLoadingLive}
+            isLiveError={search.isLiveError}
+            onSelect={handleDropdownSelect}
+            onViewAll={handleViewAll}
+          />
+        )}
       </div>
+
+      <SearchModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        query={search.query}
+        onQueryChange={search.setQuery}
+        groups={search.groups}
+        isLoadingLive={search.isLoadingLive}
+        isLiveError={search.isLiveError}
+      />
 
       <div className="ml-auto flex items-center gap-2">
         <Button
