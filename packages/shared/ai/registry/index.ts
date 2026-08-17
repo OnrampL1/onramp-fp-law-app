@@ -8,7 +8,7 @@ const ACTIVE_PROMPT_VERSIONS: Record<string, string> = {
   "organization-brain-ask": "v1",
   "legal-kb-ask": "v1",
   summary: "v1",
-  risk: "v2",
+  risk: "v3",
   metadata: "v1",
 };
 
@@ -17,7 +17,7 @@ const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {
   investigator: "v1",
   "legal-kb": "v1",
   summary: "v1",
-  risk: "v2",
+  risk: "v3",
   metadata: "v1",
 };
 

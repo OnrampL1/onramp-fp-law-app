@@ -39,6 +39,7 @@ model Organization {
   auditLogs              AuditLog[]
   aiCallLogs             AICallLog[]
   contractChunks         ContractChunk[]
+  riskFlags              RiskFlag[]
   organizationBrainItems OrganizationBrainItem[]
   organizationBrainChunks OrganizationBrainChunk[]
 
@@ -230,6 +231,7 @@ model Contract {
   uploadedBy         User                @relation("ContractUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
   notes              ContractNote[]
   aiAnalyses         AIAnalysis[]
+  riskFlags          RiskFlag[]
   chunks             ContractChunk[]
   witnessInvitations WitnessInvitation[]
   auditLogs          AuditLog[]
@@ -368,8 +370,57 @@ model AIAnalysis {
   contract  Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
   createdBy User     @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
 
+  riskFlags RiskFlag[]
+
   @@index([contractId, type])
   @@map("ai_analyses")
+}
+
+// ─── Risk taxonomy ────────────────────────────────────────────────────────
+// One row per flag in a RISK analysis's result. Always mirrors the *latest*
+// completed RISK analysis for a contract — replaced, not accumulated, on
+// re-analysis (see markAnalysisCompleted). organizationId is denormalized
+// from Contract, same rationale as ContractChunk: portfolio-wide queries can
+// be org-scoped at the query itself without a join.
+enum RiskCategory {
+  LIABILITY
+  INDEMNIFICATION
+  AUTO_RENEWAL
+  TERMINATION
+  PAYMENT
+  CONFIDENTIALITY
+  NON_COMPETE
+  IP_ASSIGNMENT
+  OTHER
+}
+
+enum RiskSeverity {
+  LOW
+  MEDIUM 
+  HIGH
+  CRITICAL
+}
+
+model RiskFlag {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  contractId     String @map("contract_id") @db.Uuid
+  analysisId     String @map("analysis_id") @db.Uuid
+
+  severity    RiskSeverity
+  category    RiskCategory
+  description String       @db.Text
+  sourceText  String       @map("source_text") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contract     Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  analysis     AIAnalysis   @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, category])
+  @@index([contractId])
+  @@map("risk_flags")
 }
 
 enum AICallStatus {

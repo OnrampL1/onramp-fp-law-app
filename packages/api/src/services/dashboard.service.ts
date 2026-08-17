@@ -30,7 +30,7 @@ function toDateOnlyString(date: Date | null): string | null {
   return date ? date.toISOString().slice(0, 10) : null;
 }
 
-function toContractItemDto(
+export function toContractItemDto(
   row: DashboardContractRow,
 ): DashboardContractItemDto {
   return {

@@ -83,3 +83,6 @@ AGENTS.md
 report.md
 
 home
+
+# ─── Local DB backups (pg_dump snapshots taken before risky migrations) ───────
+backups/
