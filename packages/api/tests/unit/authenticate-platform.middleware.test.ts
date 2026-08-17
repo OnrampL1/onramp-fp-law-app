@@ -52,7 +52,7 @@ describe("authenticatePlatform", () => {
 
     const res = await request(buildApp())
       .get("/platform/probe")
-      .set("Cookie", `accessToken=${token}`);
+      .set("Cookie", `platformAccessToken=${token}`);
 
     expect(res.status).toBe(401);
     expect(mockPrisma.platformUser.findUnique).not.toHaveBeenCalled();
@@ -88,7 +88,7 @@ describe("authenticatePlatform", () => {
 
     const res = await request(buildApp())
       .get("/platform/probe")
-      .set("Cookie", `accessToken=${token}`);
+      .set("Cookie", `platformAccessToken=${token}`);
 
     expect(res.status).toBe(401);
   });
@@ -108,7 +108,7 @@ describe("authenticatePlatform", () => {
 
     const res = await request(buildApp())
       .get("/platform/probe")
-      .set("Cookie", `accessToken=${token}`);
+      .set("Cookie", `platformAccessToken=${token}`);
 
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({

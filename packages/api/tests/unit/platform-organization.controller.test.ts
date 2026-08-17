@@ -37,7 +37,7 @@ function platformCookieFor(role: "SUPER_ADMIN" | "SUPPORT_ENGINEER") {
     role,
   });
 
-  return `accessToken=${token}`;
+  return `platformAccessToken=${token}`;
 }
 
 function orgCookie() {
@@ -166,6 +166,17 @@ describe("platform organization routes", () => {
     expect(
       mockPlatformOrganizationService.listOrganizations,
     ).not.toHaveBeenCalled();
+  });
+
+  it("uses the platform cookie even when a normal user cookie is also present", async () => {
+    const res = await request(app)
+      .get("/api/platform/organizations")
+      .set("Cookie", [orgCookie(), platformCookieFor("SUPER_ADMIN")]);
+
+    expect(res.status).toBe(200);
+    expect(
+      mockPlatformOrganizationService.listOrganizations,
+    ).toHaveBeenCalled();
   });
 
   it("allows SUPPORT_ENGINEER to list organizations", async () => {
