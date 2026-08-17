@@ -1,4 +1,4 @@
-import { getPrismaClient } from "@starter-kit/shared";
+import { getPrismaClient, type RiskSchemaV3 } from "@starter-kit/shared";
 import type { Prisma } from "@prisma/client";
 
 const prisma = getPrismaClient();
@@ -36,6 +36,32 @@ export async function markAnalysisCompleted(
         tokensUsed: input.tokensUsed,
       },
     });
+
+    // RiskFlag always mirrors the *latest* completed RISK analysis for a
+    // contract — re-analysis is an existing, supported flow (see
+    // getRiskOverview's "latest by createdAt" read pattern), so previous
+    // rows for this contract are replaced, not accumulated.
+    if (input.type === "RISK") {
+      const risk = input.result as RiskSchemaV3;
+
+      await tx.riskFlag.deleteMany({
+        where: { contractId: input.contractId },
+      });
+
+      if (risk.flags.length > 0) {
+        await tx.riskFlag.createMany({
+          data: risk.flags.map((flag) => ({
+            organizationId: input.organizationId,
+            contractId: input.contractId,
+            analysisId: analysis.id,
+            severity: flag.severity,
+            category: flag.category,
+            description: flag.description,
+            sourceText: flag.sourceText,
+          })),
+        });
+      }
+    }
 
     await tx.auditLog.create({
       data: {

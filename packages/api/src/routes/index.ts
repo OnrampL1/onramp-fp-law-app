@@ -11,6 +11,7 @@ import { notificationRouter } from "./notification.routes";
 import { organizationBrainRouter } from "./organization-brain.routes";
 import { legalKbRouter } from "./legal-kb.routes";
 import { dashboardRouter } from "./dashboard.routes";
+import { insightsRouter } from "./insights.routes";
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use("/organizations", organizationRouter);
 router.use("/settings", settingsRouter);
 router.use("/witness", witnessPortalRouter);
 router.use("/notifications", notificationRouter);
+router.use("/insights", insightsRouter);
 
 export { router };
