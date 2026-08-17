@@ -6,6 +6,8 @@ import {
   getPrismaClient,
   uploadFile,
   deriveLegalState,
+  PLACEHOLDER_CONTRACT_TITLE,
+  PLACEHOLDER_CONTRACT_COUNTERPARTY,
 } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
 import {
@@ -191,8 +193,9 @@ async function uploadContract(
   const createInput: CreateUploadedContractInput = {
     organizationId: user.organizationId,
     uploadedByUserId: user.id,
-    title: input.metadata.title,
-    counterparty: input.metadata.counterparty,
+    title: input.metadata.title || PLACEHOLDER_CONTRACT_TITLE,
+    counterparty:
+      input.metadata.counterparty || PLACEHOLDER_CONTRACT_COUNTERPARTY,
     tags: input.metadata.tags,
     expirationDate: input.metadata.expirationDate,
     fileKey,

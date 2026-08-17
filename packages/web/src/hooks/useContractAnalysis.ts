@@ -27,7 +27,7 @@ export function useRiskOverview(
   processingStatus: ContractDetailResponse["processingStatus"] | undefined,
 ) {
   return useQuery({
-    queryKey: ["contract", contractId, "risk-overview"],
+    queryKey: ["contract", contractId, "risk-overview", processingStatus],
     queryFn: () => fetchRiskOverview(contractId as string),
     enabled: Boolean(contractId) && analysisMayExist(processingStatus),
     retry: false,
@@ -38,7 +38,7 @@ export function useSummaryOverview(
   processingStatus: ContractDetailResponse["processingStatus"] | undefined,
 ) {
   return useQuery({
-    queryKey: ["contract", contractId, "summary-overview"],
+    queryKey: ["contract", contractId, "summary-overview", processingStatus],
     queryFn: () => fetchSummaryOverview(contractId as string),
     enabled: Boolean(contractId) && analysisMayExist(processingStatus),
     retry: false,

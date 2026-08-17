@@ -53,17 +53,13 @@ function contractDateSchema(label: string) {
 }
 
 export const createContractMetadataSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(1, "Contract title is required")
-    .max(MAX_CONTRACT_TITLE_LENGTH),
+  title: z.string().trim().max(MAX_CONTRACT_TITLE_LENGTH).optional(),
 
   counterparty: z
     .string()
     .trim()
-    .min(1, "Counterparty is required")
-    .max(MAX_CONTRACT_COUNTERPARTY_LENGTH),
+    .max(MAX_CONTRACT_COUNTERPARTY_LENGTH)
+    .optional(),
 
   tags: z
     .preprocess(parseTags, z.array(contractTagSchema).max(MAX_CONTRACT_TAGS))

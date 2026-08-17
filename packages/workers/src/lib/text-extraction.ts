@@ -47,6 +47,7 @@ export async function extractText(
   try {
     result = await extractor(buffer);
   } catch (error) {
+    console.error("[text-extraction Parse failure:", error);
     throw new TerminalExtractionError(
       `Failed to parse file: ${error instanceof Error ? error.message : "unknown error"}`,
     );
