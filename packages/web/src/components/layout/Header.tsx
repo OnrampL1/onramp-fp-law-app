@@ -11,6 +11,7 @@ import { SearchDropdown } from "@/components/layout/search/SearchDropdown";
 import { SearchModal } from "@/components/layout/search/SearchModal";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import type { NotificationItem } from "@/types/notifications";
+import { useTheme } from "@/providers/ThemeProvider";
 
 import { Badge } from "../ui/badge";
 import {
@@ -41,9 +42,7 @@ function formatExpiryInDays(isoDate: string): string {
     expiry.getUTCMonth(),
     expiry.getUTCDate(),
   );
-  const daysUntil = Math.round(
-    (expiryUtcMidnight - todayUtcMidnight) / DAY_MS,
-  );
+  const daysUntil = Math.round((expiryUtcMidnight - todayUtcMidnight) / DAY_MS);
 
   if (daysUntil <= 0) return "today";
   if (daysUntil === 1) return "tomorrow";
@@ -94,7 +93,7 @@ function writeSeenIds(ids: string[]): void {
 }
 
 export function Header() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { theme, toggleTheme } = useTheme();
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -150,30 +149,6 @@ export function Header() {
     const ids = notifications.map((item) => item.id);
     writeSeenIds(ids);
     setSeenIds(new Set(ids));
-  }
-
-  useEffect(() => {
-    const storedTheme = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)",
-    ).matches;
-    const nextTheme =
-      storedTheme === "dark" || (!storedTheme && prefersDark)
-        ? "dark"
-        : "light";
-
-    setTheme(nextTheme);
-    document.documentElement.classList.toggle("dark", nextTheme === "dark");
-    document.documentElement.style.colorScheme = nextTheme;
-  }, []);
-
-  function toggleTheme() {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-
-    setTheme(nextTheme);
-    localStorage.setItem("theme", nextTheme);
-    document.documentElement.classList.toggle("dark", nextTheme === "dark");
-    document.documentElement.style.colorScheme = nextTheme;
   }
 
   async function handleLogout() {

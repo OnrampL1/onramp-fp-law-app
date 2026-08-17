@@ -1,8 +1,9 @@
 import { Outlet, useNavigate } from "react-router-dom";
-import { Building2, LogOut, Scale, ShieldAlert } from "lucide-react";
+import { Building2, LogOut, Moon, Scale, ShieldAlert, Sun } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { usePlatformAuth } from "../hooks/usePlatformAuth";
+import { useTheme } from "../providers/ThemeProvider";
 
 function roleLabel(role: string) {
   if (role === "SUPER_ADMIN") return "Super Admin";
@@ -23,6 +24,7 @@ function initials(name: string) {
 export function PlatformLayout() {
   const navigate = useNavigate();
   const { platformUser, platformLogout } = usePlatformAuth();
+  const { theme, toggleTheme } = useTheme();
 
   async function handleLogout() {
     await platformLogout();
@@ -30,7 +32,7 @@ export function PlatformLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
@@ -78,6 +80,21 @@ export function PlatformLayout() {
                 {initials(platformUser.fullName)}
               </div>
             )}
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-9"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+            >
+              {theme === "dark" ? (
+                <Sun className="size-4" />
+              ) : (
+                <Moon className="size-4" />
+              )}
+            </Button>
 
             <Button
               variant="outline"
