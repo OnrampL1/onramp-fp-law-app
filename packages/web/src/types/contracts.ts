@@ -20,13 +20,6 @@ export type AcceptedContractFileExtension =
 export type AcceptedContractMimeType =
   (typeof ACCEPTED_CONTRACT_MIME_TYPES)[number];
 
-export interface ContractMetadata {
-  title: string;
-  counterparty: string;
-  tags: string[];
-  expirationDate: string;
-}
-
 export interface SelectedContractFile {
   file: File;
   name: string;

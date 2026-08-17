@@ -1,4 +1,9 @@
-import { getPrismaClient, deriveLegalState } from "@starter-kit/shared";
+import {
+  getPrismaClient,
+  deriveLegalState,
+  PLACEHOLDER_CONTRACT_TITLE,
+  PLACEHOLDER_CONTRACT_COUNTERPARTY,
+} from "@starter-kit/shared";
 import type { ContractLegalState } from "@prisma/client";
 
 const prisma = getPrismaClient();
@@ -66,9 +71,6 @@ export async function markExtractionFailed(
   });
 }
 
-const PLACEHOLDER_TITLE = "Untitled Contract";
-const PLACEHOLDER_COUNTERPARTY = "Unknown Counterparty";
-
 export interface ExtractedContractMetadata {
   title: string | null;
   counterparty: string | null;
@@ -104,11 +106,11 @@ export async function applyExtractedMetadata(
     }
 
     const nextTitle =
-      contract.title === PLACEHOLDER_TITLE && extracted.title
+      contract.title === PLACEHOLDER_CONTRACT_TITLE && extracted.title
         ? extracted.title
         : contract.title;
     const nextCounterparty =
-      contract.counterparty === PLACEHOLDER_COUNTERPARTY &&
+      contract.counterparty === PLACEHOLDER_CONTRACT_COUNTERPARTY &&
       extracted.counterparty
         ? extracted.counterparty
         : contract.counterparty;
