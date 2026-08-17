@@ -1,10 +1,14 @@
 import { Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { PlatformProtectedRoute } from "./PlatformProtectedRoute";
+import { PlatformOrganizations } from "../pages/platform/PlatformOrganizations";
 import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
+import { PlatformLayout } from "../layouts/PlatformLayout";
 import { Landing } from "../pages/Landing";
 import { Login } from "../pages/auth/Login";
 import { AcceptInvitation } from "../pages/auth/AcceptInvitation";
+import { PlatformLogin } from "../pages/platform/PlatformLogin";
 import { Dashboard } from "../pages/dashboard/Dashboard";
 import { Settings } from "../pages/dashboard/Settings";
 import { NotFound } from "../pages/NotFound";
@@ -36,10 +40,22 @@ export function AppRoutes() {
         />
       </Route>
 
+      <Route path="/platform/login" element={<PlatformLogin />} />
+
       <Route path="/witness/:token" element={<WitnessReview />} />
 
+      {/* Protected platform routes */}
+      <Route element={<PlatformProtectedRoute />}>
+        <Route element={<PlatformLayout />}>
+          <Route
+            path="/platform/organizations"
+            element={<PlatformOrganizations />}
+          />
+        </Route>
+      </Route>
       {/* Public landing page */}
       <Route path="/" element={<Landing />} />
+        
 
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>
