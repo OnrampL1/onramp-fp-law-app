@@ -6,6 +6,7 @@ import {
   getPrismaClient,
   uploadFile,
   deriveLegalState,
+  enqueueContractAnalysis,
   PLACEHOLDER_CONTRACT_TITLE,
   PLACEHOLDER_CONTRACT_COUNTERPARTY,
 } from "@starter-kit/shared";
@@ -19,6 +20,7 @@ import {
 import type {
   CreateContractMetadataInput,
   SetContractLegalStateInput,
+  UpdateContractContentInput,
   UpdateContractMetadataInput,
 } from "../schemas/contract.schemas";
 import type {
@@ -386,6 +388,87 @@ async function setContractLegalState(
   return toContractDetailDto(updated);
 }
 
+// ─── Content (extracted text edit) ─────────────────────────────────────
+
+export interface UpdateContractContentActor {
+  userId: string;
+  organizationId: string;
+}
+
+async function updateContractContent(
+  id: string,
+  input: UpdateContractContentInput,
+  actor: UpdateContractContentActor,
+  requestContext: { ipAddress?: string; userAgent?: string },
+): Promise<ContractContentDto> {
+  const user = await getActiveOrganizationUser(
+    actor.userId,
+    actor.organizationId,
+  );
+
+  const existing = await contractRepository.findById(id, user.organizationId);
+
+  if (!existing) {
+    throw createError("Contract not found", 404);
+  }
+
+  // Only PENDING_EXTRACTION is blocked — extraction hasn't run yet, so
+  // there's nothing meaningful to edit, and doing so would race the
+  // extraction job about to write its own result. EXTRACTION_FAILED is
+  // deliberately allowed: manually supplying text is the only recovery
+  // path for a document automated extraction couldn't handle (e.g. a
+  // scanned PDF), not just a typo-fix mechanism.
+  if (existing.processingStatus === "PENDING_EXTRACTION") {
+    throw createError(
+      "Contract has no extracted text yet — wait for extraction to finish before editing",
+      409,
+    );
+  }
+
+  const updated = await contractRepository.updateContent(
+    id,
+    user.organizationId,
+    input.version,
+    input.extractedText,
+    {
+      action: "CONTRACT_CONTENT_UPDATED",
+      actorType: "USER",
+      actorUserId: user.id,
+      organizationId: user.organizationId,
+      // The full text isn't stored in the audit snapshot — it can be
+      // hundreds of KB, and every existing audit entry snapshots short
+      // structured fields, not free-form blobs. Length is enough signal
+      // that something changed and roughly how much.
+      newValue: { length: input.extractedText.length },
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+    },
+  );
+
+  if (!updated) {
+    throw createError(
+      "This contract was updated by someone else. Reload to see the latest version.",
+      409,
+    );
+  }
+
+  // Re-run AI analysis against the corrected text — the existing
+  // Summary/Risk/Metadata results were generated from whatever text was
+  // there before this edit.
+  await enqueueContractAnalysis({
+    contractId: id,
+    organizationId: user.organizationId,
+    createdByUserId: user.id,
+    extractedText: input.extractedText,
+  });
+
+  return {
+    processingStatus: updated.processingStatus,
+    extractedText: updated.extractedText,
+    version: updated.version,
+  };
+}
+
 // ─── List ───────────────────────────────────────────────────────────────
 
 function toContractListItemDto(row: ContractListRow): ContractListItemDto {
@@ -481,6 +564,7 @@ async function getContractContent(
   return {
     processingStatus: contract.processingStatus,
     extractedText: contract.extractedText,
+    version: contract.version,
   };
 }
 
@@ -488,6 +572,7 @@ export const contractService = {
   uploadContract,
   updateContractMetadata,
   setContractLegalState,
+  updateContractContent,
   listContracts,
   getContractById,
   getContractContent,

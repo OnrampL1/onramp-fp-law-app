@@ -6,6 +6,7 @@ import type {
   ContractFileValidationError,
   SelectedContractFile,
 } from "../types/contracts";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type ContractUploadStatus =
   | "idle"
@@ -31,6 +32,7 @@ export interface UseContractUploadResult {
 }
 
 export function useContractUpload(): UseContractUploadResult {
+  const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<SelectedContractFile | null>(
     null,
   );
@@ -110,6 +112,7 @@ export function useContractUpload(): UseContractUploadResult {
         signal: abortController.signal,
       });
 
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
       setUploadResult(result);
       setStatus("success");
     } catch (error) {

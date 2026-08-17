@@ -36,6 +36,7 @@ export const CONTRACT_DETAIL_SELECT = {
 export const CONTRACT_CONTENT_SELECT = {
   processingStatus: true,
   extractedText: true,
+  version: true,
 } satisfies Prisma.ContractSelect;
 
 // What an external Witness may see for their one scoped contract (BR-8).

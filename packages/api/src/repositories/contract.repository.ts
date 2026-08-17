@@ -229,6 +229,58 @@ const setLegalState = async (
   });
 };
 
+/**
+ * Optimistic-concurrency update for extracted-text edits — same
+ * version-gated updateMany pattern as updateMetadata/setLegalState, but
+ * touching only extractedText (title/counterparty/tags/dates/legalState
+ * are untouched by this action).
+ */
+const updateContent = async (
+  id: string,
+  organizationId: string,
+  expectedVersion: number,
+  extractedText: string,
+  audit: ContractAuditEntry,
+): Promise<ContractContentRow | null> => {
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.contract.updateMany({
+      where: {
+        id,
+        organizationId,
+        version: expectedVersion,
+        deletedAt: null,
+      },
+      data: {
+        extractedText,
+        version: { increment: 1 },
+      },
+    });
+
+    if (result.count !== 1) {
+      return null;
+    }
+
+    await auditService.logEvent(tx, {
+      organizationId: audit.organizationId,
+      actorType: audit.actorType,
+      actorUserId: audit.actorUserId,
+      action: audit.action,
+      targetEntityType: "Contract",
+      targetEntityId: id,
+      contractId: id,
+      oldValue: audit.oldValue as Prisma.InputJsonValue | undefined,
+      newValue: audit.newValue as Prisma.InputJsonValue | undefined,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+
+    return tx.contract.findFirst({
+      where: { id, organizationId },
+      select: CONTRACT_CONTENT_SELECT,
+    });
+  });
+};
+
 // ─── List ───────────────────────────────────────────────────────────────
 
 const buildWhereClause = (
@@ -336,6 +388,7 @@ export const contractRepository = {
   createUploadedContract,
   updateMetadata,
   setLegalState,
+  updateContent,
   findMany,
   count,
   findById,

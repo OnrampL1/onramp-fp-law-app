@@ -132,14 +132,14 @@ export function UploadContract() {
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6">
       <div className="min-w-0">
         <h1 className="text-2xl font-bold tracking-tight">Upload Contract</h1>
-        <p className="text-muted-foreground">
+        {/* <p className="text-muted-foreground">
           Upload a contract file — Clausio extracts its title, counterparty,
           dates, and tags automatically.
-        </p>
+        </p> */}
       </div>
 
       <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_280px] md:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-6 flex flex-col justify-between h-full">
           <Card className="min-w-0">
             <CardHeader>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -188,20 +188,19 @@ export function UploadContract() {
               <p>{submitError || uploadError}</p>
             </div>
           )}
+          <UploadContractActionBar
+            canSubmit={canSubmit}
+            isUploading={isUploading}
+            statusMessage={getActionStatusMessage(Boolean(selectedFile))}
+            onReset={handleReset}
+            onSubmit={handleSubmit}
+          />
         </div>
 
         <aside className="min-w-0 self-start">
           <UploadGuidelinesPanel />
         </aside>
       </div>
-
-      <UploadContractActionBar
-        canSubmit={canSubmit}
-        isUploading={isUploading}
-        statusMessage={getActionStatusMessage(Boolean(selectedFile))}
-        onReset={handleReset}
-        onSubmit={handleSubmit}
-      />
     </div>
   );
 }

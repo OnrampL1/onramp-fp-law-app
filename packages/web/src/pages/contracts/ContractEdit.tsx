@@ -16,10 +16,15 @@ import {
   ContractEditForm,
   type ContractEditFormState,
 } from "@/components/contracts/ContractEditForm";
+import { ContractContentEditor } from "@/components/contracts/ContractContentEditor";
+import { TerminateContractDialog } from "@/components/contracts/TerminateContractDialog";
+import { DiscardChangesDialog } from "@/components/contracts/DiscardChangesDialog";
 import {
   useContractDetail,
+  useSetContractLegalState,
   useUpdateContractMetadata,
 } from "@/hooks/useContractDetail";
+import { useAuth } from "@/hooks/useAuth";
 import type { ContractDetailResponse } from "@/types/contracts";
 
 function toFormState(contract: ContractDetailResponse): ContractEditFormState {
@@ -32,6 +37,21 @@ function toFormState(contract: ContractDetailResponse): ContractEditFormState {
   };
 }
 
+function isFormDirty(
+  form: ContractEditFormState | null,
+  initialForm: ContractEditFormState | null,
+): boolean {
+  if (!form || !initialForm) return false;
+  return (
+    form.title !== initialForm.title ||
+    form.counterparty !== initialForm.counterparty ||
+    form.effectiveDate !== initialForm.effectiveDate ||
+    form.expirationDate !== initialForm.expirationDate ||
+    form.tags.length !== initialForm.tags.length ||
+    form.tags.some((tag, i) => tag !== initialForm.tags[i])
+  );
+}
+
 export default function ContractEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -39,8 +59,19 @@ export default function ContractEdit() {
 
   const { data: contract, isLoading, isError, refetch } = useContractDetail(id);
   const updateMutation = useUpdateContractMetadata(id);
+  const setLegalState = useSetContractLegalState(id);
+  const { user } = useAuth();
+  const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [isContentDirty, setIsContentDirty] = useState(false);
 
   const [form, setForm] = useState<ContractEditFormState | null>(null);
+  // Separate, never-mutated-after-init snapshot to diff `form` against for
+  // the unsaved-changes check below — `form` itself changes as the user
+  // types, so it can't also serve as its own baseline.
+  const [initialForm, setInitialForm] = useState<ContractEditFormState | null>(
+    null,
+  );
 
   // Initialize the form exactly once when the contract first loads. Deliberately
   // not re-syncing on every background refetch — that would silently discard
@@ -48,7 +79,9 @@ export default function ContractEdit() {
   // explicit "Reload" action in the conflict banner below.
   useEffect(() => {
     if (contract && form === null) {
-      setForm(toFormState(contract));
+      const state = toFormState(contract);
+      setForm(state);
+      setInitialForm(state);
     }
   }, [contract, form]);
 
@@ -64,9 +97,19 @@ export default function ContractEdit() {
   async function handleReload() {
     const result = await refetch();
     if (result.data) {
-      setForm(toFormState(result.data));
+      const state = toFormState(result.data);
+      setForm(state);
+      setInitialForm(state);
     }
     updateMutation.reset();
+  }
+
+  function handleCancelClick() {
+    if (isFormDirty(form, initialForm) || isContentDirty) {
+      setDiscardDialogOpen(true);
+      return;
+    }
+    navigate(`/contracts/${id}`);
   }
 
   function handleSave() {
@@ -128,6 +171,9 @@ export default function ContractEdit() {
     );
   }
 
+  const canManageLegalState = user?.role === "OWNER" || user?.role === "ADMIN";
+  const isTerminated = contract.legalState === "TERMINATED";
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Breadcrumb */}
@@ -180,10 +226,35 @@ export default function ContractEdit() {
             type="button"
             variant="outline"
             disabled={updateMutation.isPending}
-            onClick={() => navigate(`/contracts/${id}`)}
+            onClick={handleCancelClick}
           >
             Cancel
           </Button>
+          {canManageLegalState &&
+            (isTerminated ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={setLegalState.isPending}
+                onClick={() =>
+                  setLegalState.mutate({
+                    action: "reactivate",
+                    version: contract.version,
+                  })
+                }
+              >
+                {setLegalState.isPending ? "Reactivating…" : "Reactivate"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={setLegalState.isPending}
+                onClick={() => setTerminateDialogOpen(true)}
+              >
+                Terminate
+              </Button>
+            ))}
           <Button
             type="button"
             disabled={updateMutation.isPending}
@@ -251,6 +322,26 @@ export default function ContractEdit() {
           onChange={setForm}
         />
       )}
+
+      <ContractContentEditor contractId={id} onDirtyChange={setIsContentDirty} />
+
+      <TerminateContractDialog
+        open={terminateDialogOpen}
+        onOpenChange={setTerminateDialogOpen}
+        isPending={setLegalState.isPending}
+        onConfirm={() =>
+          setLegalState.mutate(
+            { action: "terminate", version: contract.version },
+            { onSuccess: () => setTerminateDialogOpen(false) },
+          )
+        }
+      />
+
+      <DiscardChangesDialog
+        open={discardDialogOpen}
+        onOpenChange={setDiscardDialogOpen}
+        onConfirm={() => navigate(`/contracts/${id}`)}
+      />
     </div>
   );
 }

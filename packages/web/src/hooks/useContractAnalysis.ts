@@ -51,7 +51,14 @@ export function useTriggerContractAnalysis(contractId: string | undefined) {
   return useMutation({
     mutationFn: () => triggerContractAnalysis(contractId as string),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contract", contractId] });
+      // exact: true — invalidateQueries prefix-matches by default, which
+      // would also (redundantly) invalidate ["contract", contractId,
+      // "content"], racing whatever's currently reading it. Same fix as
+      // useUpdateContractContent's onSuccess.
+      queryClient.invalidateQueries({
+        queryKey: ["contract", contractId],
+        exact: true,
+      });
       queryClient.invalidateQueries({
         queryKey: ["contract", contractId, "risk-overview"],
       });

@@ -2,12 +2,14 @@ import {
   fetchContractContent,
   fetchContractDetail,
   setContractLegalState,
+  updateContractContent,
   updateContractMetadata,
 } from "../services/contract-detail.service";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  UpdateContractMetadataPayload,
   SetContractLegalStatePayload,
+  UpdateContractContentPayload,
+  UpdateContractMetadataPayload,
 } from "../types/contracts";
 
 // While processing is still in flight, poll so a user sitting on Contract
@@ -65,6 +67,29 @@ export function useSetContractLegalState(id: string | undefined) {
       setContractLegalState(id as string, payload),
     onSuccess: (contract) => {
       queryClient.setQueryData(["contract", id], contract);
+    },
+  });
+}
+
+export function useUpdateContractContent(id: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: UpdateContractContentPayload) =>
+      updateContractContent(id as string, payload),
+    onSuccess: (content) => {
+      queryClient.setQueryData(["contract", id, "content"], content);
+      // processingStatus/version just changed server-side (re-analysis was
+      // queued) — invalidate rather than hand-merge partial data into the
+      // metadata cache. useContractDetail's existing polling (Batch C) then
+      // picks up AI_PENDING → AI_COMPLETED on its own, which is also what
+      // naturally refreshes Risk/Summary (their query key already includes
+      // processingStatus).
+      queryClient.invalidateQueries({
+        queryKey: ["contract", id],
+        exact: true,
+      });
+      queryClient.invalidateQueries({ queryKey: ["contract", id, "timeline"] });
     },
   });
 }

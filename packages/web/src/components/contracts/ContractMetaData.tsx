@@ -2,17 +2,22 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import type { ContractDetail, ContractStatus } from "@/lib/data";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { ContractStatus } from "@/lib/data";
 import {
   Building2,
   Calendar,
   CalendarClock,
   FileText,
   Hash,
-  DollarSign,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/badges";
 import type { ContractDetailResponse } from "@/types/contracts";
+import { cn } from "@/lib/utils";
 
 const LEGAL_STATE_TO_STATUS: Record<string, ContractStatus> = {
   DRAFT: "Draft",
@@ -54,13 +59,17 @@ export function ContractMetadata({
 
       <dl className="space-y-4">
         <Field icon={FileText} label="Name">
-          <span className="font-normal text-foreground">{c.title}</span>
+          {/* <span className="font-normal text-foreground">{c.title}</span> */}
+          <TruncatedValue
+            value={c.title}
+            className="font-normal text-foreground"
+          />
         </Field>
         <Field icon={Building2} label="Counterparty">
-          {c.counterparty}
+          <TruncatedValue value={c.counterparty} />
         </Field>
         <Field icon={Hash} label="ID">
-          <span className="font-mono text-xs">{c.id}</span>
+          <TruncatedValue value={c.id} className="font-mono text-xs" />
         </Field>
         {/* <Field icon={DollarSign} label="Value">
           <span className="font-medium text-foreground">{c.value}</span>
@@ -161,5 +170,24 @@ function Field({
       </dt>
       <dd className="min-w-0 flex-1 text-sm text-foreground">{children}</dd>
     </div>
+  );
+}
+
+function TruncatedValue({
+  value,
+  className,
+}: {
+  value: string;
+  className?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<span className={cn("block truncate", className)} />}
+      >
+        {value}
+      </TooltipTrigger>
+      <TooltipContent>{value}</TooltipContent>
+    </Tooltip>
   );
 }
