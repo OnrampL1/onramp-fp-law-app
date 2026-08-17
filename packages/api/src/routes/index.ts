@@ -13,6 +13,7 @@ import { legalKbRouter } from "./legal-kb.routes";
 import { dashboardRouter } from "./dashboard.routes";
 import { platformAuthRouter } from "./platform-auth.routes";
 import { platformOrganizationRouter } from "./platform-organization.routes";
+import { searchRouter } from "./search.routes";
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use("/organizations", organizationRouter);
 router.use("/settings", settingsRouter);
 router.use("/witness", witnessPortalRouter);
 router.use("/notifications", notificationRouter);
+router.use("/search", searchRouter);
 
 export { router };

@@ -427,7 +427,7 @@ async function listContracts(
 // Get by ID
 const UUID_PREFIX_LENGTH = 37; // 36-char UUID + 1 hyphen separtaor
 
-function extractFileNameFromKey(fileKey: string): string {
+export function extractFileNameFromKey(fileKey: string): string {
   const baseName = fileKey.split("/").pop() ?? fileKey;
   return baseName.slice(UUID_PREFIX_LENGTH) || baseName;
 }
