@@ -112,10 +112,10 @@ function errorMessageFor(error: unknown): string {
   if (isAxiosError(error)) {
     const status = error.response?.status;
     if (status === 409) {
-      return "This contract hasn't finished indexing for Clause Investigator yet. Please try again in a moment.";
+      return "This contract hasn't finished indexing for Contract Investigator yet. Please try again in a moment.";
     }
     if (status === 502 || status === 503) {
-      return "Clause Investigator is temporarily unavailable right now. Please try again.";
+      return "Contract Investigator is temporarily unavailable right now. Please try again.";
     }
     if (status === 404) {
       return "This contract could not be found.";
@@ -266,7 +266,7 @@ export default function ContractInvestigatorPage() {
         </Link>
         <ChevronRight className="size-3.5" />
         <span className="truncate font-medium text-foreground">
-          Clause Investigator
+          Contract Investigator
         </span>
       </nav>
 
@@ -276,7 +276,7 @@ export default function ContractInvestigatorPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Sparkles className="size-5 text-foreground" />
             <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
-              Clause Investigator
+              Contract Investigator
             </h1>
           </div>
           <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">

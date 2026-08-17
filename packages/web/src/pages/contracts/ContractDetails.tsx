@@ -131,7 +131,7 @@ export default function ContractDetailPage() {
 
         {/* Action buttons — Download / Witness Link remain non-functional
     placeholders until those features are built. Edit Contract,
-    Clause Investigator, and Analyze Contract are wired to real
+    Contract Investigator, and Analyze Contract are wired to real
     pages/endpoints. */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
@@ -173,7 +173,7 @@ export default function ContractDetailPage() {
                   onClick={() => navigate(`/contracts/${id}/investigator`)}
                 >
                   <Search className="size-4 text-muted-foreground" />
-                  Clause Investigator
+                  Contract Investigator
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
