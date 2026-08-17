@@ -1,16 +1,25 @@
-import { RotateCcw } from "lucide-react";
+import { ChevronDown, RotateCcw } from "lucide-react";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Button } from "../ui/button";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import {
   AUDIT_ACTIONS,
   AUDIT_ACTION_GROUP,
@@ -95,26 +104,50 @@ export function AuditLogFilters({
 
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs text-muted-foreground">Action</Label>
-          <Select value={action} onValueChange={(v) => v !== null && onActionChange(v as AuditAction | "all")}>
-            <SelectTrigger size="sm" className="min-w-[12rem]" aria-label="Action">
-              <SelectValue placeholder="All actions">
-                {(val) => (val === "all" ? "All actions" : AUDIT_ACTION_LABELS[val as AuditAction])}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All actions</SelectItem>
-              {ACTION_GROUPS.map((group) => (
-                <SelectGroup key={group}>
-                  <SelectLabel>{group}</SelectLabel>
-                  {AUDIT_ACTIONS.filter((a) => AUDIT_ACTION_GROUP[a] === group).map((a) => (
-                    <SelectItem key={a} value={a}>
-                      {AUDIT_ACTION_LABELS[a]}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-w-[12rem] justify-between font-normal"
+                  aria-label="Action"
+                />
+              }
+            >
+              <span className="truncate">
+                {action === "all" ? "All actions" : AUDIT_ACTION_LABELS[action]}
+              </span>
+              <ChevronDown className="size-4 text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuRadioGroup
+                value={action}
+                onValueChange={(value) =>
+                  onActionChange(value as AuditAction | "all")
+                }
+              >
+                <DropdownMenuRadioItem value="all">
+                  All actions
+                </DropdownMenuRadioItem>
+                <DropdownMenuSeparator />
+                {ACTION_GROUPS.map((group) => (
+                  <DropdownMenuSub key={group}>
+                    <DropdownMenuSubTrigger>{group}</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {AUDIT_ACTIONS.filter(
+                        (a) => AUDIT_ACTION_GROUP[a] === group,
+                      ).map((a) => (
+                        <DropdownMenuRadioItem key={a} value={a}>
+                          {AUDIT_ACTION_LABELS[a]}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="flex flex-col gap-1.5">

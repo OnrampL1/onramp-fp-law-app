@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AxiosError } from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -8,6 +8,14 @@ import { X } from "lucide-react";
 import { LinkIcon, CopyIcon, CalendarIcon, SendIcon } from "../shared/icons";
 import { useContractsList } from "@/hooks/useContractsList";
 import { useCreateWitnessLink } from "@/hooks/useWitnessLinks";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxInput,
+  ComboboxInputGroup,
+  ComboboxItem,
+  ComboboxTrigger,
+} from "@/components/ui/combobox";
 import type { GeneratedLink, AccessExpiry } from "./types";
 
 interface GenerateWitnessAccessPanelProps {
@@ -15,6 +23,9 @@ interface GenerateWitnessAccessPanelProps {
   generatedLink: GeneratedLink | null;
   onLinkGenerated: (link: GeneratedLink | null) => void;
   refreshKey: number;
+  /** Pre-selects the contract dropdown when arriving from a contract's own
+   * "Generate Witness Link" action instead of starting empty. */
+  initialContractId?: string | null;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -47,8 +58,11 @@ export function GenerateWitnessAccessPanel({
   generatedLink,
   onLinkGenerated,
   refreshKey,
+  initialContractId,
 }: GenerateWitnessAccessPanelProps) {
-  const [selectedContract, setSelectedContract] = useState("");
+  const [selectedContract, setSelectedContract] = useState(
+    initialContractId ?? "",
+  );
   const [witnessName, setWitnessName]           = useState("");
   const [witnessEmail, setWitnessEmail]         = useState("");
   const [expiry, setExpiry]                     = useState<AccessExpiry>("48h");
@@ -66,6 +80,25 @@ export function GenerateWitnessAccessPanel({
     pageSize: 50,
   });
   const createWitnessLink = useCreateWitnessLink();
+
+  const contractOptions = useMemo(
+    () =>
+      (contractsQuery.data?.items ?? []).map((c) => ({
+        value: c.id,
+        label: c.title,
+      })),
+    [contractsQuery.data],
+  );
+
+  // Combobox only auto-fills the input with an item's label when the
+  // item's *value* itself carries the {value, label} shape — a bare id
+  // string doesn't get resolved. Passing the matched option object (not
+  // just its id) as the controlled value is what makes the input show the
+  // contract's title instead of its raw UUID.
+  const selectedContractOption = useMemo(
+    () => contractOptions.find((o) => o.value === selectedContract) ?? null,
+    [contractOptions, selectedContract],
+  );
 
   const canGenerate =
     !!selectedContract &&
@@ -106,7 +139,19 @@ export function GenerateWitnessAccessPanel({
     }
   }
 
+  // Runs only when refreshKey actually changes (a real Refresh click), not
+  // on mount. A "has this run before" ref breaks under React StrictMode,
+  // which deliberately replays effects once in dev: the replay would see
+  // the ref already flipped and reset the form anyway, wiping out an
+  // initialContractId pre-selection before the user ever saw it. Comparing
+  // against the last-seen refreshKey is replay-safe — both the original run
+  // and the replay observe the same (unchanged) refreshKey and skip.
+  const previousRefreshKeyRef = useRef(refreshKey);
   useEffect(() => {
+    if (previousRefreshKeyRef.current === refreshKey) {
+      return;
+    }
+    previousRefreshKeyRef.current = refreshKey;
     setSelectedContract("");
     setWitnessName("");
     setWitnessEmail("");
@@ -156,20 +201,34 @@ export function GenerateWitnessAccessPanel({
             {/* Contract */}
             <div className="space-y-1.5">
               <Label htmlFor="panel-contract">Contract</Label>
-              <select
-                id="panel-contract"
-                value={selectedContract}
-                onChange={(e) => setSelectedContract(e.target.value)}
-                className={selectClass}
+              <Combobox
+                items={contractOptions}
+                value={selectedContractOption}
+                onValueChange={(option) =>
+                  setSelectedContract(option?.value ?? "")
+                }
+                isItemEqualToValue={(a, b) => a?.value === b?.value}
                 disabled={contractsQuery.isLoading}
               >
-                <option value="" disabled>
-                  {contractsQuery.isLoading ? "Loading contracts…" : "Select a contract"}
-                </option>
-                {contractsQuery.data?.items.map((c) => (
-                  <option key={c.id} value={c.id}>{c.title}</option>
-                ))}
-              </select>
+                <ComboboxInputGroup>
+                  <ComboboxInput
+                    id="panel-contract"
+                    placeholder={
+                      contractsQuery.isLoading
+                        ? "Loading contracts…"
+                        : "Search contracts…"
+                    }
+                  />
+                  <ComboboxTrigger aria-label="Toggle contract list" />
+                </ComboboxInputGroup>
+                <ComboboxContent emptyMessage="No contracts found.">
+                  {(item: { value: string; label: string }) => (
+                    <ComboboxItem key={item.value} value={item}>
+                      {item.label}
+                    </ComboboxItem>
+                  )}
+                </ComboboxContent>
+              </Combobox>
               {contractsQuery.isError && (
                 <p className="text-xs text-destructive">
                   Couldn't load contracts. Try refreshing the page.

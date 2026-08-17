@@ -52,7 +52,7 @@ export function useContractFilters(): UseContractFiltersResult {
   }
 
   function setStatus(value: ContractLegalStatus | "all") {
-    setStatus(value);
+    setStatusState(value);
     setPage(1);
   }
 

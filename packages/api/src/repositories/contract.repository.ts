@@ -278,6 +278,30 @@ const updateContent = async (
       where: { id, organizationId },
       select: CONTRACT_CONTENT_SELECT,
     });
+ * Best-effort self-heal for a stale `legalState` found at read time (see
+ * contract.service.ts refreshLegalState). Deliberately does NOT increment
+ * `version` — this isn't a semantic edit a user made, and bumping it would
+ * spuriously 409 a concurrent metadata edit/terminate that loaded the same
+ * version. Still version-gated so it never clobbers a real concurrent write;
+ * if it loses that race, the next read just corrects it again. No audit
+ * entry either — this reflects the passage of time, not an actor's action.
+ */
+const correctLegalState = async (
+  id: string,
+  organizationId: string,
+  expectedVersion: number,
+  legalState: ContractLegalState,
+): Promise<void> => {
+  await prisma.contract.updateMany({
+    where: {
+      id,
+      organizationId,
+      version: expectedVersion,
+      deletedAt: null,
+    },
+    data: {
+      legalState,
+    },
   });
 };
 
@@ -389,6 +413,7 @@ export const contractRepository = {
   updateMetadata,
   setLegalState,
   updateContent,
+  correctLegalState,
   findMany,
   count,
   findById,

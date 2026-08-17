@@ -363,6 +363,13 @@ async function main(): Promise<void> {
     processingError?: string;
     legalState?: "DRAFT" | "ACTIVE" | "EXPIRED" | "TERMINATED";
     tags: string[];
+    // Required whenever legalState is ACTIVE/EXPIRED/TERMINATED —
+    // deriveLegalState() (packages/shared/contracts/legal-state.ts) treats a
+    // missing effectiveDate as an unconditional DRAFT regardless of what's
+    // stored here, and the API now recomputes legalState from these dates on
+    // every read (self-healing any mismatch back into the database). Leave
+    // unset only for genuine DRAFT fixtures.
+    effectiveDate?: Date;
     expirationDate?: Date;
     extractedTextPresent: boolean;
     createdAt: Date;
@@ -383,6 +390,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "ACTIVE",
       tags: ["msa", "vendor", "technology"],
+      effectiveDate: daysFromNow(-145),
       expirationDate: daysFromNow(420),
       extractedTextPresent: true,
       createdAt: daysFromNow(-150),
@@ -445,6 +453,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_PENDING",
       legalState: "ACTIVE",
       tags: ["supply", "manufacturing"],
+      effectiveDate: daysFromNow(-35),
       expirationDate: daysFromNow(180),
       extractedTextPresent: true,
       createdAt: daysFromNow(-40),
@@ -496,6 +505,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "EXPIRED",
       tags: ["lease", "real-estate"],
+      effectiveDate: daysFromNow(-395),
       expirationDate: daysFromNow(-90),
       extractedTextPresent: true,
       createdAt: daysFromNow(-400),
@@ -546,6 +556,7 @@ async function main(): Promise<void> {
       processingStatus: "EXTRACTION_COMPLETED",
       legalState: "ACTIVE",
       tags: ["dpa", "healthcare", "compliance"],
+      effectiveDate: daysFromNow(-18),
       expirationDate: daysFromNow(280),
       extractedTextPresent: true,
       createdAt: daysFromNow(-20),
@@ -578,6 +589,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "TERMINATED",
       tags: ["logistics", "terminated"],
+      effectiveDate: daysFromNow(-295),
       expirationDate: daysFromNow(-60),
       extractedTextPresent: true,
       createdAt: daysFromNow(-300),
@@ -643,6 +655,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "ACTIVE",
       tags: ["loan", "finance", "high-risk"],
+      effectiveDate: daysFromNow(-90),
       expirationDate: daysFromNow(610),
       extractedTextPresent: true,
       createdAt: daysFromNow(-95),
@@ -693,6 +706,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "ACTIVE",
       tags: ["vendor", "hospitality"],
+      effectiveDate: daysFromNow(-55),
       expirationDate: daysFromNow(25),
       extractedTextPresent: true,
       createdAt: daysFromNow(-60),
@@ -732,6 +746,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "TERMINATED",
       tags: ["security", "vendor"],
+      effectiveDate: daysFromNow(-495),
       expirationDate: daysFromNow(-30),
       extractedTextPresent: true,
       createdAt: daysFromNow(-500),
@@ -771,6 +786,7 @@ async function main(): Promise<void> {
         processingError: c.processingError,
         legalState: c.legalState,
         tags: c.tags,
+        effectiveDate: c.effectiveDate,
         expirationDate: c.expirationDate,
         fileKey: `contracts/${ORG_ID}/${c.slug}.pdf`,
         fileChecksum: fakeChecksum(c.slug),

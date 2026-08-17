@@ -8,6 +8,10 @@ export const CONTRACT_LIST_SELECT = {
   tags: true,
   effectiveDate: true,
   expirationDate: true,
+  // Not exposed on ContractListItemDto — read internally only, to scope the
+  // optimistic-concurrency correction when a row's stored legalState has
+  // drifted stale against its dates (see contract.service.ts refreshLegalState).
+  version: true,
   updatedAt: true,
 } satisfies Prisma.ContractSelect;
 
