@@ -371,7 +371,11 @@ export function UserManagement() {
               className="w-full sm:w-44"
               aria-label="Filter users by role"
             >
-              <SelectValue />
+              <SelectValue placeholder="All roles">
+                {(val) =>
+                  val === "all" ? "All roles" : roleLabels[val as BackendUserRole]
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {roleFilters.map((role) => (
@@ -390,7 +394,13 @@ export function UserManagement() {
               className="w-full sm:w-44"
               aria-label="Filter users by status"
             >
-              <SelectValue />
+              <SelectValue placeholder="All statuses">
+                {(val) =>
+                  val === "all"
+                    ? "All statuses"
+                    : statusLabels[val as UserAccountStatus]
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {statusFilters.map((status) => (
