@@ -1116,7 +1116,7 @@ export const contractAnalysisById: Record<string, ContractAnalysis> = {
   },
 };
 
-// ── Clause Investigator page data ─────────────────────────────────────────
+// ── Contract Investigator page data ───────────────────────────────────────
 
 export type ChatRole = "user" | "assistant";
 
