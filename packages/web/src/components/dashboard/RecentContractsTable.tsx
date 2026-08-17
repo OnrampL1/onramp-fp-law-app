@@ -21,7 +21,7 @@ import { formatDate, formatRelativeTime } from "@/lib/utils";
 import type { DashboardContractItem } from "@/types/dashboard";
 import type { ContractLegalStatus } from "@/types/contracts";
 
-const LEGAL_STATE_LABELS = {
+export const LEGAL_STATE_LABELS = {
   DRAFT: "Draft",
   ACTIVE: "Active",
   EXPIRED: "Expired",
@@ -31,7 +31,7 @@ const LEGAL_STATE_LABELS = {
   "Draft" | "Active" | "Expired" | "Terminated"
 >;
 
-const BUSINESS_STATUS_LABELS: Record<string, string> = {
+export const BUSINESS_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
   UNDER_REVIEW: "Under review",
   COMPLETED: "Completed",

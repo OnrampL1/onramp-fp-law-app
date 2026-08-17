@@ -25,6 +25,7 @@ import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import { AuditLogPage } from "../pages/AuditLogPage";
 import { OrganizationBrain } from "../pages/dashboard/OrganizationBrain";
 import LegalAssistantPage from "../pages/dashboard/LegalAssistant";
+import { InsightCategoryPage } from "@/pages/insights/InsightCategoryPage";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
@@ -74,39 +75,44 @@ export function AppRoutes() {
           <Route
             path="/insights/auto-renewal"
             element={
-              <PlaceholderPage
+              <InsightCategoryPage
+                category="AUTO_RENEWAL"
                 title="Auto Renewal Alerts"
-                description="Auto-renew clauses triggering within 60 days"
+                description="Contracts flagged for an auto-renewal clause worth reviewing."
               />
             }
           />
           <Route
             path="/insights/liability"
             element={
-              <PlaceholderPage
+              <InsightCategoryPage
+                category="LIABILITY"
                 title="Liability Risks"
-                description="Uncapped or broad indemnification terms"
+                description="Contracts with an uncapped or broad liability exposure."
               />
             }
           />
           <Route
             path="/insights/non-compete"
             element={
-              <PlaceholderPage
+              <InsightCategoryPage
+                category="NON_COMPETE"
                 title="Non-Compete Detection"
-                description="Restrictive covenants requiring legal review"
+                description="Contracts with a non-compete or restrictive covenant flagged."
               />
             }
           />
           <Route
             path="/insights/ip-assignment"
             element={
-              <PlaceholderPage
+              <InsightCategoryPage
+                category="IP_ASSIGNMENT"
                 title="IP Assignment Detection"
-                description="Intellectual property transfer provisions found"
+                description="Contracts with an IP assignment or transfer provision flagged."
               />
             }
           />
+
           <Route
             path="/investigator"
             element={
