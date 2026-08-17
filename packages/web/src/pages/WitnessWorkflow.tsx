@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ShieldAlert } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -72,6 +73,11 @@ function sanitizeCsvCell(value: string): string {
 
 export function WitnessWorkflow() {
   const { user } = useAuth();
+  // Set when arriving via a contract's "Generate Witness Link" action
+  // (ContractDetails.tsx / ContractRowActions.tsx) so the panel below can
+  // pre-select it instead of leaving the contract dropdown empty.
+  const [searchParams] = useSearchParams();
+  const initialContractId = searchParams.get("contractId");
   const [page, setPage] = useState(1);
   const [activityPage, setActivityPage] = useState(1);
   const [selectedInvitation, setSelectedInvitation] = useState<WitnessLinkListItem | null>(null);
@@ -347,6 +353,7 @@ export function WitnessWorkflow() {
           generatedLink={generatedLink}
           onLinkGenerated={setGeneratedLink}
           refreshKey={refreshKey}
+          initialContractId={initialContractId}
         />
 
         {/* ── Active witness invitations ───────────────────────────────────── */}
