@@ -319,7 +319,7 @@ async function updateContractMetadata(
     );
   }
 
-  return toContractDetailDto(updated);
+  return toContractDetailDto(updated, user.organizationId);
 }
 
 // ─── Legal state (terminate / reactivate) ──────────────────────────────
@@ -383,17 +383,70 @@ async function setContractLegalState(
     );
   }
 
-  return toContractDetailDto(updated);
+  return toContractDetailDto(updated, user.organizationId);
 }
 
 // ─── List ───────────────────────────────────────────────────────────────
 
-function toContractListItemDto(row: ContractListRow): ContractListItemDto {
+/**
+ * Recomputes legalState from the row's own dates on every read (list and
+ * detail alike) rather than trusting the stored column, which is only
+ * written at explicit mutation points (metadata edit, terminate/reactivate)
+ * and otherwise goes stale as the clock passes an expirationDate. When the
+ * freshly-derived value disagrees with what's stored, this also fires a
+ * best-effort correction so the column self-heals over time — but the
+ * response always reflects the freshly-derived value regardless of whether
+ * that write lands (see contractRepository.correctLegalState for why it's
+ * fire-and-forget-safe: version-gated, no version bump, no audit entry).
+ */
+async function refreshLegalState(
+  organizationId: string,
+  row: {
+    id: string;
+    legalState: ContractLegalState | null;
+    effectiveDate: Date | null;
+    expirationDate: Date | null;
+    version: number;
+  },
+): Promise<ContractLegalState> {
+  const freshLegalState = deriveLegalState(
+    row.legalState,
+    row.effectiveDate,
+    row.expirationDate,
+  );
+
+  if (freshLegalState !== row.legalState) {
+    try {
+      await contractRepository.correctLegalState(
+        row.id,
+        organizationId,
+        row.version,
+        freshLegalState,
+      );
+    } catch (error) {
+      if (process.env.NODE_ENV !== "test") {
+        console.error(
+          "[ContractService] Failed to persist self-healed legalState",
+          error,
+        );
+      }
+    }
+  }
+
+  return freshLegalState;
+}
+
+async function toContractListItemDto(
+  row: ContractListRow,
+  organizationId: string,
+): Promise<ContractListItemDto> {
+  const status = await refreshLegalState(organizationId, row);
+
   return {
     id: row.id,
     title: row.title,
     counterparty: row.counterparty,
-    status: row.legalState,
+    status,
     tags: row.tags,
     effectiveDate: row.effectiveDate
       ? row.effectiveDate.toISOString().slice(0, 10)
@@ -416,8 +469,12 @@ async function listContracts(
     contractRepository.count(organizationId, filters),
   ]);
 
+  const items = await Promise.all(
+    rows.map((row) => toContractListItemDto(row, organizationId)),
+  );
+
   return {
-    items: rows.map(toContractListItemDto),
+    items,
     pagination: {
       page: pagination.page,
       pageSize: pagination.pageSize,
@@ -435,7 +492,12 @@ export function extractFileNameFromKey(fileKey: string): string {
   return baseName.slice(UUID_PREFIX_LENGTH) || baseName;
 }
 
-function toContractDetailDto(row: ContractDetailRow): ContractDetailDto {
+async function toContractDetailDto(
+  row: ContractDetailRow,
+  organizationId: string,
+): Promise<ContractDetailDto> {
+  const legalState = await refreshLegalState(organizationId, row);
+
   return {
     id: row.id,
     title: row.title,
@@ -443,7 +505,7 @@ function toContractDetailDto(row: ContractDetailRow): ContractDetailDto {
     businessStatus: row.businessStatus,
     processingStatus: row.processingStatus,
     processingError: row.processingError,
-    legalState: row.legalState,
+    legalState,
     tags: row.tags,
     effectiveDate: row.effectiveDate?.toISOString().slice(0, 10) ?? null,
     expirationDate: row.expirationDate?.toISOString().slice(0, 10) ?? null,
@@ -465,7 +527,7 @@ async function getContractById(
     throw createError("Contract not found", 404);
   }
 
-  return toContractDetailDto(contract);
+  return toContractDetailDto(contract, organizationId);
 }
 
 async function getContractContent(
