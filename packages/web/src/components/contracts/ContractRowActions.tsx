@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   MoreHorizontal,
   Eye,
@@ -21,6 +21,8 @@ interface ContractRowActionsProps {
 }
 
 export function ContractRowActions({ id }: ContractRowActionsProps) {
+  const navigate = useNavigate();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -48,7 +50,9 @@ export function ContractRowActions({ id }: ContractRowActionsProps) {
           <Sparkles className="size-4" />
           View AI Analysis
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => navigate(`/witness-workflow?contractId=${id}`)}
+        >
           <Link2 className="size-4" />
           Generate Witness Link
         </DropdownMenuItem>

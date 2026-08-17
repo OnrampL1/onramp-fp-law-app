@@ -116,9 +116,6 @@ export function RecentContracts({
                         >
                           {contract.title}
                         </Link>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {contract.id}
-                        </p>
                       </div>
                     </div>
                   </TableCell>

@@ -206,7 +206,7 @@ export default function ContractDetailPage() {
                 </Button>
               ) : (
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
                   disabled={setLegalState.isPending}
                   onClick={() => setTerminateDialogOpen(true)}
@@ -234,7 +234,10 @@ export default function ContractDetailPage() {
                   <Download className="size-4 text-muted-foreground" />
                   Download PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => navigate(`/witness-workflow?contractId=${id}`)}
+                >
                   <Link2 className="size-4 text-muted-foreground" />
                   Generate Witness Link
                 </DropdownMenuItem>
