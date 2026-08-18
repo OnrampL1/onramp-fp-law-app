@@ -5,6 +5,7 @@ import {
   MAX_CONTRACT_TAG_LENGTH,
   MAX_CONTRACT_TAGS,
   MAX_CONTRACT_TITLE_LENGTH,
+  MAX_EXTRACTED_TEXT_LENGTH,
 } from "../constants/contract-upload.constants";
 
 // ─── Upload ─────────────────────────────────────────────────────────────
@@ -189,3 +190,29 @@ export type SetContractLegalStateInput = z.infer<
 >;
 
 export type ContractIdParam = z.infer<typeof contractIdParamSchema>;
+
+// ─── Content (extracted text edit) ─────────────────────────────────────
+
+// Full-replace, same optimistic-concurrency shape as metadata edit.
+// Deliberately its own endpoint/schema rather than folded into
+// updateContractMetadataSchema — extractedText can be very large, and
+// mixing a large free-form blob into the structured-metadata full-replace
+// PUT would mean every routine title/tag edit resends the whole text (and
+// vice versa). Mirrors the existing read-side split (GET /:id vs
+// GET /:id/content).
+export const updateContractContentSchema = z.object({
+  extractedText: z
+    .string()
+    .trim()
+    .min(1, "Extracted text cannot be empty")
+    .max(MAX_EXTRACTED_TEXT_LENGTH),
+
+  version: z
+    .number()
+    .int()
+    .positive("A contract version is required for concurrency checking"),
+});
+
+export type UpdateContractContentInput = z.infer<
+  typeof updateContractContentSchema
+>;

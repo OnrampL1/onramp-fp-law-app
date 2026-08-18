@@ -3,6 +3,7 @@ import type {
   ContractContentResponse,
   ContractDetailResponse,
   SetContractLegalStatePayload,
+  UpdateContractContentPayload,
   UpdateContractMetadataPayload,
 } from "@/types/contracts";
 
@@ -45,6 +46,17 @@ export async function setContractLegalState(
 ): Promise<ContractDetailResponse> {
   const response = await apiClient.put<ApiEnvelope<ContractDetailResponse>>(
     `/contracts/${id}/legal-state`,
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function updateContractContent(
+  id: string,
+  payload: UpdateContractContentPayload,
+): Promise<ContractContentResponse> {
+  const response = await apiClient.put<ApiEnvelope<ContractContentResponse>>(
+    `/contracts/${id}/content`,
     payload,
   );
   return response.data.data;

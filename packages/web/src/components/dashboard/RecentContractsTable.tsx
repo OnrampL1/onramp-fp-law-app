@@ -71,15 +71,15 @@ export function RecentContracts({
       </CardHeader>
 
       <div className="overflow-x-auto">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Contract Name</TableHead>
-              <TableHead>Counterparty</TableHead>
-              <TableHead>Legal State</TableHead>
-              <TableHead>Workflow</TableHead>
-              <TableHead>Expiration Date</TableHead>
-              <TableHead className="text-right">Last Updated</TableHead>
+              <TableHead className="w-[30%]">Contract Name</TableHead>
+              <TableHead className="w-[16%]">Counterparty</TableHead>
+              <TableHead className="w-[12%]">Legal State</TableHead>
+              <TableHead className="w-[12%]">Workflow</TableHead>
+              <TableHead className="w-[14%]">Expiration Date</TableHead>
+              <TableHead className="w-[16%] text-right">Last Updated</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -105,14 +105,14 @@ export function RecentContracts({
               items.map((contract) => (
                 <TableRow key={contract.id}>
                   <TableCell>
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
                         <FileText className="size-4" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <Link
                           to={`/contracts/${contract.id}`}
-                          className="truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
+                          className="block truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
                         >
                           {contract.title}
                         </Link>

@@ -5,6 +5,7 @@ import { createContractMetadataSchema } from "../schemas/contract.schemas";
 import type {
   ContractIdParam,
   ListContractsQuery,
+  UpdateContractContentInput,
   UpdateContractMetadataInput,
   SetContractLegalStateInput,
 } from "../schemas/contract.schemas";
@@ -103,6 +104,34 @@ async function setLegalState(
   }
 }
 
+async function updateContent(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as unknown as ContractIdParam;
+    const input = req.body as UpdateContractContentInput;
+
+    const content = await contractService.updateContractContent(
+      id,
+      input,
+      {
+        userId: req.user.userId,
+        organizationId: req.user.orgId,
+      },
+      {
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      },
+    );
+
+    res.json({ data: content });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function list(
   req: AuthenticatedRequest,
   res: Response,
@@ -167,6 +196,7 @@ export const contractController = {
   upload,
   updateMetadata,
   setLegalState,
+  updateContent,
   list,
   getById,
   getContent,

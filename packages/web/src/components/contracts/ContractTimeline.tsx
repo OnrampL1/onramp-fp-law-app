@@ -18,6 +18,8 @@ import {
   MessageSquare,
   Pencil,
   Loader2,
+  FileEdit,
+  ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,14 @@ const EVENT_ICON: Partial<
   CONTRACT_PROCESSING_STATUS_CHANGED: {
     icon: RefreshCw,
     className: "bg-red-50 text-red-600 ring-red-100",
+  },
+  CONTRACT_CONTENT_UPDATED: {
+    icon: FileEdit,
+    className: "bg-indigo-50 text-indigo-600 ring-indigo-100",
+  },
+  CONTRACT_LEGAL_STATE_CHANGED: {
+    icon: ShieldCheck,
+    className: "bg-violet-50 text-violet-600 ring-violet-100",
   },
   AI_ANALYSIS_COMPLETED: {
     icon: Sparkles,
@@ -109,6 +119,14 @@ function labelFor(entry: AuditLogEntry): string {
         : "analysis failed";
     return `${typeLabel} ${verb}`;
   }
+
+  if (entry.action === "CONTRACT_LEGAL_STATE_CHANGED") {
+    const state = entry.newValue?.legalState;
+    return typeof state === "string"
+      ? `Legal state changed to ${state}`
+      : AUDIT_ACTION_LABELS[entry.action];
+  }
+
   return AUDIT_ACTION_LABELS[entry.action];
 }
 

@@ -146,9 +146,15 @@ export interface UpdateContractMetadataPayload {
 export interface ContractContentResponse {
   processingStatus: ContractDetailResponse["processingStatus"];
   extractedText: string | null;
+  version: number;
 }
 
 export interface SetContractLegalStatePayload {
   action: "terminate" | "reactivate";
+  version: number;
+}
+
+export interface UpdateContractContentPayload {
+  extractedText: string;
   version: number;
 }

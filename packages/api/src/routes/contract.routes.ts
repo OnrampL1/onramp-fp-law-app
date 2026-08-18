@@ -10,6 +10,7 @@ import {
   contractIdParamSchema,
   listContractsQuerySchema,
   setContractLegalStateSchema,
+  updateContractContentSchema,
   updateContractMetadataSchema,
 } from "../schemas/contract.schemas";
 import { listContractAuditLogsQuerySchema } from "../schemas/audit.schemas";
@@ -81,6 +82,19 @@ router.put(
   validate(contractIdParamSchema, "params"),
   validate(setContractLegalStateSchema, "body"),
   withAuth(contractController.setLegalState),
+);
+
+// Extracted-text edit — separate from /:id/metadata (large free-form
+// blob vs short structured fields), separate role check isn't needed
+// beyond matching metadata edit's existing set. Re-triggers AI analysis
+// against the corrected text (see contractService.updateContractContent).
+router.put(
+  "/:id/content",
+  authenticate,
+  authorize("OWNER", "ADMIN", "INTERNAL"),
+  validate(contractIdParamSchema, "params"),
+  validate(updateContractContentSchema, "body"),
+  withAuth(contractController.updateContent),
 );
 
 // Thin wrapper over the same org-wide audit service, contractId pre-filled

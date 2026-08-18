@@ -90,4 +90,5 @@ export interface ContractDetailDto {
 export interface ContractContentDto {
   processingStatus: ContractProcessingStatus;
   extractedText: string | null;
+  version: number;
 }
