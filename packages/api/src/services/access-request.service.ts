@@ -1,9 +1,23 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type OrganizationAccessRequestStatus } from "@prisma/client";
 import { getPrismaClient } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
-import type { SubmitAccessRequestInput } from "../schemas/access-request.schemas";
+import type {
+  ListAccessRequestsQuery,
+  SubmitAccessRequestInput,
+} from "../schemas/access-request.schemas";
 
 const prisma = getPrismaClient();
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+function toIso(value: Date | null): string | null {
+  return value ? value.toISOString() : null;
+}
 
 const PUBLIC_SUBMISSION_RESPONSE = {
   message: "If eligible, your access request has been submitted for review.",
@@ -76,6 +90,156 @@ export class AccessRequestService {
 
       throw err;
     }
+  }
+
+  async listAccessRequests(query: ListAccessRequestsQuery): Promise<{
+    data: ReturnType<AccessRequestService["toPlatformAccessRequest"]>[];
+    pagination: Pagination;
+  }> {
+    const where: Prisma.OrganizationAccessRequestWhereInput = {
+      ...(query.status && { status: query.status }),
+      ...(query.search && {
+        OR: [
+          {
+            contactEmail: {
+              contains: query.search,
+              mode: "insensitive",
+            },
+          },
+          {
+            organizationName: {
+              contains: query.search,
+              mode: "insensitive",
+            },
+          },
+          {
+            contactFirstName: {
+              contains: query.search,
+              mode: "insensitive",
+            },
+          },
+          {
+            contactLastName: {
+              contains: query.search,
+              mode: "insensitive",
+            },
+          },
+        ],
+      }),
+    };
+
+    const [accessRequests, total] = await Promise.all([
+      prisma.organizationAccessRequest.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+        include: {
+          reviewedByPlatformUser: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+              role: true,
+            },
+          },
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true,
+            },
+          },
+        },
+      }),
+      prisma.organizationAccessRequest.count({ where }),
+    ]);
+
+    return {
+      data: accessRequests.map((request) =>
+        this.toPlatformAccessRequest(request),
+      ),
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages: Math.ceil(total / query.limit),
+      },
+    };
+  }
+
+  async getAccessRequest(id: string) {
+    const accessRequest = await prisma.organizationAccessRequest.findUnique({
+      where: { id },
+      include: {
+        reviewedByPlatformUser: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            role: true,
+          },
+        },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!accessRequest) {
+      throw createError("Access request not found", 404);
+    }
+
+    return this.toPlatformAccessRequest(accessRequest);
+  }
+
+  private toPlatformAccessRequest(
+    accessRequest: Prisma.OrganizationAccessRequestGetPayload<{
+      include: {
+        reviewedByPlatformUser: {
+          select: {
+            id: true;
+            email: true;
+            fullName: true;
+            role: true;
+          };
+        };
+        organization: {
+          select: {
+            id: true;
+            name: true;
+            slug: true;
+            status: true;
+          };
+        };
+      };
+    }>,
+  ) {
+    return {
+      id: accessRequest.id,
+      contactFirstName: accessRequest.contactFirstName,
+      contactLastName: accessRequest.contactLastName,
+      contactEmail: accessRequest.contactEmail,
+      organizationName: accessRequest.organizationName,
+      websiteUrl: accessRequest.websiteUrl,
+      companySize: accessRequest.companySize,
+      country: accessRequest.country,
+      intendedUse: accessRequest.intendedUse,
+      notes: accessRequest.notes,
+      status: accessRequest.status as OrganizationAccessRequestStatus,
+      reviewedAt: toIso(accessRequest.reviewedAt),
+      declineReason: accessRequest.declineReason,
+      organization: accessRequest.organization,
+      reviewedByPlatformUser: accessRequest.reviewedByPlatformUser,
+      createdAt: accessRequest.createdAt.toISOString(),
+      updatedAt: accessRequest.updatedAt.toISOString(),
+    };
   }
 }
 

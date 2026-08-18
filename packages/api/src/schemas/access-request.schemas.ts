@@ -1,4 +1,7 @@
-import { OrganizationAccessRequestCompanySize } from "@prisma/client";
+import {
+  OrganizationAccessRequestCompanySize,
+  OrganizationAccessRequestStatus,
+} from "@prisma/client";
 import { z } from "zod";
 
 const optionalTrimmedString = (max: number) =>
@@ -40,4 +43,19 @@ export const submitAccessRequestSchema = z.object({
 
 export type SubmitAccessRequestInput = z.infer<
   typeof submitAccessRequestSchema
+>;
+
+export const listAccessRequestsQuerySchema = z.object({
+  search: z.string().trim().min(1).max(100).optional(),
+  status: z.nativeEnum(OrganizationAccessRequestStatus).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const accessRequestParamsSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export type ListAccessRequestsQuery = z.infer<
+  typeof listAccessRequestsQuerySchema
 >;
