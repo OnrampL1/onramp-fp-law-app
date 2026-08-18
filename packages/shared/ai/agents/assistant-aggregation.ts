@@ -30,6 +30,21 @@ export interface AssistantFailedTool {
   error: string;
 }
 
+// A tool that ran successfully and correctly produced nothing - not a
+// failure (failedTools) and not evidence (a "no rows matched" result has
+// no content to cite). Without tracking this separately, a successful
+// empty search was indistinguishable, by the time it reached the
+// synthesis prompt, from a tool that was never called at all - observed
+// live: "which of our active contracts are expiring in the next 90 days"
+// against an organization with genuinely none produced the same generic
+// "I couldn't find enough grounded information" decline as a question
+// nothing was ever searched for, instead of the honest, specific "you
+// have none" answer the search itself already proved.
+export interface AssistantEmptyResult {
+  tool: ToolName;
+  note: string;
+}
+
 export interface AggregatedAssistantContext {
   evidence: AssistantEvidenceUnit[];
   // Contracts found by searchContracts - reference data, not citable
@@ -37,6 +52,7 @@ export interface AggregatedAssistantContext {
   // as its own list rather than forced into AssistantEvidenceUnit's shape.
   contractsFound: SearchContractsResultItem[];
   failedTools: AssistantFailedTool[];
+  emptyResults: AssistantEmptyResult[];
   hasEvidence: boolean;
 }
 
@@ -186,6 +202,7 @@ export function aggregateToolResults(
   const evidence: AssistantEvidenceUnit[] = [];
   const contractsById = new Map<string, SearchContractsResultItem>();
   const failedTools: AssistantFailedTool[] = [];
+  const emptyResults: AssistantEmptyResult[] = [];
 
   for (const outcome of outcomes) {
     if (!outcome.ok || !outcome.result) {
@@ -198,12 +215,26 @@ export function aggregateToolResults(
 
     switch (outcome.result.tool) {
       case "searchContracts":
-        for (const contract of outcome.result.data.contracts) {
-          contractsById.set(contract.id, contract);
+        if (outcome.result.data.contracts.length === 0) {
+          emptyResults.push({
+            tool: "searchContracts",
+            note: "A contract search ran successfully and matched zero contracts.",
+          });
+        } else {
+          for (const contract of outcome.result.data.contracts) {
+            contractsById.set(contract.id, contract);
+          }
         }
         break;
       case "getContractAnalysis":
-        evidence.push(...fromGetContractAnalysis(outcome.result.data));
+        if (!outcome.result.data.risk && !outcome.result.data.summary) {
+          emptyResults.push({
+            tool: "getContractAnalysis",
+            note: `No completed AI analysis exists yet for contract ${outcome.result.data.contractId}.`,
+          });
+        } else {
+          evidence.push(...fromGetContractAnalysis(outcome.result.data));
+        }
         break;
       case "askContractQuestion":
         evidence.push(...fromAskContractQuestion(outcome.result.data));
@@ -233,6 +264,7 @@ export function aggregateToolResults(
     evidence: dedupedEvidence,
     contractsFound,
     failedTools,
+    emptyResults,
     hasEvidence: dedupedEvidence.length > 0 || contractsFound.length > 0,
   };
 }

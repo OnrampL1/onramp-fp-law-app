@@ -70,6 +70,23 @@ function formatUnavailableTools(
   return `The following capabilities were attempted but did not return a usable result:\n\n${rows}`;
 }
 
+// Distinct from formatUnavailableTools above: these tools ran successfully
+// and correctly found nothing, which is real, positive information (e.g.
+// "no active contracts expire in the next 90 days") - not a gap to
+// apologize for. Without this block, an empty-but-successful search was
+// indistinguishable to the model from a question nothing was ever
+// searched for at all (observed live - see AssistantEmptyResult's comment
+// in assistant-aggregation.ts).
+function formatEmptyResults(
+  emptyResults: AggregatedAssistantContext["emptyResults"],
+): string {
+  if (emptyResults.length === 0) {
+    return "";
+  }
+  const rows = emptyResults.map((r) => `- ${r.note}`).join("\n");
+  return `Searches that ran successfully and found nothing (this is a real answer, not missing information):\n\n${rows}`;
+}
+
 // Exported for direct unit testing, same rationale as
 // retrieval/investigator.ts's buildMessages / agents/assistant-planner.ts's
 // buildPlannerMessages.
@@ -89,6 +106,7 @@ export function buildSynthesisMessages(
   const sections = [
     formatEvidenceBlocks(aggregated.evidence),
     formatContractsFound(aggregated.contractsFound),
+    formatEmptyResults(aggregated.emptyResults),
     formatUnavailableTools(aggregated.failedTools),
   ].filter(Boolean);
 
@@ -110,19 +128,43 @@ export function buildSynthesisMessages(
 // an evidence id it was actually given, the same "additive, not a
 // duplicate of excerpt verification" shape as Legal KB's
 // verifyArticleExistence (PHASE6_IMPLEMENTATION_PLAN.md Section 10).
-export function verifyEvidenceReferences(
+//
+// Three-way split, not a plain valid/invalid check - observed live: the
+// model sometimes cites a real `contractsFound` id (visible in the prompt,
+// explicitly marked "reference data, not a citable source") as if it were
+// an evidence source. That id is real, not a hallucination - treating it
+// the same as a genuinely unknown id meant a harmless formatting slip
+// exhausted the retry budget and surfaced as a full request failure to the
+// user (observed: two independent "which contracts..." questions,
+// otherwise perfectly answerable, 502'd this way). A cited contractsFound
+// id is now silently dropped from the final sources instead of triggering
+// a retry; only a truly unknown id (neither evidence nor a found contract)
+// is still treated as an unverifiable claim worth rejecting.
+export interface CitedIdResolution {
+  keptIds: string[];
+  unknownIds: string[];
+}
+
+export function resolveCitedIds(
   citedIds: string[],
-  evidence: AssistantEvidenceUnit[],
-): { valid: boolean; reason?: string } {
-  const knownIds = new Set(evidence.map((unit) => unit.id));
-  const unknown = citedIds.filter((id) => !knownIds.has(id));
-  if (unknown.length > 0) {
-    return {
-      valid: false,
-      reason: `Cited unknown evidence id(s): ${unknown.join(", ")}`,
-    };
+  aggregated: Pick<AggregatedAssistantContext, "evidence" | "contractsFound">,
+): CitedIdResolution {
+  const evidenceIds = new Set(aggregated.evidence.map((unit) => unit.id));
+  const contractIds = new Set(aggregated.contractsFound.map((c) => c.id));
+
+  const keptIds: string[] = [];
+  const unknownIds: string[] = [];
+
+  for (const id of citedIds) {
+    if (evidenceIds.has(id)) {
+      keptIds.push(id);
+    } else if (!contractIds.has(id)) {
+      unknownIds.push(id);
+    }
+    // else: a real contractsFound id cited as a source - dropped silently.
   }
-  return { valid: true };
+
+  return { keptIds, unknownIds };
 }
 
 function enrichAssistantSource(
@@ -195,15 +237,15 @@ export async function synthesizeAssistantAnswer(
     }
 
     const data = result.data as AssistantAnswerV1;
-    const verification = verifyEvidenceReferences(
+    const resolution = resolveCitedIds(
       data.sources.map((s) => s.id),
-      input.aggregated.evidence,
+      input.aggregated,
     );
 
-    if (!verification.valid) {
+    if (resolution.unknownIds.length > 0) {
       if (attempt === MAX_SYNTHESIS_ATTEMPTS) {
         throw new AiValidationError(
-          `Evidence reference verification failed after ${MAX_SYNTHESIS_ATTEMPTS} attempt(s): ${verification.reason}`,
+          `Cited unknown evidence id(s) after ${MAX_SYNTHESIS_ATTEMPTS} attempt(s): ${resolution.unknownIds.join(", ")}`,
           result.callLogId,
         );
       }
@@ -214,10 +256,9 @@ export async function synthesizeAssistantAnswer(
     // cite the same evidence id more than once (grounding several separate
     // sentences in one source), which is fine for the answer's prose but
     // would otherwise surface as literal duplicate entries in the returned
-    // `sources` list. verifyEvidenceReferences() above checks that every
-    // cited id is real; this only removes repeats of an id already known
-    // to be valid, so it never needs its own retry path.
-    const uniqueCitedIds = [...new Set(data.sources.map((s) => s.id))];
+    // `sources` list. resolveCitedIds() above already dropped any
+    // unusable ids; this only removes repeats of an id already known good.
+    const uniqueCitedIds = [...new Set(resolution.keptIds)];
 
     return {
       answer: data.answer,

@@ -124,3 +124,22 @@ export const PIPE02_IMPLEMENTATIONS: ToolImplementations = {
     throw new Error("Organization Brain is temporarily unavailable");
   },
 };
+
+// PIPE-03: a successful search that correctly matches nothing - regression
+// proof for a real bug found live (2026-08-19): "which of our active
+// contracts are expiring in the next 90 days" against an organization with
+// genuinely none produced the same generic "I couldn't find enough
+// grounded information" decline as a question nothing was ever searched
+// for, because a zero-match search vanished entirely instead of surfacing
+// as a real, positive "searched, found none" signal. Fixed via
+// AggregatedAssistantContext.emptyResults - this case proves the fix holds
+// against the live model, not just that the code path exists.
+export const PIPE03_QUESTION =
+  "Which of our active contracts are expiring in the next 90 days?";
+
+export const PIPE03_IMPLEMENTATIONS: ToolImplementations = {
+  searchContracts: async () => ({
+    tool: "searchContracts",
+    data: { contracts: [], totalMatched: 0 },
+  }),
+};

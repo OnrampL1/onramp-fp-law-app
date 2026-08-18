@@ -29,6 +29,7 @@ export const S01_CONTEXT: AggregatedAssistantContext = {
   ],
   contractsFound: [],
   failedTools: [],
+  emptyResults: [],
   hasEvidence: true,
 };
 
@@ -41,6 +42,7 @@ export const S02_CONTEXT: AggregatedAssistantContext = {
   evidence: [],
   contractsFound: [],
   failedTools: [],
+  emptyResults: [],
   hasEvidence: false,
 };
 
@@ -66,6 +68,7 @@ export const S03_CONTEXT: AggregatedAssistantContext = {
   ],
   contractsFound: [],
   failedTools: [],
+  emptyResults: [],
   hasEvidence: true,
 };
 
@@ -100,5 +103,6 @@ export const S04_CONTEXT: AggregatedAssistantContext = {
   failedTools: [
     { tool: "searchLegalKnowledge", error: "Legal Knowledge Base is temporarily unavailable" },
   ],
+  emptyResults: [],
   hasEvidence: true,
 };

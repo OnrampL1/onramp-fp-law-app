@@ -237,6 +237,60 @@ describe("aggregateToolResults", () => {
     expect(result.evidence.filter((e) => e.id === "chunk-1")).toHaveLength(1);
   });
 
+  it("records a successful-but-empty searchContracts as an emptyResult, distinct from failedTools and evidence", () => {
+    // Regression proof for a real bug found live: "which of our active
+    // contracts are expiring in the next 90 days" against an organization
+    // with genuinely none produced the same generic decline as a question
+    // nothing was ever searched for, because a zero-match search vanished
+    // entirely instead of surfacing as a real, positive "searched, found
+    // none" signal.
+    const outcomes: ToolExecutionOutcome[] = [
+      {
+        tool: "searchContracts",
+        ok: true,
+        result: {
+          tool: "searchContracts",
+          data: { contracts: [], totalMatched: 0 },
+        },
+      },
+    ];
+
+    const result = aggregateToolResults(outcomes);
+
+    expect(result.contractsFound).toEqual([]);
+    expect(result.evidence).toEqual([]);
+    expect(result.failedTools).toEqual([]);
+    expect(result.emptyResults).toEqual([
+      {
+        tool: "searchContracts",
+        note: "A contract search ran successfully and matched zero contracts.",
+      },
+    ]);
+  });
+
+  it("records a successful getContractAnalysis with neither risk nor summary as an emptyResult", () => {
+    const outcomes: ToolExecutionOutcome[] = [
+      {
+        tool: "getContractAnalysis",
+        ok: true,
+        result: {
+          tool: "getContractAnalysis",
+          data: { contractId: CONTRACT_ID, risk: null, summary: null },
+        },
+      },
+    ];
+
+    const result = aggregateToolResults(outcomes);
+
+    expect(result.evidence).toEqual([]);
+    expect(result.emptyResults).toEqual([
+      {
+        tool: "getContractAnalysis",
+        note: `No completed AI analysis exists yet for contract ${CONTRACT_ID}.`,
+      },
+    ]);
+  });
+
   it("reports hasEvidence false and empty lists for an empty plan's outcomes", () => {
     const result = aggregateToolResults([]);
 
@@ -244,6 +298,7 @@ describe("aggregateToolResults", () => {
       evidence: [],
       contractsFound: [],
       failedTools: [],
+      emptyResults: [],
       hasEvidence: false,
     });
   });

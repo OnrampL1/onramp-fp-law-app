@@ -521,3 +521,70 @@ what we noticed.
 - Classification: Required for correctness (completes the contract
   lifecycle — we tracked when a contract ends but not when it starts)
 - Resolution: Approved. Implementation in progress.
+
+### AI Assistant — Phase 7 Implementation
+
+- Identified: This session (2026-08-19), following on directly from
+  diagnosing why an earlier "Legal Assistant" chat UI
+  (`LegalAssistant.tsx`, commit `66621b9`, PR #48, tagged `phase6`) was
+  actually unreviewed Phase 7-shaped scope creep — a thin tab-switcher over
+  the pre-existing Organization Brain and Legal KB `/ask` endpoints, with
+  no planner, no tool selection, and no Domain Review entry recording it.
+- Classification: Required for correctness — closing out the
+  documentation gap that finding itself surfaced (`AI_ROADMAP.md`'s Phase
+  7 row read "not started" while Phase-7-shaped code already existed in
+  `develop`), and recording what was actually built this time, through the
+  process the earlier attempt skipped.
+- Status: **Implemented** (2026-08-19). Full detail in `AI_ROADMAP.md`
+  Section 11; this entry records the outcome and the domain decisions
+  actually made along the way, not the design itself.
+- Decisions made during implementation (in batch order):
+  1. **Five tools, closed set** (`searchContracts`, `getContractAnalysis`,
+     `askContractQuestion`, `searchOrganizationBrain`,
+     `searchLegalKnowledge`) — enforced structurally via the planner's own
+     discriminated-union output schema, not by convention. No sixth tool,
+     no raw-SQL escape hatch, no `organizationId` argument on any of the
+     five.
+  2. **Plan-and-Execute, not ReAct** — one planner call producing a capped
+     plan (`ASSISTANT_MAX_PLAN_STEPS = 5`, an explicit MVP choice; no
+     specific number was frozen in `AI_ARCHITECTURE.md` Section 7, so this
+     was decided and documented rather than left implicit), executed in
+     one parallel round with per-step failure isolation. Multi-hop
+     chaining across rounds explicitly deferred, matching Section 7's
+     already-documented, accepted limitation.
+  3. **Evidence, not chunks, is the aggregation unit** — each tool's
+     result is reshaped into one or more `AssistantEvidenceUnit`s (id,
+     capability, label, content, optional contractId/confidence) rather
+     than flattened into a single string, so the final answer can
+     distinguish which Clausio capability grounded which claim.
+  4. **Citations verified by existence, not by re-deriving excerpt
+     verification** — the synthesis step cites evidence only by id
+     (never re-transcribing an excerpt), checked against what it was
+     actually given (`verifyEvidenceReferences`), additive to — not a
+     duplicate of — each underlying tool's own already-run
+     `verifyCitations()`.
+  5. **Response DTO deliberately flatter than the internal `AssistantSource`
+     type** — drops the tool name and any `toolsUsed`/`toolsFailed` list
+     from what the frontend receives; which capabilities ran or failed is
+     communicated in the answer's own prose instead, per "do not expose
+     internal tool execution details unnecessarily."
+  6. **Golden-set evaluation, not a second framework** — extended
+     `packages/shared/ai/evaluation/` with an `AssistantGoldenExample` type
+     and `runAssistantGoldenSet()`, judged at three tiers (planner tool
+     selection, synthesis groundedness/robustness against a fixed
+     evidence context, full pipeline against fake tool implementations —
+     fake because `packages/shared` has no dependency on `packages/api`,
+     where the real ones live). A live run of this suite found and fixed a
+     real prompt-injection vulnerability in `assistant-synthesis/v1.md`
+     (evidence content could override the model's own instructions);
+     re-verified passing across two independent live runs after the fix.
+- Not built, explicitly deferred (not silently missing): multi-hop tool
+  chaining beyond one round, any write/mutation tool, persisted
+  server-side conversation history. See `AI_ROADMAP.md` Section 11 for the
+  full list and reasoning.
+- Housekeeping done alongside this entry: `AI_ROADMAP.md`'s Phase Status
+  table also had a second, unrelated stale entry corrected in the same
+  pass — Phase 6's row still read "Batch 1 pending" despite Section 6 of
+  the same document already stating "Batches 1–6 are complete" since
+  2026-08-14. Corrected to match; not a new decision, just the table
+  catching up to what the document's own body already said.

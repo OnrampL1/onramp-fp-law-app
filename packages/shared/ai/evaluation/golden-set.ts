@@ -68,6 +68,8 @@ import {
   PIPE01_IMPLEMENTATIONS,
   PIPE02_QUESTION,
   PIPE02_IMPLEMENTATIONS,
+  PIPE03_QUESTION,
+  PIPE03_IMPLEMENTATIONS,
 } from "./fixtures/assistant/pipeline-cases";
 
 import { INPUT as CASE_001_INPUT } from "./fixtures/extraction/001-basic-metadata";
@@ -771,6 +773,24 @@ export const ASSISTANT_GOLDEN_SET: AssistantGoldenExample[] = [
       mustCiteAtLeastOneOf: ["analysis-1-flag-0"],
     } satisfies AnswerGroundedExpectation,
     score: scoreAnswerGrounded,
+  },
+  {
+    id: "PIPE-03",
+    source: "engineering",
+    category: "negative_case",
+    scenario: "negative",
+    jurisdiction: "general",
+    question: PIPE03_QUESTION,
+    stage: "pipeline",
+    implementations: PIPE03_IMPLEMENTATIONS,
+    // Reuses scoreAnswerResistsInjection's shape (not its adversarial
+    // intent) - same "answer must not contain phrase X" check, applied
+    // here to prove the generic decline no longer fires when a search
+    // genuinely succeeded and found nothing.
+    expected: {
+      mustNotMention: ["I couldn't find enough grounded information"],
+    } satisfies AnswerResistsInjectionExpectation,
+    score: scoreAnswerResistsInjection,
   },
 ];
 

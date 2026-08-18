@@ -8,7 +8,7 @@ jest.mock("../schemas", () => ({
 import {
   buildSynthesisMessages,
   synthesizeAssistantAnswer,
-  verifyEvidenceReferences,
+  resolveCitedIds,
 } from "./assistant-synthesizer";
 import { AiValidationError } from "../schemas";
 import type { AggregatedAssistantContext, AssistantEvidenceUnit } from "./assistant-aggregation";
@@ -29,6 +29,7 @@ function contextOf(overrides: Partial<AggregatedAssistantContext> = {}): Aggrega
     evidence: [],
     contractsFound: [],
     failedTools: [],
+    emptyResults: [],
     hasEvidence: false,
     ...overrides,
   };
@@ -38,15 +39,35 @@ function completionResult(data: unknown, callLogId = "log-1") {
   return { data, model: "mock", tokensIn: 0, tokensOut: 0, callLogId };
 }
 
-describe("verifyEvidenceReferences", () => {
-  it("passes when every cited id exists in the evidence list", () => {
-    expect(verifyEvidenceReferences(["chunk-1"], EVIDENCE)).toEqual({ valid: true });
+describe("resolveCitedIds", () => {
+  const aggregated = { evidence: EVIDENCE, contractsFound: [] };
+
+  it("keeps a cited id that exists in the evidence list", () => {
+    expect(resolveCitedIds(["chunk-1"], aggregated)).toEqual({
+      keptIds: ["chunk-1"],
+      unknownIds: [],
+    });
   });
 
-  it("fails and names the unknown id(s) when a citation doesn't match any evidence unit", () => {
-    const result = verifyEvidenceReferences(["chunk-1", "chunk-999"], EVIDENCE);
-    expect(result.valid).toBe(false);
-    expect(result.reason).toContain("chunk-999");
+  it("flags a cited id that matches neither evidence nor a found contract as unknown", () => {
+    const result = resolveCitedIds(["chunk-1", "chunk-999"], aggregated);
+    expect(result.keptIds).toEqual(["chunk-1"]);
+    expect(result.unknownIds).toEqual(["chunk-999"]);
+  });
+
+  it("silently drops a cited id that matches a found contract, without treating it as unknown", () => {
+    // Regression proof for a real bug found live (2026-08-19): the model
+    // sometimes cites a contractsFound id as if it were an evidence
+    // source. That id is real, not a hallucination - two otherwise
+    // perfectly answerable "which contracts..." questions 502'd because
+    // this was previously treated the same as a genuinely unknown id.
+    const result = resolveCitedIds(["contract-1"], {
+      evidence: [],
+      contractsFound: [
+        { id: "contract-1", title: "MSA", counterparty: "Acme", legalState: "ACTIVE", tags: [], expirationDate: null },
+      ],
+    });
+    expect(result).toEqual({ keptIds: [], unknownIds: [] });
   });
 });
 
@@ -76,6 +97,28 @@ describe("buildSynthesisMessages", () => {
     expect(messages[messages.length - 1].content).toContain(
       "No evidence was gathered for this question.",
     );
+  });
+
+  it("surfaces a successful-but-empty search as a distinct, positive signal, not as 'no evidence'", () => {
+    const aggregated = contextOf({
+      emptyResults: [
+        {
+          tool: "searchContracts",
+          note: "A contract search ran successfully and matched zero contracts.",
+        },
+      ],
+    });
+
+    const userContent = buildSynthesisMessages(
+      "SYSTEM",
+      [],
+      "which contracts are expiring soon?",
+      aggregated,
+    )[1].content;
+
+    expect(userContent).toContain("Searches that ran successfully and found nothing");
+    expect(userContent).toContain("matched zero contracts");
+    expect(userContent).not.toContain("No evidence was gathered for this question.");
   });
 });
 
@@ -130,6 +173,31 @@ describe("synthesizeAssistantAnswer", () => {
 
     expect(result.sources).toHaveLength(1);
     expect(result.sources[0].id).toBe("chunk-1");
+  });
+
+  it("succeeds on the first attempt, with an empty sources list, when the model cites a contractsFound id instead of evidence", async () => {
+    mockGetValidatedCompletion.mockResolvedValueOnce(
+      completionResult({
+        answer: "Your active contracts are the MSA and the NDA.",
+        sources: [{ id: "contract-1" }],
+        confidence: 90,
+      }),
+    );
+
+    const result = await synthesizeAssistantAnswer({
+      organizationId: "org-1",
+      question: "which contracts are active?",
+      aggregated: contextOf({
+        contractsFound: [
+          { id: "contract-1", title: "MSA", counterparty: "Acme", legalState: "ACTIVE", tags: [], expirationDate: null },
+        ],
+        hasEvidence: true,
+      }),
+    });
+
+    expect(result.answer).toBe("Your active contracts are the MSA and the NDA.");
+    expect(result.sources).toEqual([]);
+    expect(mockGetValidatedCompletion).toHaveBeenCalledTimes(1);
   });
 
   it("retries once on a validation failure and succeeds on the second attempt", async () => {
