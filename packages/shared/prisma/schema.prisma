@@ -31,17 +31,18 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  ownerUser              User?                   @relation("OrganizationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
-  settings               OrganizationSettings?
-  members                User[]                  @relation("OrganizationMembers")
-  invitations            Invitation[]
-  contracts              Contract[]
-  auditLogs              AuditLog[]
-  aiCallLogs             AICallLog[]
-  contractChunks         ContractChunk[]
-  riskFlags              RiskFlag[]
-  organizationBrainItems OrganizationBrainItem[]
+  ownerUser               User?                      @relation("OrganizationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  settings                OrganizationSettings?
+  members                 User[]                     @relation("OrganizationMembers")
+  invitations             Invitation[]
+  contracts               Contract[]
+  auditLogs               AuditLog[]
+  aiCallLogs              AICallLog[]
+  contractChunks          ContractChunk[]
+  riskFlags               RiskFlag[]
+  organizationBrainItems  OrganizationBrainItem[]
   organizationBrainChunks OrganizationBrainChunk[]
+  accessRequest           OrganizationAccessRequest? @relation("AccessRequestOrganization")
 
   @@map("organizations")
 }
@@ -90,9 +91,58 @@ model PlatformUser {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  auditLogs AuditLog[]
+  auditLogs              AuditLog[]
+  reviewedAccessRequests OrganizationAccessRequest[] @relation("AccessRequestReviewer")
 
   @@map("platform_users")
+}
+
+enum OrganizationAccessRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum OrganizationAccessRequestCompanySize {
+  ONE_TO_TEN
+  ELEVEN_TO_FIFTY
+  FIFTY_ONE_TO_TWO_HUNDRED
+  TWO_HUNDRED_ONE_TO_ONE_THOUSAND
+  ONE_THOUSAND_PLUS
+}
+
+model OrganizationAccessRequest {
+  id String @id @default(uuid()) @db.Uuid
+
+  contactFirstName String @map("contact_first_name")
+  contactLastName  String @map("contact_last_name")
+  contactEmail     String @unique @map("contact_email")
+
+  organizationName String                                @map("organization_name")
+  websiteUrl       String?                               @map("website_url")
+  companySize      OrganizationAccessRequestCompanySize? @map("company_size")
+  country          String?
+
+  intendedUse String  @map("intended_use") @db.Text
+  notes       String? @db.Text
+
+  status OrganizationAccessRequestStatus @default(PENDING)
+
+  reviewedAt               DateTime? @map("reviewed_at")
+  reviewedByPlatformUserId String?   @map("reviewed_by_platform_user_id") @db.Uuid
+  declineReason            String?   @map("decline_reason") @db.Text
+
+  organizationId String? @unique @map("organization_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  reviewedByPlatformUser PlatformUser? @relation("AccessRequestReviewer", fields: [reviewedByPlatformUserId], references: [id], onDelete: SetNull)
+  organization           Organization? @relation("AccessRequestOrganization", fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("organization_access_requests")
 }
 
 // ─── User domain ──────────────────────────────────────────────────────────
@@ -396,7 +446,7 @@ enum RiskCategory {
 
 enum RiskSeverity {
   LOW
-  MEDIUM 
+  MEDIUM
   HIGH
   CRITICAL
 }
@@ -505,9 +555,9 @@ model OrganizationBrainItem {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdBy    User         @relation("OrganizationBrainItemCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  chunks OrganizationBrainChunk[]
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy    User                     @relation("OrganizationBrainItemCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  chunks       OrganizationBrainChunk[]
 
   @@index([organizationId, type])
   @@index([organizationId, createdAt(sort: Desc)])
@@ -518,14 +568,14 @@ model OrganizationBrainItem {
 // ─── Organization Brain retrieval domain ────────────────────────
 
 model OrganizationBrainChunk {
-  id String @id @default(uuid()) @db.Uuid
+  id                      String @id @default(uuid()) @db.Uuid
   organizationBrainItemId String @map("organization_brain_item_id") @db.Uuid
-  organizationId String @map("organization_id") @db.Uuid
+  organizationId          String @map("organization_id") @db.Uuid
 
-  chunkIndex Int @map("chunk_index")
+  chunkIndex  Int     @map("chunk_index")
   headingPath String? @map("heading_path")
-  content String @db.Text
-  tokenCount Int? @map("token_count")
+  content     String  @db.Text
+  tokenCount  Int?    @map("token_count")
 
   embedding Unsupported("vector(1536)")?
 
@@ -534,7 +584,7 @@ model OrganizationBrainChunk {
   createdAt DateTime @default(now()) @map("created_at")
 
   organizationBrainItem OrganizationBrainItem @relation(fields: [organizationBrainItemId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@unique([organizationBrainItemId, chunkIndex])
   @@index([organizationBrainItemId])
