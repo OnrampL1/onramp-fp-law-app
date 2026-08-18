@@ -1,22 +1,13 @@
-import { Prisma, type OrganizationAccessRequest } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { getPrismaClient } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
 import type { SubmitAccessRequestInput } from "../schemas/access-request.schemas";
 
 const prisma = getPrismaClient();
 
-type SubmissionOutcome =
-  | "CREATED"
-  | "UPDATED"
-  | "RESUBMITTED"
-  | "APPROVED_NOOP";
-
-function toPublicSubmissionResponse(outcome: SubmissionOutcome) {
-  return {
-    message: "If eligible, your access request has been submitted for review.",
-    outcome,
-  };
-}
+const PUBLIC_SUBMISSION_RESPONSE = {
+  message: "If eligible, your access request has been submitted for review.",
+};
 
 function requestUpdateData(input: SubmitAccessRequestInput) {
   return {
@@ -36,7 +27,7 @@ export class AccessRequestService {
     const contactEmail = input.contactEmail;
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         const existing = await tx.organizationAccessRequest.findUnique({
           where: { contactEmail },
         });
@@ -50,11 +41,11 @@ export class AccessRequestService {
             },
           });
 
-          return toPublicSubmissionResponse("CREATED");
+          return;
         }
 
         if (existing.status === "APPROVED") {
-          return toPublicSubmissionResponse("APPROVED_NOOP");
+          return;
         }
 
         const data =
@@ -72,13 +63,9 @@ export class AccessRequestService {
           where: { id: existing.id },
           data,
         });
-
-        return toPublicSubmissionResponse(
-          existing.status === "DECLINED" ? "RESUBMITTED" : "UPDATED",
-        );
       });
 
-      return result;
+      return PUBLIC_SUBMISSION_RESPONSE;
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&

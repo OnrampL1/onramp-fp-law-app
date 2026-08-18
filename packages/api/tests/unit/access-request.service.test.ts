@@ -37,7 +37,10 @@ describe("AccessRequestService.submitAccessRequest", () => {
 
     const result = await accessRequestService.submitAccessRequest(baseInput);
 
-    expect(result.outcome).toBe("CREATED");
+    expect(result).toEqual({
+      message:
+        "If eligible, your access request has been submitted for review.",
+    });
     expect(mockDb.organizationAccessRequest.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         contactEmail: "alex@example.com",
@@ -58,7 +61,10 @@ describe("AccessRequestService.submitAccessRequest", () => {
       organizationName: "Acme Legal Operations",
     });
 
-    expect(result.outcome).toBe("UPDATED");
+    expect(result).toEqual({
+      message:
+        "If eligible, your access request has been submitted for review.",
+    });
     expect(mockDb.organizationAccessRequest.create).not.toHaveBeenCalled();
     expect(mockDb.organizationAccessRequest.update).toHaveBeenCalledWith({
       where: { id: "request-1" },
@@ -79,7 +85,10 @@ describe("AccessRequestService.submitAccessRequest", () => {
 
     const result = await accessRequestService.submitAccessRequest(baseInput);
 
-    expect(result.outcome).toBe("RESUBMITTED");
+    expect(result).toEqual({
+      message:
+        "If eligible, your access request has been submitted for review.",
+    });
     expect(mockDb.organizationAccessRequest.update).toHaveBeenCalledWith({
       where: { id: "request-1" },
       data: expect.objectContaining({
@@ -100,7 +109,10 @@ describe("AccessRequestService.submitAccessRequest", () => {
 
     const result = await accessRequestService.submitAccessRequest(baseInput);
 
-    expect(result.outcome).toBe("APPROVED_NOOP");
+    expect(result).toEqual({
+      message:
+        "If eligible, your access request has been submitted for review.",
+    });
     expect(mockDb.organizationAccessRequest.create).not.toHaveBeenCalled();
     expect(mockDb.organizationAccessRequest.update).not.toHaveBeenCalled();
   });

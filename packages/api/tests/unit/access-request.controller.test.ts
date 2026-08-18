@@ -30,7 +30,6 @@ beforeEach(() => {
 
   mockAccessRequestService.submitAccessRequest.mockResolvedValue({
     message: "If eligible, your access request has been submitted for review.",
-    outcome: "CREATED",
   });
 });
 
