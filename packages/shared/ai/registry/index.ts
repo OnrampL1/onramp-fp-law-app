@@ -10,6 +10,8 @@ const ACTIVE_PROMPT_VERSIONS: Record<string, string> = {
   summary: "v1",
   risk: "v3",
   metadata: "v1",
+  "assistant-planner": "v1",
+  "assistant-synthesis": "v1",
 };
 
 const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {
@@ -19,6 +21,8 @@ const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {
   summary: "v1",
   risk: "v3",
   metadata: "v1",
+  "assistant-plan": "v1",
+  "assistant-answer": "v1",
 };
 
 export function getActivePromptVersion(promptId: string): string {

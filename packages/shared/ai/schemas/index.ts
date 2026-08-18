@@ -7,6 +7,8 @@ import { riskSchemaV1 } from "./risk/v1";
 import { riskSchemaV2 } from "./risk/v2";
 import { riskSchemaV3 } from "./risk/v3";
 import { metadataSchemaV1 } from "./metadata/v1";
+import { assistantPlanSchemaV1 } from "./assistant-plan/v1";
+import { assistantAnswerSchemaV1 } from "./assistant-answer/v1";
 
 const SCHEMAS: Record<string, Record<string, ZodTypeAny>> = {
   test: { v1: testSchemaV1 },
@@ -15,6 +17,8 @@ const SCHEMAS: Record<string, Record<string, ZodTypeAny>> = {
   summary: { v1: summarySchemaV1 },
   risk: { v1: riskSchemaV1, v2: riskSchemaV2, v3: riskSchemaV3 },
   metadata: { v1: metadataSchemaV1 },
+  "assistant-plan": { v1: assistantPlanSchemaV1 },
+  "assistant-answer": { v1: assistantAnswerSchemaV1 },
 };
 
 export function getSchema(schemaId: string, version: string): ZodTypeAny {
@@ -34,3 +38,5 @@ export * from "./risk/v3";
 export * from "./summary/v1";
 export * from "./validate";
 export * from "./metadata/v1";
+export * from "./assistant-plan/v1";
+export * from "./assistant-answer/v1";
