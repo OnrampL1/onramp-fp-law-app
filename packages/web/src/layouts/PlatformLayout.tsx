@@ -43,7 +43,7 @@ export function PlatformLayout() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex aspect-square size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Scale className="size-5" />
@@ -62,7 +62,7 @@ export function PlatformLayout() {
             </div>
           </div>
 
-          <nav className="hidden items-center gap-2 md:flex">
+          <nav className="order-last flex w-full items-center gap-2 overflow-x-auto lg:order-none lg:w-auto lg:overflow-visible">
             <Button
               variant={
                 location.pathname === "/platform/organizations"
@@ -70,7 +70,7 @@ export function PlatformLayout() {
                   : "ghost"
               }
               size="sm"
-              className="gap-2"
+              className="min-w-max flex-1 gap-2 lg:flex-none"
               onClick={() => navigate("/platform/organizations")}
             >
               <Building2 className="size-4" />
@@ -84,7 +84,7 @@ export function PlatformLayout() {
                   : "ghost"
               }
               size="sm"
-              className="gap-2"
+              className="min-w-max flex-1 gap-2 lg:flex-none"
               onClick={() => navigate("/platform/access-requests")}
             >
               <FileText className="size-4" />
@@ -92,7 +92,7 @@ export function PlatformLayout() {
             </Button>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             {platformUser && (
               <div className="hidden text-right leading-tight sm:block">
                 <p className="text-sm font-medium">{platformUser.fullName}</p>
