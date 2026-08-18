@@ -1,5 +1,13 @@
-import { Outlet, useNavigate } from "react-router-dom";
-import { Building2, LogOut, Moon, Scale, ShieldAlert, Sun } from "lucide-react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  Building2,
+  FileText,
+  LogOut,
+  Moon,
+  Scale,
+  ShieldAlert,
+  Sun,
+} from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { usePlatformAuth } from "../hooks/usePlatformAuth";
@@ -23,6 +31,7 @@ function initials(name: string) {
 
 export function PlatformLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { platformUser, platformLogout } = usePlatformAuth();
   const { theme, toggleTheme } = useTheme();
 
@@ -55,13 +64,31 @@ export function PlatformLayout() {
 
           <nav className="hidden items-center gap-2 md:flex">
             <Button
-              variant="secondary"
+              variant={
+                location.pathname === "/platform/organizations"
+                  ? "secondary"
+                  : "ghost"
+              }
               size="sm"
               className="gap-2"
               onClick={() => navigate("/platform/organizations")}
             >
               <Building2 className="size-4" />
               Organizations
+            </Button>
+
+            <Button
+              variant={
+                location.pathname === "/platform/access-requests"
+                  ? "secondary"
+                  : "ghost"
+              }
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate("/platform/access-requests")}
+            >
+              <FileText className="size-4" />
+              Access Requests
             </Button>
           </nav>
 

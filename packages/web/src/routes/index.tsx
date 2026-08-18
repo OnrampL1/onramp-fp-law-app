@@ -27,6 +27,7 @@ import { AuditLogPage } from "../pages/AuditLogPage";
 import { OrganizationBrain } from "../pages/dashboard/OrganizationBrain";
 import LegalAssistantPage from "../pages/dashboard/LegalAssistant";
 import { InsightCategoryPage } from "@/pages/insights/InsightCategoryPage";
+import { PlatformAccessRequests } from "../pages/platform/PlatformAccessRequests";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
@@ -51,6 +52,10 @@ export function AppRoutes() {
           <Route
             path="/platform/organizations"
             element={<PlatformOrganizations />}
+          />
+          <Route
+            path="/platform/access-requests"
+            element={<PlatformAccessRequests />}
           />
         </Route>
       </Route>
