@@ -160,9 +160,7 @@ export function RequestAccess() {
               <CardDescription>{successMessage}</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center">
-              <Button asChild>
-                <Link to="/">Return to Clausio</Link>
-              </Button>
+              <Button render={<Link to="/">Return to Clausio</Link>} />
             </CardContent>
           </Card>
         </div>
@@ -335,9 +333,7 @@ export function RequestAccess() {
               </div>
 
               <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" asChild>
-                  <Link to="/">Cancel</Link>
-                </Button>
+                <Button variant="outline" render={<Link to="/">Cancel</Link>} />
                 <Button type="submit" className="gap-2" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>

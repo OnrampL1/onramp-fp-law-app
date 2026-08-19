@@ -23,7 +23,6 @@ import {
   assignableRoles,
   getPermissionKeysForRole,
   roleLabels,
-  type BackendUserRole,
   type AssignableUserRole,
 } from "@/lib/permissions";
 

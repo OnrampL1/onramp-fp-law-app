@@ -11,6 +11,11 @@ describe("cn utility", () => {
   });
 
   it("handles conditional classes", () => {
+    // Deliberately hardcoded `false`, not a real condition — this
+    // exercises cn()'s falsy-arg branch deterministically, which is
+    // exactly what no-constant-binary-expression normally guards against
+    // in application code.
+    // eslint-disable-next-line no-constant-binary-expression
     expect(cn("base", false && "hidden", "extra")).toBe("base extra");
   });
 });
