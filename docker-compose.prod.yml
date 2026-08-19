@@ -4,7 +4,11 @@ networks:
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # Must match dev's docker-compose.yml image, not vanilla postgres: three
+    # migrations (add_contract_chunks_investigator, add_organization_brain_chunks,
+    # add_legal_kb) run `CREATE EXTENSION IF NOT EXISTS "vector"` and use
+    # vector(1536) columns — the extension isn't present in postgres:16-alpine.
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
