@@ -5,6 +5,13 @@ const mockDb = {
     count: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  organization: {
+    create: jest.fn(),
+  },
+  auditLog: {
+    create: jest.fn(),
   },
   $transaction: jest.fn(async (cb: (tx: typeof mockDb) => unknown) =>
     cb(mockDb),
@@ -230,5 +237,167 @@ describe("AccessRequestService.getAccessRequest", () => {
     await expect(
       accessRequestService.getAccessRequest("missing-1"),
     ).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe("AccessRequestService review actions", () => {
+  const pendingRequest = {
+    id: "request-1",
+    contactFirstName: "Alex",
+    contactLastName: "Morgan",
+    contactEmail: "alex@example.com",
+    organizationName: "Acme Legal Ops",
+    websiteUrl: null,
+    companySize: null,
+    country: null,
+    intendedUse: "We want to manage legal contracts in one secure workspace.",
+    notes: null,
+    status: "PENDING",
+    reviewedAt: null,
+    reviewedByPlatformUserId: null,
+    declineReason: null,
+    organizationId: null,
+    createdAt: new Date("2026-08-18T00:00:00.000Z"),
+    updatedAt: new Date("2026-08-18T00:00:00.000Z"),
+  };
+
+  it("approves a pending request by creating and linking an organization", async () => {
+    mockDb.organizationAccessRequest.findUnique
+      .mockResolvedValueOnce(pendingRequest)
+      .mockResolvedValueOnce({
+        ...pendingRequest,
+        status: "APPROVED",
+        reviewedAt: new Date("2026-08-19T00:00:00.000Z"),
+        reviewedByPlatformUserId: "platform-1",
+        organizationId: "org-1",
+        reviewedByPlatformUser: {
+          id: "platform-1",
+          email: "admin@clausio.test",
+          fullName: "Platform Admin",
+          role: "SUPER_ADMIN",
+        },
+        organization: {
+          id: "org-1",
+          name: "Acme Legal Ops",
+          slug: "acme-legal-ops",
+          status: "CREATED",
+        },
+      });
+
+    mockDb.organization.create.mockResolvedValue({
+      id: "org-1",
+      name: "Acme Legal Ops",
+      slug: "acme-legal-ops",
+      status: "CREATED",
+      ownerAssignedAt: null,
+      createdAt: new Date("2026-08-19T00:00:00.000Z"),
+      updatedAt: new Date("2026-08-19T00:00:00.000Z"),
+      ownerUser: null,
+      _count: {
+        members: 0,
+        invitations: 0,
+        contracts: 0,
+        auditLogs: 0,
+      },
+    });
+
+    mockDb.organizationAccessRequest.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await accessRequestService.approveAccessRequest(
+      { id: "platform-1" },
+      "request-1",
+      {
+        name: "Acme Legal Ops",
+        slug: "acme-legal-ops",
+        timezone: "UTC",
+        language: "en",
+      },
+      {
+        ipAddress: "127.0.0.1",
+        userAgent: "test-agent",
+      },
+    );
+
+    expect(result.status).toBe("APPROVED");
+    expect(result.organization?.id).toBe("org-1");
+    expect(mockDb.organization.create).toHaveBeenCalled();
+    expect(mockDb.organizationAccessRequest.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "request-1",
+        status: "PENDING",
+        organizationId: null,
+      },
+      data: expect.objectContaining({
+        status: "APPROVED",
+        reviewedByPlatformUserId: "platform-1",
+        organizationId: "org-1",
+        declineReason: null,
+      }),
+    });
+    expect(mockDb.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        organizationId: "org-1",
+        actorType: "PLATFORM_USER",
+        actorPlatformUserId: "platform-1",
+        action: "ORGANIZATION_CREATED",
+        targetEntityType: "Organization",
+        targetEntityId: "org-1",
+      }),
+    });
+  });
+
+  it("does not approve a request that was already reviewed", async () => {
+    mockDb.organizationAccessRequest.findUnique.mockResolvedValue({
+      ...pendingRequest,
+      status: "APPROVED",
+      organizationId: "org-1",
+    });
+
+    await expect(
+      accessRequestService.approveAccessRequest(
+        { id: "platform-1" },
+        "request-1",
+        {
+          name: "Acme Legal Ops",
+          slug: "acme-legal-ops",
+          timezone: "UTC",
+          language: "en",
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(mockDb.organization.create).not.toHaveBeenCalled();
+  });
+
+  it("declines a pending request without creating an organization", async () => {
+    mockDb.organizationAccessRequest.findUnique
+      .mockResolvedValueOnce(pendingRequest)
+      .mockResolvedValueOnce({
+        ...pendingRequest,
+        status: "DECLINED",
+        reviewedAt: new Date("2026-08-19T00:00:00.000Z"),
+        reviewedByPlatformUserId: "platform-1",
+        declineReason: "Not a fit right now",
+        reviewedByPlatformUser: {
+          id: "platform-1",
+          email: "admin@clausio.test",
+          fullName: "Platform Admin",
+          role: "SUPER_ADMIN",
+        },
+        organization: null,
+      });
+
+    mockDb.organizationAccessRequest.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await accessRequestService.declineAccessRequest(
+      { id: "platform-1" },
+      "request-1",
+      { declineReason: "Not a fit right now" },
+    );
+
+    expect(result.status).toBe("DECLINED");
+    expect(result.declineReason).toBe("Not a fit right now");
+    expect(mockDb.organization.create).not.toHaveBeenCalled();
+    expect(mockDb.auditLog.create).not.toHaveBeenCalled();
   });
 });

@@ -16,6 +16,8 @@ jest.mock("../../src/services/access-request.service", () => ({
   accessRequestService: {
     listAccessRequests: jest.fn(),
     getAccessRequest: jest.fn(),
+    approveAccessRequest: jest.fn(),
+    declineAccessRequest: jest.fn(),
   },
 }));
 
@@ -80,6 +82,61 @@ beforeEach(() => {
     reviewedByPlatformUser: null,
     createdAt: "2026-08-18T00:00:00.000Z",
     updatedAt: "2026-08-18T00:00:00.000Z",
+  });
+
+  mockAccessRequestService.approveAccessRequest.mockResolvedValue({
+    id: "00000000-0000-4000-8000-000000000501",
+    contactFirstName: "Alex",
+    contactLastName: "Morgan",
+    contactEmail: "alex@example.com",
+    organizationName: "Acme Legal Ops",
+    websiteUrl: "https://acme.example",
+    companySize: "ELEVEN_TO_FIFTY",
+    country: "Lebanon",
+    intendedUse: "We want to manage legal contracts in one secure workspace.",
+    notes: "Mostly vendor agreements.",
+    status: "APPROVED",
+    reviewedAt: "2026-08-19T00:00:00.000Z",
+    declineReason: null,
+    organization: {
+      id: "org-1",
+      name: "Acme Legal Ops",
+      slug: "acme-legal-ops",
+      status: "CREATED",
+    },
+    reviewedByPlatformUser: {
+      id: "platform-1",
+      email: "platform.admin@clausio.local",
+      fullName: "Platform Admin",
+      role: "SUPER_ADMIN",
+    },
+    createdAt: "2026-08-18T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  });
+
+  mockAccessRequestService.declineAccessRequest.mockResolvedValue({
+    id: "00000000-0000-4000-8000-000000000501",
+    contactFirstName: "Alex",
+    contactLastName: "Morgan",
+    contactEmail: "alex@example.com",
+    organizationName: "Acme Legal Ops",
+    websiteUrl: "https://acme.example",
+    companySize: "ELEVEN_TO_FIFTY",
+    country: "Lebanon",
+    intendedUse: "We want to manage legal contracts in one secure workspace.",
+    notes: "Mostly vendor agreements.",
+    status: "DECLINED",
+    reviewedAt: "2026-08-19T00:00:00.000Z",
+    declineReason: "Not a fit right now",
+    organization: null,
+    reviewedByPlatformUser: {
+      id: "platform-1",
+      email: "platform.admin@clausio.local",
+      fullName: "Platform Admin",
+      role: "SUPER_ADMIN",
+    },
+    createdAt: "2026-08-18T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
   });
 });
 
@@ -156,5 +213,81 @@ describe("platform access request routes", () => {
 
     expect(res.status).toBe(422);
     expect(mockAccessRequestService.getAccessRequest).not.toHaveBeenCalled();
+  });
+
+  it("allows SUPER_ADMIN to approve an access request", async () => {
+    const res = await request(app)
+      .post(
+        "/api/platform/access-requests/00000000-0000-4000-8000-000000000501/approve",
+      )
+      .set("Cookie", platformCookieFor("SUPER_ADMIN"))
+      .send({
+        name: "Acme Legal Ops",
+        slug: "acme-legal-ops",
+        timezone: "UTC",
+        language: "en",
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockAccessRequestService.approveAccessRequest).toHaveBeenCalledWith(
+      { id: "platform-1" },
+      "00000000-0000-4000-8000-000000000501",
+      {
+        name: "Acme Legal Ops",
+        slug: "acme-legal-ops",
+        timezone: "UTC",
+        language: "en",
+      },
+      expect.objectContaining({
+        ipAddress: expect.any(String),
+      }),
+    );
+  });
+
+  it("prevents SUPPORT_ENGINEER from approving an access request", async () => {
+    mockPrisma.platformUser.findUnique.mockResolvedValue({
+      id: "platform-2",
+      email: "support@clausio.local",
+      fullName: "Support Engineer",
+      role: "SUPPORT_ENGINEER",
+      status: "ACTIVE",
+    });
+
+    const res = await request(app)
+      .post(
+        "/api/platform/access-requests/00000000-0000-4000-8000-000000000501/approve",
+      )
+      .set("Cookie", platformCookieFor("SUPPORT_ENGINEER"))
+      .send({
+        name: "Acme Legal Ops",
+        slug: "acme-legal-ops",
+        timezone: "UTC",
+        language: "en",
+      });
+
+    expect(res.status).toBe(403);
+    expect(
+      mockAccessRequestService.approveAccessRequest,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("allows SUPER_ADMIN to decline an access request", async () => {
+    const res = await request(app)
+      .post(
+        "/api/platform/access-requests/00000000-0000-4000-8000-000000000501/decline",
+      )
+      .set("Cookie", platformCookieFor("SUPER_ADMIN"))
+      .send({
+        declineReason: "Not a fit right now",
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockAccessRequestService.declineAccessRequest).toHaveBeenCalledWith(
+      { id: "platform-1" },
+      "00000000-0000-4000-8000-000000000501",
+      {
+        declineReason: "Not a fit right now",
+      },
+    );
   });
 });
