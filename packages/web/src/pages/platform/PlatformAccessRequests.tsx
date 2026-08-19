@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import type { AxiosError } from "axios";
 import {
   Building2,
   CheckCircle2,
@@ -7,6 +8,7 @@ import {
   FileText,
   Search,
   XCircle,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -18,6 +20,7 @@ import {
 } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -42,7 +45,10 @@ import {
 } from "../../components/ui/table";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { usePlatformAuth } from "../../hooks/usePlatformAuth";
 import {
+  useApprovePlatformAccessRequest,
+  useDeclinePlatformAccessRequest,
   usePlatformAccessRequest,
   usePlatformAccessRequests,
 } from "../../hooks/usePlatformAccessRequests";
@@ -80,6 +86,21 @@ function formatDate(value: string | null) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function errorMessage(error: unknown) {
+  const axiosError = error as AxiosError<{ error?: string }>;
+
+  return axiosError.response?.data?.error ?? "Something went wrong";
+}
+
+function slugFromName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
 }
 
 function requesterName(request: PlatformAccessRequest) {
@@ -127,6 +148,15 @@ export function PlatformAccessRequests() {
     null,
   );
 
+  const [approvalForm, setApprovalForm] = useState({
+    name: "",
+    slug: "",
+    timezone: "UTC",
+    language: "en",
+  });
+  const [declineReason, setDeclineReason] = useState("");
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const queryParams = useMemo(
@@ -143,9 +173,72 @@ export function PlatformAccessRequests() {
     usePlatformAccessRequests(queryParams);
   const selectedRequest = usePlatformAccessRequest(selectedRequestId);
 
+  const { platformUser } = usePlatformAuth();
+  const approveRequest = useApprovePlatformAccessRequest();
+  const declineRequest = useDeclinePlatformAccessRequest();
+
+  const selectedAccessRequest = selectedRequest.data;
+  const canReviewRequests = platformUser?.role === "SUPER_ADMIN";
+  const isReviewPending = approveRequest.isPending || declineRequest.isPending;
+
   const requests = data?.data ?? [];
   const pagination = data?.meta.pagination;
   const stats = getStats(requests);
+
+  useEffect(() => {
+    if (!selectedAccessRequest) return;
+
+    setApprovalForm({
+      name: selectedAccessRequest.organizationName,
+      slug: slugFromName(selectedAccessRequest.organizationName),
+      timezone: "UTC",
+      language: "en",
+    });
+    setDeclineReason(selectedAccessRequest.declineReason ?? "");
+    setReviewError(null);
+  }, [
+    selectedAccessRequest?.id,
+    selectedAccessRequest?.organizationName,
+    selectedAccessRequest?.declineReason,
+  ]);
+
+  function handleApprove(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedAccessRequest) return;
+
+    setReviewError(null);
+
+    approveRequest.mutate(
+      {
+        requestId: selectedAccessRequest.id,
+        payload: approvalForm,
+      },
+      {
+        onError: (error) => setReviewError(errorMessage(error)),
+      },
+    );
+  }
+
+  function handleDecline(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedAccessRequest) return;
+
+    setReviewError(null);
+
+    declineRequest.mutate(
+      {
+        requestId: selectedAccessRequest.id,
+        payload: {
+          declineReason: declineReason.trim() || undefined,
+        },
+      },
+      {
+        onError: (error) => setReviewError(errorMessage(error)),
+      },
+    );
+  }
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -423,6 +516,136 @@ export function PlatformAccessRequests() {
                   label="Resulting Organization"
                   value={selectedRequest.data.organization?.name}
                 />
+
+                {selectedAccessRequest?.status === "PENDING" && (
+                  <div className="grid gap-4 rounded-md border bg-muted/20 p-4">
+                    {!canReviewRequests && (
+                      <div className="rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">
+                        Your platform role has read-only access to this request.
+                      </div>
+                    )}
+
+                    {reviewError && (
+                      <div
+                        role="alert"
+                        className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                      >
+                        {reviewError}
+                      </div>
+                    )}
+
+                    <form className="grid gap-3" onSubmit={handleApprove}>
+                      <div className="grid gap-2">
+                        <Label htmlFor="approval-name">Organization name</Label>
+                        <Input
+                          id="approval-name"
+                          value={approvalForm.name}
+                          onChange={(event) =>
+                            setApprovalForm((current) => ({
+                              ...current,
+                              name: event.target.value,
+                            }))
+                          }
+                          disabled={!canReviewRequests || isReviewPending}
+                          required
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="approval-slug">Slug</Label>
+                        <Input
+                          id="approval-slug"
+                          value={approvalForm.slug}
+                          onChange={(event) =>
+                            setApprovalForm((current) => ({
+                              ...current,
+                              slug: event.target.value,
+                            }))
+                          }
+                          disabled={!canReviewRequests || isReviewPending}
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                          <Label htmlFor="approval-timezone">Timezone</Label>
+                          <Input
+                            id="approval-timezone"
+                            value={approvalForm.timezone}
+                            onChange={(event) =>
+                              setApprovalForm((current) => ({
+                                ...current,
+                                timezone: event.target.value,
+                              }))
+                            }
+                            disabled={!canReviewRequests || isReviewPending}
+                            required
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="approval-language">Language</Label>
+                          <Input
+                            id="approval-language"
+                            value={approvalForm.language}
+                            onChange={(event) =>
+                              setApprovalForm((current) => ({
+                                ...current,
+                                language: event.target.value,
+                              }))
+                            }
+                            disabled={!canReviewRequests || isReviewPending}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        className="gap-2"
+                        disabled={!canReviewRequests || isReviewPending}
+                      >
+                        {approveRequest.isPending ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="size-4" />
+                        )}
+                        Approve and Create Organization
+                      </Button>
+                    </form>
+
+                    <form className="grid gap-3" onSubmit={handleDecline}>
+                      <div className="grid gap-2">
+                        <Label htmlFor="decline-reason">Decline reason</Label>
+                        <Textarea
+                          id="decline-reason"
+                          value={declineReason}
+                          onChange={(event) =>
+                            setDeclineReason(event.target.value)
+                          }
+                          disabled={!canReviewRequests || isReviewPending}
+                          rows={3}
+                        />
+                      </div>
+
+                      <Button
+                        type="submit"
+                        variant="destructive"
+                        className="gap-2"
+                        disabled={!canReviewRequests || isReviewPending}
+                      >
+                        {declineRequest.isPending ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <XCircle className="size-4" />
+                        )}
+                        Decline Request
+                      </Button>
+                    </form>
+                  </div>
+                )}
+
                 {selectedRequest.data.organization && (
                   <div className="rounded-md border bg-muted/20 p-3">
                     <dt className="text-xs font-medium text-muted-foreground">

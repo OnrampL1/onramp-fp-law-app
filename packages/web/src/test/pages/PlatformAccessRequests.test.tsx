@@ -6,11 +6,20 @@ import type { PlatformAccessRequest } from "../../types/platform-access-request"
 const mocks = vi.hoisted(() => ({
   usePlatformAccessRequests: vi.fn(),
   usePlatformAccessRequest: vi.fn(),
+  useApprovePlatformAccessRequest: vi.fn(),
+  useDeclinePlatformAccessRequest: vi.fn(),
+  usePlatformAuth: vi.fn(),
 }));
 
 vi.mock("../../hooks/usePlatformAccessRequests", () => ({
   usePlatformAccessRequests: mocks.usePlatformAccessRequests,
   usePlatformAccessRequest: mocks.usePlatformAccessRequest,
+  useApprovePlatformAccessRequest: mocks.useApprovePlatformAccessRequest,
+  useDeclinePlatformAccessRequest: mocks.useDeclinePlatformAccessRequest,
+}));
+
+vi.mock("../../hooks/usePlatformAuth", () => ({
+  usePlatformAuth: mocks.usePlatformAuth,
 }));
 
 import { PlatformAccessRequests } from "../../pages/platform/PlatformAccessRequests";
@@ -62,6 +71,25 @@ beforeEach(() => {
     isLoading: false,
     isError: false,
   });
+
+  mocks.usePlatformAuth.mockReturnValue({
+    platformUser: {
+      id: "platform-user-1",
+      email: "admin@clausio.test",
+      fullName: "Platform Admin",
+      role: "SUPER_ADMIN",
+    },
+  });
+
+  mocks.useApprovePlatformAccessRequest.mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  });
+
+  mocks.useDeclinePlatformAccessRequest.mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  });
 });
 
 describe("PlatformAccessRequests", () => {
@@ -76,7 +104,7 @@ describe("PlatformAccessRequests", () => {
   });
 
   it("shows loading and error states", () => {
-    mocks.usePlatformAccessRequests.mockReturnValueOnce({
+    mocks.usePlatformAccessRequests.mockReturnValue({
       data: undefined,
       isLoading: true,
       isError: false,
@@ -87,7 +115,7 @@ describe("PlatformAccessRequests", () => {
 
     expect(screen.queryByText("Alex Morgan")).not.toBeInTheDocument();
 
-    mocks.usePlatformAccessRequests.mockReturnValueOnce({
+    mocks.usePlatformAccessRequests.mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: true,

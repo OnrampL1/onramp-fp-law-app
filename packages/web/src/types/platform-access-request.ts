@@ -59,3 +59,14 @@ export interface ListPlatformAccessRequestsResponse {
     pagination: PaginationMeta;
   };
 }
+
+export interface ApprovePlatformAccessRequestPayload {
+  name: string;
+  slug: string;
+  timezone: string;
+  language: string;
+}
+
+export interface DeclinePlatformAccessRequestPayload {
+  declineReason?: string;
+}
