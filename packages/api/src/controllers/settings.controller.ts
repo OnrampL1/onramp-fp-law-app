@@ -43,4 +43,53 @@ export const settingsController = {
       next(err);
     }
   },
+
+  async uploadOrganizationLogo(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const settings = await settingsService.uploadOrganizationLogo(
+        {
+          userId: req.user!.userId,
+          organizationId: req.user!.orgId,
+          role: req.user!.role,
+        },
+        req.file,
+        {
+          ipAddress: req.ip,
+          userAgent: req.get("user-agent"),
+        },
+      );
+
+      res.json({ data: settings });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteOrganizationLogo(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const settings = await settingsService.deleteOrganizationLogo(
+        {
+          userId: req.user!.userId,
+          organizationId: req.user!.orgId,
+          role: req.user!.role,
+        },
+        {
+          ipAddress: req.ip,
+          userAgent: req.get("user-agent"),
+        },
+      );
+
+      res.json({ data: settings });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

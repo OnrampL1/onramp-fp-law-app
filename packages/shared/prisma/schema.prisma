@@ -50,9 +50,9 @@ model OrganizationSettings {
   id             String @id @default(uuid()) @db.Uuid
   organizationId String @unique @map("organization_id") @db.Uuid
 
-  timezone String  @default("UTC")
-  language String  @default("en")
-  logoUrl  String? @map("logo_url")
+  timezone       String  @default("UTC")
+  language       String  @default("en")
+  logoStorageKey String? @map("logo_storage_key")
 
   notificationPreferences Json? @map("notification_preferences")
   branding                Json?
@@ -714,6 +714,9 @@ enum AuditAction {
 
   ORGANIZATION_BRAIN_ITEM_CREATED
   ORGANIZATION_BRAIN_ITEM_DELETED
+
+  ORGANIZATION_LOGO_UPLOADED
+  ORGANIZATION_LOGO_DELETED
 
   PLATFORM_SUPPORT_ACCESS_GRANTED
   PLATFORM_SUPPORT_ACCESS_REVOKED

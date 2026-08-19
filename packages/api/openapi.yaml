@@ -542,7 +542,17 @@ components:
               type: string
               format: uri
               nullable: true
-              example: https://example.com/logo.png
+              description: >-
+                A short-lived presigned download URL for the organization's
+                logo, resolved fresh on every read. Null when no logo has
+                been uploaded. Upload or remove the logo via the dedicated
+                /settings/organization/logo endpoints, not this field.
+              example: https://storage.example.com/organization-logos/...
+            logoUrlExpiresInSeconds:
+              type: integer
+              nullable: true
+              description: How long logoUrl remains valid for, in seconds. Null when logoUrl is null.
+              example: 900
             notificationPreferences:
               nullable: true
               oneOf:
@@ -585,11 +595,6 @@ components:
           type: string
           enum: [en, fr, ar]
           example: en
-        logoUrl:
-          type: string
-          format: uri
-          nullable: true
-          example: https://example.com/logo.png
         notificationPreferences:
           $ref: "#/components/schemas/NotificationPreferences"
 
@@ -2971,6 +2976,101 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /settings/organization/logo:
+    post:
+      tags: [Settings]
+      summary: Upload the organization's logo
+      operationId: uploadOrganizationLogo
+      description: >
+        Uploads a new organization logo, replacing any existing one.
+        Requires OWNER or ADMIN. Accepts PNG, JPEG, or WebP only (no SVG),
+        up to 2 MB. The file is validated by magic bytes, not just its
+        declared content type or extension.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        "200":
+          description: Updated organization settings, including the new logo URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationSettingsResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions or inactive organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Missing file, unsupported file type, or invalid file contents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: The logo could not be stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [Settings]
+      summary: Remove the organization's logo
+      operationId: deleteOrganizationLogo
+      description: >
+        Deletes the organization's current logo. Requires OWNER or ADMIN.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Updated organization settings, with logoUrl now null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationSettingsResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions or inactive organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Organization has no logo to delete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: The logo could not be deleted from storage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /users:
     get:

@@ -29,7 +29,6 @@ export const updateOrganizationSettingsSchema = z
       .refine(isValidTimeZone, "Timezone must be a valid IANA timezone")
       .optional(),
     language: z.enum(supportedLanguages).optional(),
-    logoUrl: z.string().trim().url().max(2048).nullable().optional(),
     notificationPreferences: notificationPreferencesSchema.optional(),
   })
   .strict()
