@@ -6,7 +6,10 @@ import { validate } from "../middleware/validate";
 import {
   accessRequestParamsSchema,
   listAccessRequestsQuerySchema,
+  approveAccessRequestSchema,
+  declineAccessRequestSchema,
 } from "../schemas/access-request.schemas";
+import { PLATFORM_SUPER_ADMIN_ROLES } from "@starter-kit/shared";
 
 const router = Router();
 
@@ -17,6 +20,22 @@ router.get(
   "/",
   validate(listAccessRequestsQuerySchema, "query"),
   platformAccessRequestController.list,
+);
+
+router.post(
+  "/:id/approve",
+  authorizePlatform(...PLATFORM_SUPER_ADMIN_ROLES),
+  validate(accessRequestParamsSchema, "params"),
+  validate(approveAccessRequestSchema),
+  platformAccessRequestController.approve,
+);
+
+router.post(
+  "/:id/decline",
+  authorizePlatform(...PLATFORM_SUPER_ADMIN_ROLES),
+  validate(accessRequestParamsSchema, "params"),
+  validate(declineAccessRequestSchema),
+  platformAccessRequestController.decline,
 );
 
 router.get(

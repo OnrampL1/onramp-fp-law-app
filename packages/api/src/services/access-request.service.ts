@@ -4,7 +4,14 @@ import { createError } from "../middleware/error-handler";
 import type {
   ListAccessRequestsQuery,
   SubmitAccessRequestInput,
+  ApproveAccessRequestInput,
+  DeclineAccessRequestInput,
 } from "../schemas/access-request.schemas";
+import {
+  createPlatformOrganizationInTransaction,
+  type PlatformActor,
+  type RequestContext,
+} from "./platform-organization.service";
 
 const prisma = getPrismaClient();
 
@@ -197,6 +204,178 @@ export class AccessRequestService {
     }
 
     return this.toPlatformAccessRequest(accessRequest);
+  }
+
+  async approveAccessRequest(
+    actor: PlatformActor,
+    id: string,
+    input: ApproveAccessRequestInput,
+    requestContext: RequestContext = {},
+  ) {
+    try {
+      const reviewedRequest = await prisma.$transaction(async (tx) => {
+        const existingRequest = await tx.organizationAccessRequest.findUnique({
+          where: { id },
+        });
+
+        if (!existingRequest) {
+          throw createError("Access request not found", 404);
+        }
+
+        if (
+          existingRequest.status !== "PENDING" ||
+          existingRequest.organizationId
+        ) {
+          throw createError(
+            "Only pending access requests can be approved",
+            409,
+          );
+        }
+
+        const organization = await createPlatformOrganizationInTransaction(
+          tx,
+          actor,
+          input,
+          requestContext,
+          {
+            name: input.name,
+            slug: input.slug,
+            status: "CREATED",
+            source: "ACCESS_REQUEST",
+            accessRequestId: existingRequest.id,
+          },
+        );
+
+        const claimResult = await tx.organizationAccessRequest.updateMany({
+          where: {
+            id,
+            status: "PENDING",
+            organizationId: null,
+          },
+          data: {
+            status: "APPROVED",
+            reviewedAt: new Date(),
+            reviewedByPlatformUserId: actor.id,
+            organizationId: organization.id,
+            declineReason: null,
+          },
+        });
+
+        if (claimResult.count !== 1) {
+          throw createError("Access request has already been reviewed", 409);
+        }
+
+        const updatedRequest = await tx.organizationAccessRequest.findUnique({
+          where: { id },
+          include: {
+            reviewedByPlatformUser: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+                role: true,
+              },
+            },
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                status: true,
+              },
+            },
+          },
+        });
+
+        if (!updatedRequest) {
+          throw createError("Access request not found", 404);
+        }
+
+        return updatedRequest;
+      });
+
+      return this.toPlatformAccessRequest(reviewedRequest);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw createError("Organization slug is already in use", 409);
+      }
+
+      throw error;
+    }
+  }
+
+  async declineAccessRequest(
+    actor: PlatformActor,
+    id: string,
+    input: DeclineAccessRequestInput,
+  ) {
+    const reviewedRequest = await prisma.$transaction(async (tx) => {
+      const existingRequest = await tx.organizationAccessRequest.findUnique({
+        where: { id },
+      });
+
+      if (!existingRequest) {
+        throw createError("Access request not found", 404);
+      }
+
+      if (
+        existingRequest.status !== "PENDING" ||
+        existingRequest.organizationId
+      ) {
+        throw createError("Only pending access requests can be declined", 409);
+      }
+
+      const claimResult = await tx.organizationAccessRequest.updateMany({
+        where: {
+          id,
+          status: "PENDING",
+          organizationId: null,
+        },
+        data: {
+          status: "DECLINED",
+          reviewedAt: new Date(),
+          reviewedByPlatformUserId: actor.id,
+          declineReason: input.declineReason ?? null,
+        },
+      });
+
+      if (claimResult.count !== 1) {
+        throw createError("Access request has already been reviewed", 409);
+      }
+
+      const updatedRequest = await tx.organizationAccessRequest.findUnique({
+        where: { id },
+        include: {
+          reviewedByPlatformUser: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+              role: true,
+            },
+          },
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true,
+            },
+          },
+        },
+      });
+
+      if (!updatedRequest) {
+        throw createError("Access request not found", 404);
+      }
+
+      return updatedRequest;
+    });
+
+    return this.toPlatformAccessRequest(reviewedRequest);
   }
 
   private toPlatformAccessRequest(

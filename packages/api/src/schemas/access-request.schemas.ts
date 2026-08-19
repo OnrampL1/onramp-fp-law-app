@@ -2,6 +2,7 @@ import {
   OrganizationAccessRequestCompanySize,
   OrganizationAccessRequestStatus,
 } from "@prisma/client";
+import { createPlatformOrganizationSchema } from "./platform-organization.schemas";
 import { z } from "zod";
 
 const optionalTrimmedString = (max: number) =>
@@ -58,4 +59,17 @@ export const accessRequestParamsSchema = z.object({
 
 export type ListAccessRequestsQuery = z.infer<
   typeof listAccessRequestsQuerySchema
+>;
+
+export const approveAccessRequestSchema = createPlatformOrganizationSchema;
+
+export const declineAccessRequestSchema = z.object({
+  declineReason: optionalTrimmedString(1000),
+});
+
+export type ApproveAccessRequestInput = z.infer<
+  typeof approveAccessRequestSchema
+>;
+export type DeclineAccessRequestInput = z.infer<
+  typeof declineAccessRequestSchema
 >;

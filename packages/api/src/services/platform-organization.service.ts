@@ -18,13 +18,81 @@ interface Pagination {
   totalPages: number;
 }
 
-interface PlatformActor {
+export interface PlatformActor {
   id: string;
 }
 
-interface RequestContext {
+export interface RequestContext {
   ipAddress?: string;
   userAgent?: string;
+}
+
+export interface CreatePlatformOrganizationInTransactionInput {
+  name: string;
+  slug: string;
+  timezone: string;
+  language: string;
+}
+
+export async function createPlatformOrganizationInTransaction(
+  tx: Prisma.TransactionClient,
+  actor: PlatformActor,
+  input: CreatePlatformOrganizationInTransactionInput,
+  requestContext: RequestContext = {},
+  auditNewValue?: Prisma.InputJsonValue,
+) {
+  const organization = await tx.organization.create({
+    data: {
+      name: input.name,
+      slug: input.slug,
+      status: "CREATED",
+      settings: {
+        create: {
+          timezone: input.timezone,
+          language: input.language,
+        },
+      },
+    },
+    include: {
+      ownerUser: {
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          status: true,
+        },
+      },
+      _count: {
+        select: {
+          members: true,
+          invitations: true,
+          contracts: true,
+          auditLogs: true,
+        },
+      },
+    },
+  });
+
+  await auditService.logEvent(tx, {
+    organizationId: organization.id,
+    actorType: "PLATFORM_USER",
+    actorPlatformUserId: actor.id,
+    action: "ORGANIZATION_CREATED",
+    targetEntityType: "Organization",
+    targetEntityId: organization.id,
+    newValue:
+      auditNewValue ??
+      ({
+        name: organization.name,
+        slug: organization.slug,
+        status: organization.status,
+      } satisfies Prisma.InputJsonValue),
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+  });
+
+  return organization;
 }
 
 function toIso(value: Date | null): string | null {
@@ -369,58 +437,14 @@ export class PlatformOrganizationService {
     requestContext: RequestContext = {},
   ) {
     try {
-      const organization = await prisma.$transaction(async (tx) => {
-        const created = await tx.organization.create({
-          data: {
-            name: input.name,
-            slug: input.slug,
-            status: "CREATED",
-            settings: {
-              create: {
-                timezone: input.timezone,
-                language: input.language,
-              },
-            },
-          },
-          include: {
-            ownerUser: {
-              select: {
-                id: true,
-                email: true,
-                fullName: true,
-                role: true,
-                status: true,
-              },
-            },
-            _count: {
-              select: {
-                members: true,
-                invitations: true,
-                contracts: true,
-                auditLogs: true,
-              },
-            },
-          },
-        });
-
-        await auditService.logEvent(tx, {
-          organizationId: created.id,
-          actorType: "PLATFORM_USER",
-          actorPlatformUserId: actor.id,
-          action: "ORGANIZATION_CREATED",
-          targetEntityType: "Organization",
-          targetEntityId: created.id,
-          newValue: {
-            name: created.name,
-            slug: created.slug,
-            status: created.status,
-          },
-          ipAddress: requestContext.ipAddress,
-          userAgent: requestContext.userAgent,
-        });
-
-        return created;
-      });
+      const organization = await prisma.$transaction((tx) =>
+        createPlatformOrganizationInTransaction(
+          tx,
+          actor,
+          input,
+          requestContext,
+        ),
+      );
 
       return {
         id: organization.id,
