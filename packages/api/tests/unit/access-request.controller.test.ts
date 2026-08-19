@@ -1,5 +1,10 @@
 import request from "supertest";
 
+jest.mock("@starter-kit/shared", () => ({
+  ...jest.requireActual("@starter-kit/shared"),
+  isJtiBlacklisted: jest.fn().mockResolvedValue(false),
+}));
+
 jest.mock("../../src/services/access-request.service", () => ({
   accessRequestService: {
     submitAccessRequest: jest.fn(),
