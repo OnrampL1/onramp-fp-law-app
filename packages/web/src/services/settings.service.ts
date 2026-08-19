@@ -17,6 +17,7 @@ export type OrganizationSettingsResponse = {
     timezone: string;
     language: "en" | "fr" | "ar";
     logoUrl: string | null;
+    logoUrlExpiresInSeconds: number | null;
     notificationPreferences: NotificationPreferences | null;
     branding: unknown | null;
   };
@@ -30,7 +31,6 @@ export type UpdateOrganizationSettingsPayload = Partial<{
   name: string;
   timezone: string;
   language: "en" | "fr" | "ar";
-  logoUrl: string | null;
   notificationPreferences: NotificationPreferences;
 }>;
 
@@ -53,6 +53,25 @@ export async function updateOrganizationSettings(
   const { data } = await apiClient.put<{ data: OrganizationSettingsResponse }>(
     "/settings/organization",
     payload,
+  );
+  return data.data;
+}
+
+export async function uploadOrganizationLogo(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const { data } = await apiClient.post<{ data: OrganizationSettingsResponse }>(
+    "/settings/organization/logo",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data.data;
+}
+
+export async function deleteOrganizationLogo() {
+  const { data } = await apiClient.delete<{ data: OrganizationSettingsResponse }>(
+    "/settings/organization/logo",
   );
   return data.data;
 }

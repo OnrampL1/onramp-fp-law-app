@@ -9,6 +9,8 @@ jest.mock("../../src/services/settings.service", () => ({
   settingsService: {
     getOrganizationSettings: jest.fn(),
     updateOrganizationSettings: jest.fn(),
+    uploadOrganizationLogo: jest.fn(),
+    deleteOrganizationLogo: jest.fn(),
   },
 }));
 
@@ -248,5 +250,131 @@ describe("PUT /api/settings/organization", () => {
       }),
     );
     expect(res.body.data.organization.name).toBe("New Name");
+  });
+});
+
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+const PNG_BUFFER = Buffer.concat([PNG_SIGNATURE, Buffer.from([0, 0, 0, 0])]);
+
+describe("POST /api/settings/organization/logo", () => {
+  it("returns 401 with no session", async () => {
+    const res = await request(app)
+      .post("/api/settings/organization/logo")
+      .attach("file", PNG_BUFFER, "logo.png");
+
+    expect(res.status).toBe(401);
+    expect(mockSettingsService.uploadOrganizationLogo).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for INTERNAL users", async () => {
+    const res = await request(app)
+      .post("/api/settings/organization/logo")
+      .set("Cookie", cookieFor("INTERNAL"))
+      .attach("file", PNG_BUFFER, "logo.png");
+
+    expect(res.status).toBe(403);
+    expect(mockSettingsService.uploadOrganizationLogo).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported file types before reaching the service", async () => {
+    const res = await request(app)
+      .post("/api/settings/organization/logo")
+      .set("Cookie", cookieFor("ADMIN"))
+      .attach("file", Buffer.from("<svg></svg>"), "logo.svg");
+
+    expect(res.status).toBe(422);
+    expect(mockSettingsService.uploadOrganizationLogo).not.toHaveBeenCalled();
+  });
+
+  it("allows ADMIN users to upload a logo", async () => {
+    mockSettingsService.uploadOrganizationLogo.mockResolvedValue({
+      organization: {
+        id: "org-1",
+        name: "Acme Legal",
+        slug: "acme-legal",
+        status: "ACTIVE",
+      },
+      settings: {
+        timezone: "UTC",
+        language: "en",
+        logoUrl: "https://storage.example.com/signed-logo-url",
+        logoUrlExpiresInSeconds: 900,
+        notificationPreferences: null,
+        branding: null,
+      },
+      permissions: {
+        canManageSettings: true,
+        canRenameOrganization: false,
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/settings/organization/logo")
+      .set("Cookie", cookieFor("ADMIN"))
+      .attach("file", PNG_BUFFER, "logo.png");
+
+    expect(res.status).toBe(200);
+    expect(mockSettingsService.uploadOrganizationLogo).toHaveBeenCalledWith(
+      { userId: "user-1", organizationId: "org-1", role: "ADMIN" },
+      expect.objectContaining({ originalname: "logo.png" }),
+      expect.objectContaining({ ipAddress: expect.any(String) }),
+    );
+    expect(res.body.data.settings.logoUrl).toBe(
+      "https://storage.example.com/signed-logo-url",
+    );
+  });
+});
+
+describe("DELETE /api/settings/organization/logo", () => {
+  it("returns 401 with no session", async () => {
+    const res = await request(app).delete("/api/settings/organization/logo");
+
+    expect(res.status).toBe(401);
+    expect(mockSettingsService.deleteOrganizationLogo).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for INTERNAL users", async () => {
+    const res = await request(app)
+      .delete("/api/settings/organization/logo")
+      .set("Cookie", cookieFor("INTERNAL"));
+
+    expect(res.status).toBe(403);
+    expect(mockSettingsService.deleteOrganizationLogo).not.toHaveBeenCalled();
+  });
+
+  it("allows ADMIN users to delete the logo", async () => {
+    mockSettingsService.deleteOrganizationLogo.mockResolvedValue({
+      organization: {
+        id: "org-1",
+        name: "Acme Legal",
+        slug: "acme-legal",
+        status: "ACTIVE",
+      },
+      settings: {
+        timezone: "UTC",
+        language: "en",
+        logoUrl: null,
+        logoUrlExpiresInSeconds: null,
+        notificationPreferences: null,
+        branding: null,
+      },
+      permissions: {
+        canManageSettings: true,
+        canRenameOrganization: false,
+      },
+    });
+
+    const res = await request(app)
+      .delete("/api/settings/organization/logo")
+      .set("Cookie", cookieFor("ADMIN"));
+
+    expect(res.status).toBe(200);
+    expect(mockSettingsService.deleteOrganizationLogo).toHaveBeenCalledWith(
+      { userId: "user-1", organizationId: "org-1", role: "ADMIN" },
+      expect.objectContaining({ ipAddress: expect.any(String) }),
+    );
+    expect(res.body.data.settings.logoUrl).toBeNull();
   });
 });

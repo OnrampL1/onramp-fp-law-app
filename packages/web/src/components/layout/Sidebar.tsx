@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ChevronsUpDown,
@@ -26,6 +27,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganizationSettings } from "@/hooks/useSettings";
 import { isAdminRole } from "@/lib/permissions";
 
 const workspaceNav = [
@@ -77,10 +79,16 @@ function getInitials(name?: string) {
 export function Sidebar() {
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const { data: organizationSettings } = useOrganizationSettings();
+  const [logoFailedToLoad, setLogoFailedToLoad] = useState(false);
   const userName = user?.fullName ?? "Alex Whitfield";
   const visibleAdminNav = adminNav.filter(
     (item) => !item.requiresAdmin || isAdminRole(user?.role),
   );
+
+  const organizationName = organizationSettings?.organization.name ?? "Clausio";
+  const logoUrl = organizationSettings?.settings.logoUrl;
+  const showLogo = Boolean(logoUrl) && !logoFailedToLoad;
 
   return (
     <SidebarRoot collapsible="icon">
@@ -91,13 +99,21 @@ export function Sidebar() {
               size="lg"
               className="data-open:bg-sidebar-accent"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Scale className="size-4" />
+              <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg bg-primary text-primary-foreground">
+                {showLogo ? (
+                  <img
+                    src={logoUrl!}
+                    alt=""
+                    className="size-full object-cover"
+                    onError={() => setLogoFailedToLoad(true)}
+                  />
+                ) : (
+                  <Scale className="size-4" />
+                )}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">Clausio</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  Legal Intelligence
+                <span className="truncate font-semibold">
+                  {organizationName}
                 </span>
               </div>
             </SidebarMenuButton>
@@ -178,6 +194,10 @@ export function Sidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        <div className="flex items-center justify-center gap-1 px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground/70 group-data-[collapsible=icon]:hidden">
+          <Scale className="size-3" />
+          <span>Powered by Clausio</span>
+        </div>
       </SidebarFooter>
       <SidebarRail />
     </SidebarRoot>

@@ -772,31 +772,48 @@ async function main(): Promise<void> {
   ];
 
   for (const c of CONTRACTS) {
-    await prisma.contract.upsert({
+    // Not upsert-with-update:{} - Prisma appends @updatedAt to the
+    // generated SET clause on every update execution, including an
+    // upsert's update path, regardless of whether the caller's own
+    // `update` object has any real fields in it. Re-running `npm run
+    // db:seed` against an already-seeded database was silently bumping
+    // every contract's updatedAt to "now", making the whole list look
+    // freshly edited even though nothing had changed (found live,
+    // 2026-08-19 - version stayed at 1, confirming no real update path
+    // ever ran). Same root cause as the ai_analyses staleness bug logged
+    // in DOMAIN_REVIEW_BACKLOG.md, different symptom. A pre-check keeps
+    // reseeding idempotent - safe to run repeatedly - without ever
+    // issuing an update against a row that already exists.
+    const existingContract = await prisma.contract.findUnique({
       where: { id: c.id },
-      update: {},
-      create: {
-        id: c.id,
-        organizationId: ORG_ID,
-        uploadedByUserId: c.uploadedByUserId,
-        title: c.title,
-        counterparty: c.counterparty,
-        businessStatus: c.businessStatus,
-        processingStatus: c.processingStatus,
-        processingError: c.processingError,
-        legalState: c.legalState,
-        tags: c.tags,
-        effectiveDate: c.effectiveDate,
-        expirationDate: c.expirationDate,
-        fileKey: `contracts/${ORG_ID}/${c.slug}.pdf`,
-        fileChecksum: fakeChecksum(c.slug),
-        extractedText: c.extractedTextPresent
-          ? `[Seed demo text] ${c.title} between Ridgeline & Voss LLP and ${c.counterparty}. Full extracted contract body would appear here in a real upload.`
-          : null,
-        deletedAt: c.deletedAt,
-        createdAt: c.createdAt,
-      },
+      select: { id: true },
     });
+
+    if (!existingContract) {
+      await prisma.contract.create({
+        data: {
+          id: c.id,
+          organizationId: ORG_ID,
+          uploadedByUserId: c.uploadedByUserId,
+          title: c.title,
+          counterparty: c.counterparty,
+          businessStatus: c.businessStatus,
+          processingStatus: c.processingStatus,
+          processingError: c.processingError,
+          legalState: c.legalState,
+          tags: c.tags,
+          effectiveDate: c.effectiveDate,
+          expirationDate: c.expirationDate,
+          fileKey: `contracts/${ORG_ID}/${c.slug}.pdf`,
+          fileChecksum: fakeChecksum(c.slug),
+          extractedText: c.extractedTextPresent
+            ? `[Seed demo text] ${c.title} between Ridgeline & Voss LLP and ${c.counterparty}. Full extracted contract body would appear here in a real upload.`
+            : null,
+          deletedAt: c.deletedAt,
+          createdAt: c.createdAt,
+        },
+      });
+    }
 
     for (const note of c.notes) {
       await prisma.contractNote.upsert({

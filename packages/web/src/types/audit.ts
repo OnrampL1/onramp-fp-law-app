@@ -38,6 +38,8 @@ export const AUDIT_ACTIONS = [
   "AI_ANALYSIS_FAILED",
   "ORGANIZATION_BRAIN_ITEM_CREATED",
   "ORGANIZATION_BRAIN_ITEM_DELETED",
+  "ORGANIZATION_LOGO_UPLOADED",
+  "ORGANIZATION_LOGO_DELETED",
   "PLATFORM_SUPPORT_ACCESS_GRANTED",
   "PLATFORM_SUPPORT_ACCESS_REVOKED",
 ] as const;
@@ -102,6 +104,9 @@ export const AUDIT_ACTION_GROUP: Record<AuditAction, AuditActionGroup> = {
 
   ORGANIZATION_BRAIN_ITEM_CREATED: "AI",
   ORGANIZATION_BRAIN_ITEM_DELETED: "AI",
+
+  ORGANIZATION_LOGO_UPLOADED: "Organization",
+  ORGANIZATION_LOGO_DELETED: "Organization",
 };
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
@@ -148,6 +153,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 
   ORGANIZATION_BRAIN_ITEM_CREATED: "Organization brain item added",
   ORGANIZATION_BRAIN_ITEM_DELETED: "Organization brain item deleted",
+
+  ORGANIZATION_LOGO_UPLOADED: "Organization logo uploaded",
+  ORGANIZATION_LOGO_DELETED: "Organization logo deleted",
 };
 
 export interface AuditLogEntry {
