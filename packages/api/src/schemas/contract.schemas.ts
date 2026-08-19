@@ -5,6 +5,7 @@ import {
   MAX_CONTRACT_TAG_LENGTH,
   MAX_CONTRACT_TAGS,
   MAX_CONTRACT_TITLE_LENGTH,
+  MAX_EXTRACTED_TEXT_LENGTH,
 } from "../constants/contract-upload.constants";
 
 // ─── Upload ─────────────────────────────────────────────────────────────
@@ -39,7 +40,46 @@ function parseTags(value: unknown): unknown {
     .filter(Boolean);
 }
 
+// Shared by every optional YYYY-MM-DD contract date field (create's
+// expirationDate, update's effectiveDate/expirationDate) so the
+// regex-plus-transform pair isn't hand-copied at each call site.
+function contractDateSchema(label: string) {
+  return z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, `${label} must use YYYY-MM-DD`)
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => (value ? new Date(`${value}T00:00:00.000Z`) : null));
+}
+
 export const createContractMetadataSchema = z.object({
+  title: z.string().trim().max(MAX_CONTRACT_TITLE_LENGTH).optional(),
+
+  counterparty: z
+    .string()
+    .trim()
+    .max(MAX_CONTRACT_COUNTERPARTY_LENGTH)
+    .optional(),
+
+  tags: z
+    .preprocess(parseTags, z.array(contractTagSchema).max(MAX_CONTRACT_TAGS))
+    .default([]),
+
+  expirationDate: contractDateSchema("Expiration date"),
+});
+
+export type CreateContractMetadataInput = z.infer<
+  typeof createContractMetadataSchema
+>;
+
+// ─── Update (metadata edit) ────────────────────────────────────────────────
+
+// Full-replace PUT, mirroring the upload metadata shape plus the two fields
+// upload doesn't collect (effectiveDate) and the optimistic-concurrency
+// token (version, DDS §1.8). The caller always resends every field's
+// current value — there is no partial-patch semantics here.
+export const updateContractMetadataSchema = z.object({
   title: z
     .string()
     .trim()
@@ -56,20 +96,17 @@ export const createContractMetadataSchema = z.object({
     .preprocess(parseTags, z.array(contractTagSchema).max(MAX_CONTRACT_TAGS))
     .default([]),
 
-  expirationDate: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expiration date must use YYYY-MM-DD")
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value ? new Date(`${value}T00:00:00.000Z`) : null)),
+  effectiveDate: contractDateSchema("Effective date"),
+  expirationDate: contractDateSchema("Expiration date"),
 
-  // Single source of truth: the Prisma enum, not a hand-copied string list.
-  legalState: z.nativeEnum(ContractLegalState).optional(),
+  version: z
+    .number()
+    .int()
+    .positive("A contract version is required for concurrency checking"),
 });
 
-export type CreateContractMetadataInput = z.infer<
-  typeof createContractMetadataSchema
+export type UpdateContractMetadataInput = z.infer<
+  typeof updateContractMetadataSchema
 >;
 
 // ─── List ───────────────────────────────────────────────────────────────
@@ -133,4 +170,49 @@ export const contractIdParamSchema = z.object({
   id: z.string().uuid("Invalid contract id"),
 });
 
+// ─── Legal state (terminate / reactivate) ──────────────────────────────
+
+// TERMINATED is the one legal state a user sets directly (Owner/Admin
+// only, DDS-agreed). Every other value is derived from dates by
+// deriveLegalState — see packages/shared/contracts/legal-state.ts.
+// "reactivate" doesn't pick a target state; it clears the override and
+// lets the service recompute from the dates.
+export const setContractLegalStateSchema = z.object({
+  action: z.enum(["terminate", "reactivate"]),
+  version: z
+    .number()
+    .int()
+    .positive("A contract version is required for concurrency checking"),
+});
+
+export type SetContractLegalStateInput = z.infer<
+  typeof setContractLegalStateSchema
+>;
+
 export type ContractIdParam = z.infer<typeof contractIdParamSchema>;
+
+// ─── Content (extracted text edit) ─────────────────────────────────────
+
+// Full-replace, same optimistic-concurrency shape as metadata edit.
+// Deliberately its own endpoint/schema rather than folded into
+// updateContractMetadataSchema — extractedText can be very large, and
+// mixing a large free-form blob into the structured-metadata full-replace
+// PUT would mean every routine title/tag edit resends the whole text (and
+// vice versa). Mirrors the existing read-side split (GET /:id vs
+// GET /:id/content).
+export const updateContractContentSchema = z.object({
+  extractedText: z
+    .string()
+    .trim()
+    .min(1, "Extracted text cannot be empty")
+    .max(MAX_EXTRACTED_TEXT_LENGTH),
+
+  version: z
+    .number()
+    .int()
+    .positive("A contract version is required for concurrency checking"),
+});
+
+export type UpdateContractContentInput = z.infer<
+  typeof updateContractContentSchema
+>;

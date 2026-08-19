@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { UploadContractActionBar } from "../../components/layout/UploadContractActionBar";
 import { ContractFileDropzone } from "../../components/shared/ContractFileDropzone";
-import { ContractMetadataForm } from "../../components/shared/ContractMetadataForm";
 import { SelectedFileSummary } from "../../components/shared/SelectedFileSummary";
 import { UploadGuidelinesPanel } from "../../components/shared/UploadGuidelinesPanel";
 import { Button } from "../../components/ui/button";
@@ -17,18 +16,12 @@ import {
   type ContractUploadStatus,
   useContractUpload,
 } from "../../hooks/useContractUpload";
-import { type ContractMetadata } from "../../types/contracts";
-
-const initialMetadata: ContractMetadata = {
-  title: "",
-  counterparty: "",
-  tags: [],
-  expirationDate: "",
-  legalState: "",
-};
+import {
+  PENDING_PROCESSING_STATUSES,
+  useContractDetail,
+} from "../../hooks/useContractDetail";
 
 export function UploadContract() {
-  const [metadata, setMetadata] = useState<ContractMetadata>(initialMetadata);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
@@ -46,9 +39,16 @@ export function UploadContract() {
     resetUpload,
   } = useContractUpload();
 
-  const metadataIsValid = isMetadataValid(metadata);
-  const sourceIsValid = Boolean(selectedFile);
-  const canSubmit = sourceIsValid && metadataIsValid && !isUploading;
+  // Once uploaded, poll the real contract record so the success screen
+  // reflects live AI-extracted metadata instead of the static POST
+  // response — which is always still placeholder values at the instant of
+  // upload. Reuses useContractDetail's existing polling (Batch C) rather
+  // than a second implementation; enabled: Boolean(id) inside that hook
+  // means this is simply inert (and stops polling) once uploadResult
+  // resets back to null on "Upload another contract."
+  const { data: contract } = useContractDetail(uploadResult?.id);
+
+  const canSubmit = Boolean(selectedFile) && !isUploading;
 
   async function handleSubmit() {
     if (isUploading) {
@@ -60,22 +60,23 @@ export function UploadContract() {
       return;
     }
 
-    if (!metadataIsValid) {
-      setSubmitError("Add a contract title and counterparty before uploading.");
-      return;
-    }
-
     setSubmitError(null);
-    await uploadSelectedFile(metadata);
+    await uploadSelectedFile();
   }
 
   function handleReset() {
     resetUpload();
-    setMetadata(initialMetadata);
     setSubmitError(null);
   }
 
   if (status === "success" && uploadResult) {
+    const processingStatus =
+      contract?.processingStatus ?? uploadResult.businessStatus;
+    const isProcessing =
+      !contract || PENDING_PROCESSING_STATUSES.has(processingStatus);
+    const title = contract?.title ?? uploadResult.title;
+    const counterparty = contract?.counterparty ?? uploadResult.counterparty;
+    const legalState = contract?.legalState ?? uploadResult.legalState;
     return (
       <div className="mx-auto flex w-full max-w-2xl min-w-0 flex-col items-center justify-center py-10">
         <Card className="w-full min-w-0 text-center">
@@ -89,20 +90,28 @@ export function UploadContract() {
                 Contract uploaded
               </h1>
               <p className="text-muted-foreground">
-                {uploadResult.title} has been uploaded successfully.
+                {isProcessing
+                  ? "Extracting text and details from your document - this can take a moment."
+                  : "Extraction and analysis complete."}
               </p>
             </div>
 
             <dl className="grid w-full min-w-0 grid-cols-1 gap-3 text-left sm:grid-cols-2">
               <SummaryItem label="Source" value="File" />
-              <SummaryItem label="Contract" value={uploadResult.title} />
+              <SummaryItem
+                label="Contract"
+                value={title}
+                loading={isProcessing}
+              />
               <SummaryItem
                 label="Counterparty"
-                value={uploadResult.counterparty}
+                value={counterparty}
+                loading={isProcessing}
               />
               <SummaryItem
                 label="Legal State"
-                value={uploadResult.legalState ?? "Not specified"}
+                value={legalState ?? "Not specified"}
+                loading={isProcessing}
               />
               <SummaryItem
                 label="Uploaded"
@@ -120,16 +129,17 @@ export function UploadContract() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6 pb-24">
+    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6">
       <div className="min-w-0">
         <h1 className="text-2xl font-bold tracking-tight">Upload Contract</h1>
-        <p className="text-muted-foreground">
-          Upload and prepare a new legal agreement for analysis.
-        </p>
+        {/* <p className="text-muted-foreground">
+          Upload a contract file — Clausio extracts its title, counterparty,
+          dates, and tags automatically.
+        </p> */}
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-6">
+      <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_280px] md:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-6 flex flex-col justify-between h-full">
           <Card className="min-w-0">
             <CardHeader>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -169,25 +179,6 @@ export function UploadContract() {
             </CardContent>
           </Card>
 
-          <Card className="min-w-0">
-            <CardHeader>
-              <CardTitle className="text-base">Contract Metadata</CardTitle>
-              <CardDescription>
-                Describe the agreement before uploading.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ContractMetadataForm
-                value={metadata}
-                disabled={isUploading}
-                onChange={(nextMetadata) => {
-                  setSubmitError(null);
-                  setMetadata(nextMetadata);
-                }}
-              />
-            </CardContent>
-          </Card>
-
           {(submitError || uploadError) && (
             <div
               className="flex min-w-0 items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
@@ -197,40 +188,26 @@ export function UploadContract() {
               <p>{submitError || uploadError}</p>
             </div>
           )}
+          <UploadContractActionBar
+            canSubmit={canSubmit}
+            isUploading={isUploading}
+            statusMessage={getActionStatusMessage(Boolean(selectedFile))}
+            onReset={handleReset}
+            onSubmit={handleSubmit}
+          />
         </div>
 
-        <aside className="min-w-0">
+        <aside className="min-w-0 self-start">
           <UploadGuidelinesPanel />
         </aside>
       </div>
-
-      <UploadContractActionBar
-        canSubmit={canSubmit}
-        isUploading={isUploading}
-        statusMessage={getActionStatusMessage(sourceIsValid, metadataIsValid)}
-        onReset={handleReset}
-        onSubmit={handleSubmit}
-      />
     </div>
   );
 }
 
-function isMetadataValid(metadata: ContractMetadata): boolean {
-  return (
-    metadata.title.trim().length > 0 && metadata.counterparty.trim().length > 0
-  );
-}
-
-function getActionStatusMessage(
-  sourceIsValid: boolean,
-  metadataIsValid: boolean,
-): string {
+function getActionStatusMessage(sourceIsValid: boolean): string {
   if (!sourceIsValid) {
     return "Select a contract file to continue.";
-  }
-
-  if (!metadataIsValid) {
-    return "Add the required contract metadata to continue.";
   }
 
   return "Ready to upload.";
@@ -261,12 +238,30 @@ function getStatusMessage(
   return "No contract file selected yet.";
 }
 
-function SummaryItem({ label, value }: { label: string; value: string }) {
+function SummaryItem({
+  label,
+  value,
+  loading,
+}: {
+  label: string;
+  value: string;
+  loading?: boolean;
+}) {
   return (
     <div className="min-w-0 rounded-md border border-border bg-muted/40 px-3 py-2">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="truncate text-sm font-medium" title={value}>
-        {value}
+      <dd
+        className="truncate text-sm font-medium"
+        title={loading ? undefined : value}
+      >
+        {loading ? (
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+            Extracting…
+          </span>
+        ) : (
+          value
+        )}
       </dd>
     </div>
   );

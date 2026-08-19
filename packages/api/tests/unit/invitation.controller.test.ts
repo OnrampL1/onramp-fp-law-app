@@ -38,7 +38,11 @@ describe("POST /api/invitations", () => {
     const res = await request(app)
       .post("/api/invitations")
       .set("Cookie", cookieFor("INTERNAL"))
-      .send({ email: "new@example.com", fullName: "Jordan Lee", role: "INTERNAL" });
+      .send({
+        email: "new@example.com",
+        fullName: "Jordan Lee",
+        role: "INTERNAL",
+      });
 
     expect(res.status).toBe(403);
   });
@@ -47,7 +51,11 @@ describe("POST /api/invitations", () => {
     const res = await request(app)
       .post("/api/invitations")
       .set("Cookie", cookieFor("ADMIN"))
-      .send({ email: "new@example.com", fullName: "Jordan Lee", role: "OWNER" });
+      .send({
+        email: "new@example.com",
+        fullName: "Jordan Lee",
+        role: "OWNER",
+      });
 
     expect(res.status).toBe(422);
     expect(mockInvitationService.createInvitation).not.toHaveBeenCalled();
@@ -64,11 +72,15 @@ describe("POST /api/invitations", () => {
     const res = await request(app)
       .post("/api/invitations")
       .set("Cookie", cookieFor("ADMIN"))
-      .send({ email: "new@example.com", fullName: "Jordan Lee", role: "INTERNAL" });
+      .send({
+        email: "new@example.com",
+        fullName: "Jordan Lee",
+        role: "INTERNAL",
+      });
 
     expect(res.status).toBe(201);
     expect(mockInvitationService.createInvitation).toHaveBeenCalledWith(
-      { id: "user-1", organizationId: "org-1" },
+      { id: "user-1", organizationId: "org-1", role: "ADMIN" },
       { email: "new@example.com", fullName: "Jordan Lee", role: "INTERNAL" },
       expect.objectContaining({ ipAddress: expect.any(String) }),
     );
@@ -154,7 +166,7 @@ describe("POST /api/invitations/:id/revoke", () => {
 
     expect(res.status).toBe(200);
     expect(mockInvitationService.revokeInvitation).toHaveBeenCalledWith(
-      { id: "user-1", organizationId: "org-1" },
+      { id: "user-1", organizationId: "org-1", role: "ADMIN" },
       "inv-1",
       expect.objectContaining({ ipAddress: expect.any(String) }),
     );

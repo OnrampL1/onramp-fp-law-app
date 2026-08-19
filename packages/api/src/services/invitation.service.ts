@@ -21,6 +21,7 @@ interface PaginationInput {
 interface Actor {
   id: string;
   organizationId: string;
+  role: UserRole;
 }
 
 interface RequestContext {
@@ -34,14 +35,20 @@ interface CreateInvitationInput {
   role: UserRole;
 }
 
-function toPublicInvitation(invitation: {
-  id: string;
-  email: string;
-  role: UserRole;
-  status: string;
-  expiresAt: Date;
-  createdAt: Date;
-}) {
+function toPublicInvitation(
+  invitation: {
+    id: string;
+    email: string;
+    role: UserRole;
+    status: string;
+    expiresAt: Date;
+    createdAt: Date;
+  },
+  // Only present at creation/resend — same "one-time-secret" constraint as
+  // toPublicWitnessToken's rawToken: the raw value is never persisted, so a
+  // later view of this invitation (list, revoke) has nothing to hand back.
+  rawToken: string | null = null,
+) {
   return {
     id: invitation.id,
     email: invitation.email,
@@ -49,6 +56,10 @@ function toPublicInvitation(invitation: {
     status: invitation.status,
     expiresAt: invitation.expiresAt,
     createdAt: invitation.createdAt,
+    token: rawToken,
+    acceptInvitationUrl: rawToken
+      ? `${APP_URL}/accept-invitation/${rawToken}`
+      : null,
   };
 }
 
@@ -61,8 +72,14 @@ async function getInviterAndOrgNames(
   organizationId: string,
 ): Promise<{ inviterName?: string; organizationName?: string }> {
   const [inviter, organization] = await Promise.all([
-    prisma.user.findUnique({ where: { id: inviterId }, select: { fullName: true } }),
-    prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } }),
+    prisma.user.findUnique({
+      where: { id: inviterId },
+      select: { fullName: true },
+    }),
+    prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { name: true },
+    }),
   ]);
 
   return {
@@ -87,12 +104,13 @@ async function sendInvitationEmail(params: {
       // at acceptance time) — only present when sending the original invite.
       ...(params.fullName && { fullName: params.fullName }),
       ...(params.inviterName && { inviterName: params.inviterName }),
-      ...(params.organizationName && { organizationName: params.organizationName }),
-      // The invitee types this into the general /register page themselves —
-      // no unique per-invitation link, so the token has to be visible text
-      // rather than embedded in a URL.
-      token: params.rawToken,
-      registerUrl: `${APP_URL}/register`,
+      ...(params.organizationName && {
+        organizationName: params.organizationName,
+      }),
+      // Unique per-invitation link, same pattern as sendWitnessEmail's
+      // witnessUrl — the invitee clicks straight into /accept-invitation/:token,
+      // no token to copy/paste by hand.
+      acceptInvitationUrl: `${APP_URL}/accept-invitation/${params.rawToken}`,
     },
   });
 }
@@ -103,6 +121,13 @@ export class InvitationService {
     input: CreateInvitationInput,
     requestContext: RequestContext = {},
   ) {
+    if (input.role === "ADMIN" && actor.role !== "OWNER") {
+      throw createError(
+        "Only the organization owner can invite administrators",
+        403,
+      );
+    }
+
     const [existingUser, existingInvitation] = await Promise.all([
       prisma.user.findUnique({ where: { email: input.email } }),
       prisma.invitation.findFirst({
@@ -161,10 +186,13 @@ export class InvitationService {
       rawToken,
     });
 
-    return toPublicInvitation(invitation);
+    return toPublicInvitation(invitation, rawToken);
   }
 
-  async listInvitations(organizationId: string, { page, limit }: PaginationInput) {
+  async listInvitations(
+    organizationId: string,
+    { page, limit }: PaginationInput,
+  ) {
     // PENDING invitations are actionable in the main roster; EXPIRED ones are
     // surfaced separately (invitation history) so an admin can still find and
     // resend them. ACCEPTED (now a User) and REVOKED (terminal, no further
@@ -186,7 +214,12 @@ export class InvitationService {
     ]);
 
     return {
-      data: invitations.map(toPublicInvitation),
+      // Explicit arrow, not point-free .map(toPublicInvitation) — Array.map
+      // passes (item, index, array), and index would otherwise land in
+      // toPublicInvitation's rawToken parameter position (the classic
+      // .map(parseInt) footgun). The list view must never expose a token
+      // anyway (see toPublicInvitation's comment), so this stays explicit.
+      data: invitations.map((invitation) => toPublicInvitation(invitation)),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -228,7 +261,7 @@ export class InvitationService {
       rawToken,
     });
 
-    return toPublicInvitation(updated);
+    return toPublicInvitation(updated, rawToken);
   }
 
   async revokeInvitation(

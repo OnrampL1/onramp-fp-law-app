@@ -77,7 +77,12 @@ Thumbs.db
 # ─── TypeScript ───────────────────────────────────────────────────────────────
 *.tsbuildinfo
 
-# ─── Docs ───────────────────────────────────────────────────────────────
-docs/
+# ─── AI assistant configuration (local-only, not project documentation) ───────
 CLAUDE.md
 AGENTS.md
+report.md
+
+home
+
+# ─── Local DB backups (pg_dump snapshots taken before risky migrations) ───────
+backups/

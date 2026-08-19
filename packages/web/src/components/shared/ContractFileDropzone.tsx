@@ -96,7 +96,7 @@ export function ContractFileDropzone({
         </span>
 
         <span id={descriptionId} className="mt-1 text-sm text-muted-foreground">
-          PDF, DOC, DOCX, or TXT up to 25 MB
+          PDF, DOCX, or TXT up to 25 MB
         </span>
       </button>
 

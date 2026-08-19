@@ -17,11 +17,13 @@ export type OrganizationSettingsResponse = {
     timezone: string;
     language: "en" | "fr" | "ar";
     logoUrl: string | null;
+    logoUrlExpiresInSeconds: number | null;
     notificationPreferences: NotificationPreferences | null;
     branding: unknown | null;
   };
   permissions: {
     canManageSettings: boolean;
+    canRenameOrganization: boolean;
   };
 };
 
@@ -29,9 +31,14 @@ export type UpdateOrganizationSettingsPayload = Partial<{
   name: string;
   timezone: string;
   language: "en" | "fr" | "ar";
-  logoUrl: string | null;
   notificationPreferences: NotificationPreferences;
 }>;
+
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+};
 
 export async function getOrganizationSettings() {
   const { data } = await apiClient.get<{ data: OrganizationSettingsResponse }>(
@@ -48,4 +55,29 @@ export async function updateOrganizationSettings(
     payload,
   );
   return data.data;
+}
+
+export async function uploadOrganizationLogo(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const { data } = await apiClient.post<{ data: OrganizationSettingsResponse }>(
+    "/settings/organization/logo",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data.data;
+}
+
+export async function deleteOrganizationLogo() {
+  const { data } = await apiClient.delete<{ data: OrganizationSettingsResponse }>(
+    "/settings/organization/logo",
+  );
+  return data.data;
+}
+
+export async function changePassword(
+  payload: ChangePasswordPayload,
+): Promise<void> {
+  await apiClient.post("/auth/change-password", payload);
 }

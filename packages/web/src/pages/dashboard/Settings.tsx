@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
@@ -65,8 +66,19 @@ const settingsNavItems: SettingsNavItem[] = [
 ];
 
 export function Settings() {
-  const [activeSection, setActiveSection] =
-    useState<SettingsSection>("profile");
+  const [searchParams] = useSearchParams();
+
+  // Lets a global-search hit on a specific Settings section (e.g.
+  // ?section=security) land on that tab directly instead of always
+  // defaulting to Profile. Read once on mount, not kept in sync afterward —
+  // clicking between tabs stays local component state, same as before.
+  const [activeSection, setActiveSection] = useState<SettingsSection>(() => {
+    const requested = searchParams.get("section");
+    const isValidSection = settingsNavItems.some(
+      (item) => item.id === requested,
+    );
+    return isValidSection ? (requested as SettingsSection) : "profile";
+  });
 
   const activeNavItem =
     settingsNavItems.find((item) => item.id === activeSection) ??

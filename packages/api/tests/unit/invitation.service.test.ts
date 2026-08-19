@@ -30,7 +30,17 @@ jest.mock("@starter-kit/shared", () => ({
 
 import { invitationService } from "../../src/services/invitation.service";
 
-const actor = { id: "actor-1", organizationId: "org-1" };
+const ownerActor = {
+  id: "actor-1",
+  organizationId: "org-1",
+  role: "OWNER" as const,
+};
+const adminActor = {
+  id: "actor-1",
+  organizationId: "org-1",
+  role: "ADMIN" as const,
+};
+const actor = adminActor;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -63,6 +73,22 @@ describe("InvitationService.createInvitation", () => {
     ).rejects.toMatchObject({ statusCode: 409 });
   });
 
+  it("rejects an admin inviting another administrator", async () => {
+    await expect(
+      invitationService.createInvitation(adminActor, {
+        email: "admin@example.com",
+        fullName: "Jordan Lee",
+        role: "ADMIN",
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(mockDb.user.findUnique).not.toHaveBeenCalled();
+    expect(mockDb.invitation.findFirst).not.toHaveBeenCalled();
+    expect(mockDb.invitation.create).not.toHaveBeenCalled();
+    expect(mockDb.auditLog.create).not.toHaveBeenCalled();
+    expect(mockEmailQueue.add).not.toHaveBeenCalled();
+  });
+
   it("creates the invitation, logs it, and emails the accept link", async () => {
     mockDb.user.findUnique.mockResolvedValue(null);
     mockDb.invitation.findFirst.mockResolvedValue(null);
@@ -84,7 +110,13 @@ describe("InvitationService.createInvitation", () => {
     // A newly created invitation remains PENDING (Prisma's InvitationStatus
     // default) — it is never created as anything else.
     expect(result.status).toBe("PENDING");
-    expect(result).not.toHaveProperty("token");
+    // The raw token IS returned here — the create response is the one place
+    // an admin can grab a "Copy invite link" URL outside the email itself
+    // (Issue 2). tokenHash must still never leak.
+    expect(result.token).toBe("raw-token");
+    expect(result.acceptInvitationUrl).toContain(
+      "/accept-invitation/raw-token",
+    );
     expect(result).not.toHaveProperty("tokenHash");
     expect(mockDb.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -96,8 +128,47 @@ describe("InvitationService.createInvitation", () => {
       expect.objectContaining({
         to: "new@example.com",
         variables: expect.objectContaining({
-          token: "raw-token",
-          registerUrl: expect.stringContaining("/register"),
+          acceptInvitationUrl: expect.stringContaining(
+            "/accept-invitation/raw-token",
+          ),
+        }),
+      }),
+    );
+  });
+
+  it("allows the owner to invite another administrator", async () => {
+    mockDb.user.findUnique.mockResolvedValue(null);
+    mockDb.invitation.findFirst.mockResolvedValue(null);
+    mockDb.invitation.create.mockResolvedValue({
+      id: "inv-admin-1",
+      email: "admin@example.com",
+      role: "ADMIN",
+      status: "PENDING",
+      expiresAt: new Date("2026-01-08"),
+      createdAt: new Date("2026-01-01"),
+    });
+
+    const result = await invitationService.createInvitation(ownerActor, {
+      email: "admin@example.com",
+      fullName: "Jordan Lee",
+      role: "ADMIN",
+    });
+
+    expect(result.role).toBe("ADMIN");
+    expect(mockDb.invitation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          role: "ADMIN",
+          invitedByUserId: "actor-1",
+          organizationId: "org-1",
+        }),
+      }),
+    );
+    expect(mockDb.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "USER_INVITED",
+          newValue: { email: "admin@example.com", role: "ADMIN" },
         }),
       }),
     );
@@ -165,6 +236,28 @@ describe("InvitationService.listInvitations", () => {
     expect(call.where.status.in).not.toContain("ACCEPTED");
     expect(call.where.status.in).not.toContain("REVOKED");
   });
+
+  it("never exposes a token or accept-invitation link on any listed row — raw tokens only exist at create/resend time", async () => {
+    mockDb.invitation.findMany.mockResolvedValue([
+      {
+        id: "inv-1",
+        email: "invitee@example.com",
+        role: "INTERNAL",
+        status: "PENDING",
+        expiresAt: new Date("2026-01-08"),
+        createdAt: new Date("2026-01-01"),
+      },
+    ]);
+    mockDb.invitation.count.mockResolvedValue(1);
+
+    const { data } = await invitationService.listInvitations("org-1", {
+      page: 1,
+      limit: 20,
+    });
+
+    expect(data[0].token).toBeNull();
+    expect(data[0].acceptInvitationUrl).toBeNull();
+  });
 });
 
 describe("InvitationService.resendInvitation", () => {
@@ -213,7 +306,7 @@ describe("InvitationService.resendInvitation", () => {
       createdAt: new Date("2026-01-01"),
     });
 
-    await invitationService.resendInvitation(actor, "inv-1");
+    const result = await invitationService.resendInvitation(actor, "inv-1");
 
     expect(mockDb.invitation.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -221,6 +314,13 @@ describe("InvitationService.resendInvitation", () => {
       }),
     );
     expect(mockEmailQueue.add).toHaveBeenCalled();
+    // The rotated token comes back in the response too — the old link the
+    // admin may have already copied is now dead, so the UI needs the new
+    // one to offer a fresh "Copy invite link" (Issue 2).
+    expect(result.token).toBe("raw-token");
+    expect(result.acceptInvitationUrl).toContain(
+      "/accept-invitation/raw-token",
+    );
   });
 
   it("revives an expired invitation back to pending", async () => {
@@ -282,6 +382,9 @@ describe("InvitationService.revokeInvitation", () => {
     const result = await invitationService.revokeInvitation(actor, "inv-1");
 
     expect(result.status).toBe("REVOKED");
+    // Nothing was rotated here — revoke never has a raw token to hand back.
+    expect(result.token).toBeNull();
+    expect(result.acceptInvitationUrl).toBeNull();
     expect(mockDb.invitation.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "inv-1" },

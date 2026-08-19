@@ -24,297 +24,6 @@ export type Contract = {
   tags?: string[];
 };
 
-export const kpis = [
-  {
-    label: "Total Contracts",
-    value: "2,847",
-    change: "+12.4%",
-    trend: "up" as const,
-    sub: "vs. last quarter",
-    icon: "FileText",
-  },
-  {
-    label: "Active Contracts",
-    value: "1,932",
-    change: "+5.2%",
-    trend: "up" as const,
-    sub: "67.9% of portfolio",
-    icon: "FileCheck2",
-  },
-  {
-    label: "Expiring Soon",
-    value: "48",
-    change: "+9",
-    trend: "up" as const,
-    sub: "within 30 days",
-    icon: "CalendarClock",
-  },
-  {
-    label: "Contracts with Risk Flags",
-    value: "126",
-    change: "-3.1%",
-    trend: "down" as const,
-    sub: "AI-detected issues",
-    icon: "ShieldAlert",
-  },
-];
-
-export const statusOverview = [
-  { status: "Draft", count: 184, total: 2847, color: "var(--chart-3)" },
-  { status: "Active", count: 1932, total: 2847, color: "var(--chart-5)" },
-  {
-    status: "Expired",
-    count: 587,
-    total: 2847,
-    color: "var(--muted-foreground)",
-  },
-  { status: "Terminated", count: 144, total: 2847, color: "var(--chart-4)" },
-];
-
-export const recentContracts: Contract[] = [
-  {
-    id: "CTR-10482",
-    name: "Master Services Agreement",
-    counterparty: "Northwind Logistics Inc.",
-    status: "Active",
-    expiration: "Mar 14, 2026",
-    risk: "Low",
-    updated: "2 hours ago",
-    value: "$1.2M",
-    type: "MSA",
-  },
-  {
-    id: "CTR-10479",
-    name: "Enterprise SaaS License",
-    counterparty: "Helios Cloud Systems",
-    status: "Active",
-    expiration: "Jan 02, 2026",
-    risk: "High",
-    updated: "5 hours ago",
-    value: "$480K",
-    type: "License",
-  },
-  {
-    id: "CTR-10475",
-    name: "Mutual NDA",
-    counterparty: "Vertex Biolabs",
-    status: "Draft",
-    expiration: "—",
-    risk: "Low",
-    updated: "Yesterday",
-    value: "—",
-    type: "NDA",
-  },
-  {
-    id: "CTR-10470",
-    name: "Manufacturing Supply Contract",
-    counterparty: "Ironclad Components Ltd.",
-    status: "Active",
-    expiration: "Dec 31, 2025",
-    risk: "Critical",
-    updated: "Yesterday",
-    value: "$3.4M",
-    type: "Supply",
-  },
-  {
-    id: "CTR-10463",
-    name: "Consulting Engagement",
-    counterparty: "Meridian Advisory Group",
-    status: "Expired",
-    expiration: "Nov 01, 2025",
-    risk: "Medium",
-    updated: "3 days ago",
-    value: "$220K",
-    type: "SOW",
-  },
-  {
-    id: "CTR-10458",
-    name: "Data Processing Addendum",
-    counterparty: "Quantia Analytics",
-    status: "Active",
-    expiration: "Aug 18, 2026",
-    risk: "Medium",
-    updated: "4 days ago",
-    value: "—",
-    type: "DPA",
-  },
-  {
-    id: "CTR-10451",
-    name: "Reseller Partnership Agreement",
-    counterparty: "Brightline Partners",
-    status: "Terminated",
-    expiration: "Oct 12, 2025",
-    risk: "High",
-    updated: "6 days ago",
-    value: "$910K",
-    type: "Partnership",
-  },
-];
-
-export type InsightIconName =
-  | "ShieldAlert"
-  | "RefreshCw"
-  | "Scale"
-  | "Ban"
-  | "Fingerprint";
-
-export type InsightTone = "critical" | "warning" | "info";
-
-export interface AiInsight {
-  title: string;
-  count: number;
-  description: string;
-  icon: InsightIconName;
-  tone: InsightTone;
-}
-
-export const aiInsights: AiInsight[] = [
-  {
-    title: "High Risk Contracts",
-    count: 42,
-    description: "Contracts flagged with elevated risk exposure",
-    icon: "ShieldAlert",
-    tone: "critical",
-  },
-  {
-    title: "Auto Renewal Alerts",
-    count: 17,
-    description: "Auto-renew clauses triggering within 60 days",
-    icon: "RefreshCw",
-    tone: "warning",
-  },
-  {
-    title: "Liability Risks",
-    count: 29,
-    description: "Uncapped or broad indemnification terms",
-    icon: "Scale",
-    tone: "warning",
-  },
-  {
-    title: "Non-Compete Detection",
-    count: 11,
-    description: "Restrictive covenants requiring legal review",
-    icon: "Ban",
-    tone: "info",
-  },
-  {
-    title: "IP Assignment Detection",
-    count: 23,
-    description: "Intellectual property transfer provisions found",
-    icon: "Fingerprint",
-    tone: "info",
-  },
-];
-
-export type ActivityType =
-  | "upload"
-  | "analysis"
-  | "witness"
-  | "user"
-  | "status";
-
-export const activityFeed: {
-  type: ActivityType;
-  actor: string;
-  initials: string;
-  action: string;
-  target: string;
-  time: string;
-}[] = [
-  {
-    type: "upload",
-    actor: "Sarah Chen",
-    initials: "SC",
-    action: "uploaded a new contract",
-    target: "Master Services Agreement — Northwind",
-    time: "2 min ago",
-  },
-  {
-    type: "analysis",
-    actor: "Clausio AI",
-    initials: "AI",
-    action: "completed AI analysis on",
-    target: "Enterprise SaaS License — Helios",
-    time: "18 min ago",
-  },
-  {
-    type: "witness",
-    actor: "David Okafor",
-    initials: "DO",
-    action: "generated a witness link for",
-    target: "Manufacturing Supply Contract",
-    time: "1 hour ago",
-  },
-  {
-    type: "user",
-    actor: "Priya Natarajan",
-    initials: "PN",
-    action: "added a new user",
-    target: "m.alvarez@acme.com (Reviewer)",
-    time: "3 hours ago",
-  },
-  {
-    type: "status",
-    actor: "James Whitfield",
-    initials: "JW",
-    action: "changed status to Terminated on",
-    target: "Reseller Partnership Agreement",
-    time: "Yesterday",
-  },
-  {
-    type: "analysis",
-    actor: "Clausio AI",
-    initials: "AI",
-    action: "flagged 3 liability risks in",
-    target: "Consulting Engagement — Meridian",
-    time: "Yesterday",
-  },
-];
-
-export const expiringContracts = [
-  {
-    name: "Manufacturing Supply Contract",
-    counterparty: "Ironclad Components Ltd.",
-    daysLeft: 18,
-    risk: "Critical" as RiskLevel,
-    value: "$3.4M",
-  },
-  {
-    name: "Enterprise SaaS License",
-    counterparty: "Helios Cloud Systems",
-    daysLeft: 23,
-    risk: "High" as RiskLevel,
-    value: "$480K",
-  },
-  {
-    name: "Office Lease Agreement",
-    counterparty: "Cushwood Properties",
-    daysLeft: 41,
-    risk: "Medium" as RiskLevel,
-    value: "$1.1M",
-  },
-  {
-    name: "Marketing Retainer",
-    counterparty: "Pulse Creative Studio",
-    daysLeft: 52,
-    risk: "Low" as RiskLevel,
-    value: "$95K",
-  },
-];
-
-export const contractTags = [
-  "Renewal",
-  "Confidential",
-  "Auto-Renew",
-  "High Value",
-  "Regulated",
-  "Vendor",
-  "Customer",
-  "Compliance",
-] as const;
-
-export type ContractTag = (typeof contractTags)[number];
-
 // ── Contract Detail page data ─────────────────────────────────────────────
 
 export type Severity = "Critical" | "High" | "Medium" | "Low";
@@ -1214,200 +923,200 @@ export type ContractAnalysis = {
 //   const { data } = useQuery(['contract-analysis', id], () => api.getContractAnalysis(id));
 export const contractAnalysisById: Record<string, ContractAnalysis> = {
   "CTR-10470": {
-  contractId: "CTR-10470",
-  status: "Complete",
-  lastRun: "Yesterday at 4:18 PM",
-  model: "Clausio Legal Intelligence v4.2",
-  confidence: 94,
-  riskScore: 72,
-  riskScoreDelta: 8,
-  processingTime: "38s",
-  executiveSummary:
-    "This Manufacturing Supply Agreement with Ironclad Components Ltd. carries an elevated overall risk profile driven primarily by an uncapped liability provision and an aggressive indemnification structure favoring the supplier. The contract auto-renews for successive one-year terms with a 90-day cancellation window, creating a near-term renewal decision point before December 31, 2025. Payment terms are favorable (Net 45 with early-payment discount), but a Supplier-favorable IP assignment clause and an 18-month post-term non-compete warrant negotiation before the next renewal cycle. Six material findings were identified across 24 pages, two of which are rated High or Critical and should be escalated to legal review.",
-  keyObligations: [
-    {
-      party: "Supplier",
-      obligation: "Deliver ≥12,000 precision components per quarter to spec",
-      deadline: "Quarterly",
-    },
-    {
-      party: "Buyer",
-      obligation: "Provide rolling 90-day forecasts and binding POs",
-      deadline: "30 days advance",
-    },
-    {
-      party: "Supplier",
-      obligation: "Maintain ISO 9001 certification and pass quality audits",
-      deadline: "Biannual",
-    },
-    {
-      party: "Buyer",
-      obligation: "Settle invoices under Net 45 payment terms",
-      deadline: "45 days",
-    },
-    {
-      party: "Both",
-      obligation: "Provide written notice of non-renewal to avoid auto-renew",
-      deadline: "90 days prior",
-    },
-  ],
-  paymentAnalysis: {
-    terms: "Net 45 from invoice date",
-    schedule: "Monthly invoicing against delivered quantities",
-    penalties: "1.5% monthly late fee on overdue balances",
-    escalation: "Annual price escalation capped at 3.5% (PPI-indexed)",
-    metrics: [
-      { label: "Annual Contract Value", value: "$3.4M" },
-      { label: "Payment Terms", value: "Net 45" },
-      { label: "Early-Pay Discount", value: "2% / 15 days" },
-      { label: "Escalation Cap", value: "3.5% / yr" },
+    contractId: "CTR-10470",
+    status: "Complete",
+    lastRun: "Yesterday at 4:18 PM",
+    model: "Clausio Legal Intelligence v4.2",
+    confidence: 94,
+    riskScore: 72,
+    riskScoreDelta: 8,
+    processingTime: "38s",
+    executiveSummary:
+      "This Manufacturing Supply Agreement with Ironclad Components Ltd. carries an elevated overall risk profile driven primarily by an uncapped liability provision and an aggressive indemnification structure favoring the supplier. The contract auto-renews for successive one-year terms with a 90-day cancellation window, creating a near-term renewal decision point before December 31, 2025. Payment terms are favorable (Net 45 with early-payment discount), but a Supplier-favorable IP assignment clause and an 18-month post-term non-compete warrant negotiation before the next renewal cycle. Six material findings were identified across 24 pages, two of which are rated High or Critical and should be escalated to legal review.",
+    keyObligations: [
+      {
+        party: "Supplier",
+        obligation: "Deliver ≥12,000 precision components per quarter to spec",
+        deadline: "Quarterly",
+      },
+      {
+        party: "Buyer",
+        obligation: "Provide rolling 90-day forecasts and binding POs",
+        deadline: "30 days advance",
+      },
+      {
+        party: "Supplier",
+        obligation: "Maintain ISO 9001 certification and pass quality audits",
+        deadline: "Biannual",
+      },
+      {
+        party: "Buyer",
+        obligation: "Settle invoices under Net 45 payment terms",
+        deadline: "45 days",
+      },
+      {
+        party: "Both",
+        obligation: "Provide written notice of non-renewal to avoid auto-renew",
+        deadline: "90 days prior",
+      },
     ],
-  },
-  terminationAnalysis: {
-    forCause: "Either party, material breach, 60-day cure period",
-    forConvenience: "Buyer only, 120-day notice + wind-down fee",
-    autoRenewal: "Successive 1-year terms unless cancelled",
-    noticePeriod: "90 days prior to term end",
-    flag: "Auto-renewal window closes Oct 2, 2025 — action required to prevent lock-in.",
-  },
-  riskMatrix: [
-    { level: "Critical", count: 1 },
-    { level: "High", count: 2 },
-    { level: "Medium", count: 2 },
-    { level: "Low", count: 1 },
-  ],
-  riskByCategory: [
-    { category: "Liability", score: 92 },
-    { category: "Renewal", score: 78 },
-    { category: "Indemnity", score: 81 },
-    { category: "IP Rights", score: 64 },
-    { category: "Termination", score: 55 },
-    { category: "Compliance", score: 38 },
-  ],
-  findings: [
-    {
-      type: "Unlimited Liability",
-      severity: "Critical",
-      excerpt:
-        "Notwithstanding anything to the contrary, Buyer's liability for breach of its payment and indemnification obligations shall not be subject to any limitation or cap.",
-      explanation:
-        "No aggregate cap on Buyer liability. Exposure is uncapped for damages, potentially far exceeding total contract value.",
-      section: "§9.4 Limitation of Liability",
+    paymentAnalysis: {
+      terms: "Net 45 from invoice date",
+      schedule: "Monthly invoicing against delivered quantities",
+      penalties: "1.5% monthly late fee on overdue balances",
+      escalation: "Annual price escalation capped at 3.5% (PPI-indexed)",
+      metrics: [
+        { label: "Annual Contract Value", value: "$3.4M" },
+        { label: "Payment Terms", value: "Net 45" },
+        { label: "Early-Pay Discount", value: "2% / 15 days" },
+        { label: "Escalation Cap", value: "3.5% / yr" },
+      ],
     },
-    {
-      type: "Auto Renewal",
-      severity: "High",
-      excerpt:
-        "This Agreement shall automatically renew for successive one (1) year terms unless either party provides written notice at least ninety (90) days prior to the end of the then-current term.",
-      explanation:
-        "Auto-renews for 1-year terms unless cancelled 90 days prior. Missing the window locks in another full year.",
-      section: "§12.2 Term & Renewal",
+    terminationAnalysis: {
+      forCause: "Either party, material breach, 60-day cure period",
+      forConvenience: "Buyer only, 120-day notice + wind-down fee",
+      autoRenewal: "Successive 1-year terms unless cancelled",
+      noticePeriod: "90 days prior to term end",
+      flag: "Auto-renewal window closes Oct 2, 2025 — action required to prevent lock-in.",
     },
-    {
-      type: "Aggressive Indemnification",
-      severity: "High",
-      excerpt:
-        "Buyer shall indemnify, defend and hold harmless Supplier from any and all claims, including those arising in whole or in part from Supplier's negligence.",
-      explanation:
-        "Broad indemnity requires Buyer to cover claims even where the Supplier was negligent — atypical and unfavorable.",
-      section: "§10.1 Indemnification",
-    },
-    {
-      type: "IP Assignment",
-      severity: "Medium",
-      excerpt:
-        "All improvements, modifications, and derivative works to the manufacturing process developed hereunder shall be the sole and exclusive property of Supplier.",
-      explanation:
-        "Co-developed process improvements assign entirely to Supplier rather than being jointly owned.",
-      section: "§8.3 Intellectual Property",
-    },
-    {
-      type: "Non-Compete",
-      severity: "Medium",
-      excerpt:
-        "During the Term and for eighteen (18) months thereafter, Buyer shall not engage any competing supplier for components substantially similar to those provided herein within the Territory.",
-      explanation:
-        "18-month post-term exclusivity restricts Buyer's sourcing flexibility within defined regions.",
-      section: "§11.5 Exclusivity",
-    },
-    {
-      type: "Unilateral Modification",
-      severity: "Low",
-      excerpt:
-        "Supplier reserves the right to modify delivery schedules upon fifteen (15) days' notice where required by manufacturing capacity constraints.",
-      explanation:
-        "Supplier may adjust delivery schedules with short notice, which could disrupt Buyer production planning.",
-      section: "§4.6 Delivery",
-    },
-  ],
-  recommendations: [
-    {
-      priority: "Urgent",
-      title: "Negotiate a liability cap before renewal",
-      detail:
-        "Propose capping aggregate liability at 12 months of fees. The current uncapped provision (§9.4) is the single largest source of risk exposure.",
-    },
-    {
-      priority: "Urgent",
-      title: "Calendar the non-renewal deadline",
-      detail:
-        "Set an internal reminder for September 2, 2025 — 30 days before the 90-day cancellation window closes on October 2, 2025.",
-    },
-    {
-      priority: "Recommended",
-      title: "Rebalance indemnification language",
-      detail:
-        "Carve out Supplier's own negligence from Buyer's indemnity obligation in §10.1 to align with market-standard mutual indemnification.",
-    },
-    {
-      priority: "Recommended",
-      title: "Convert IP assignment to joint ownership",
-      detail:
-        "Amend §8.3 so co-developed process improvements are jointly owned or licensed back to Buyer for internal use.",
-    },
-    {
-      priority: "Optional",
-      title: "Tighten delivery-modification notice",
-      detail:
-        "Extend the §4.6 notice period from 15 to 30 days to better protect Buyer's production scheduling.",
-    },
-  ],
-  history: [
-    {
-      version: "v3.0",
-      date: "Apr 14, 2026 · 4:18 PM",
-      trigger: "Document re-upload",
-      actor: "Sarah Chen",
-      initials: "SC",
-      riskScore: 72,
-      findings: 6,
-      status: "Complete",
-    },
-    {
-      version: "v2.0",
-      date: "Feb 02, 2026 · 11:02 AM",
-      trigger: "Q3 amendment added",
-      actor: "David Okafor",
-      initials: "DO",
-      riskScore: 80,
-      findings: 7,
-      status: "Outdated",
-    },
-    {
-      version: "v1.0",
-      date: "Dec 12, 2025 · 9:47 AM",
-      trigger: "Initial upload",
-      actor: "Sarah Chen",
-      initials: "SC",
-      riskScore: 85,
-      findings: 8,
-      status: "Outdated",
-    },
-  ],
+    riskMatrix: [
+      { level: "Critical", count: 1 },
+      { level: "High", count: 2 },
+      { level: "Medium", count: 2 },
+      { level: "Low", count: 1 },
+    ],
+    riskByCategory: [
+      { category: "Liability", score: 92 },
+      { category: "Renewal", score: 78 },
+      { category: "Indemnity", score: 81 },
+      { category: "IP Rights", score: 64 },
+      { category: "Termination", score: 55 },
+      { category: "Compliance", score: 38 },
+    ],
+    findings: [
+      {
+        type: "Unlimited Liability",
+        severity: "Critical",
+        excerpt:
+          "Notwithstanding anything to the contrary, Buyer's liability for breach of its payment and indemnification obligations shall not be subject to any limitation or cap.",
+        explanation:
+          "No aggregate cap on Buyer liability. Exposure is uncapped for damages, potentially far exceeding total contract value.",
+        section: "§9.4 Limitation of Liability",
+      },
+      {
+        type: "Auto Renewal",
+        severity: "High",
+        excerpt:
+          "This Agreement shall automatically renew for successive one (1) year terms unless either party provides written notice at least ninety (90) days prior to the end of the then-current term.",
+        explanation:
+          "Auto-renews for 1-year terms unless cancelled 90 days prior. Missing the window locks in another full year.",
+        section: "§12.2 Term & Renewal",
+      },
+      {
+        type: "Aggressive Indemnification",
+        severity: "High",
+        excerpt:
+          "Buyer shall indemnify, defend and hold harmless Supplier from any and all claims, including those arising in whole or in part from Supplier's negligence.",
+        explanation:
+          "Broad indemnity requires Buyer to cover claims even where the Supplier was negligent — atypical and unfavorable.",
+        section: "§10.1 Indemnification",
+      },
+      {
+        type: "IP Assignment",
+        severity: "Medium",
+        excerpt:
+          "All improvements, modifications, and derivative works to the manufacturing process developed hereunder shall be the sole and exclusive property of Supplier.",
+        explanation:
+          "Co-developed process improvements assign entirely to Supplier rather than being jointly owned.",
+        section: "§8.3 Intellectual Property",
+      },
+      {
+        type: "Non-Compete",
+        severity: "Medium",
+        excerpt:
+          "During the Term and for eighteen (18) months thereafter, Buyer shall not engage any competing supplier for components substantially similar to those provided herein within the Territory.",
+        explanation:
+          "18-month post-term exclusivity restricts Buyer's sourcing flexibility within defined regions.",
+        section: "§11.5 Exclusivity",
+      },
+      {
+        type: "Unilateral Modification",
+        severity: "Low",
+        excerpt:
+          "Supplier reserves the right to modify delivery schedules upon fifteen (15) days' notice where required by manufacturing capacity constraints.",
+        explanation:
+          "Supplier may adjust delivery schedules with short notice, which could disrupt Buyer production planning.",
+        section: "§4.6 Delivery",
+      },
+    ],
+    recommendations: [
+      {
+        priority: "Urgent",
+        title: "Negotiate a liability cap before renewal",
+        detail:
+          "Propose capping aggregate liability at 12 months of fees. The current uncapped provision (§9.4) is the single largest source of risk exposure.",
+      },
+      {
+        priority: "Urgent",
+        title: "Calendar the non-renewal deadline",
+        detail:
+          "Set an internal reminder for September 2, 2025 — 30 days before the 90-day cancellation window closes on October 2, 2025.",
+      },
+      {
+        priority: "Recommended",
+        title: "Rebalance indemnification language",
+        detail:
+          "Carve out Supplier's own negligence from Buyer's indemnity obligation in §10.1 to align with market-standard mutual indemnification.",
+      },
+      {
+        priority: "Recommended",
+        title: "Convert IP assignment to joint ownership",
+        detail:
+          "Amend §8.3 so co-developed process improvements are jointly owned or licensed back to Buyer for internal use.",
+      },
+      {
+        priority: "Optional",
+        title: "Tighten delivery-modification notice",
+        detail:
+          "Extend the §4.6 notice period from 15 to 30 days to better protect Buyer's production scheduling.",
+      },
+    ],
+    history: [
+      {
+        version: "v3.0",
+        date: "Apr 14, 2026 · 4:18 PM",
+        trigger: "Document re-upload",
+        actor: "Sarah Chen",
+        initials: "SC",
+        riskScore: 72,
+        findings: 6,
+        status: "Complete",
+      },
+      {
+        version: "v2.0",
+        date: "Feb 02, 2026 · 11:02 AM",
+        trigger: "Q3 amendment added",
+        actor: "David Okafor",
+        initials: "DO",
+        riskScore: 80,
+        findings: 7,
+        status: "Outdated",
+      },
+      {
+        version: "v1.0",
+        date: "Dec 12, 2025 · 9:47 AM",
+        trigger: "Initial upload",
+        actor: "Sarah Chen",
+        initials: "SC",
+        riskScore: 85,
+        findings: 8,
+        status: "Outdated",
+      },
+    ],
   },
 };
 
-// ── Clause Investigator page data ─────────────────────────────────────────
+// ── Contract Investigator page data ───────────────────────────────────────
 
 export type ChatRole = "user" | "assistant";
 
@@ -1583,8 +1292,32 @@ export function resolveAnswer(
 // ─── Security features ────────────────────────────────────────────────────────
 
 export const SECURITY_FEATURES: SecurityFeature[] = [
-  { icon: createElement(LockIcon),       title: "Link Encryption",      subtitle: "AES-256 token payloads",  badgeLabel: "Secure",   badgeVariant: "secure"   },
-  { icon: createElement(ShieldCheckIcon), title: "Token Validation",    subtitle: "Signed, single-use JWT",  badgeLabel: "Active",   badgeVariant: "active"   },
-  { icon: createElement(ComputerIcon),   title: "Access Restrictions",  subtitle: "IP & device binding",     badgeLabel: "Enforced", badgeVariant: "enforced" },
-  { icon: createElement(UserGroupIcon),  title: "Single Contract Scope",subtitle: "One contract per link",   badgeLabel: "Verified", badgeVariant: "verified" },
+  {
+    icon: createElement(LockIcon),
+    title: "Link Encryption",
+    subtitle: "AES-256 token payloads",
+    badgeLabel: "Secure",
+    badgeVariant: "secure",
+  },
+  {
+    icon: createElement(ShieldCheckIcon),
+    title: "Token Validation",
+    subtitle: "Signed, single-use JWT",
+    badgeLabel: "Active",
+    badgeVariant: "active",
+  },
+  {
+    icon: createElement(ComputerIcon),
+    title: "Access Restrictions",
+    subtitle: "IP & device binding",
+    badgeLabel: "Enforced",
+    badgeVariant: "enforced",
+  },
+  {
+    icon: createElement(UserGroupIcon),
+    title: "Single Contract Scope",
+    subtitle: "One contract per link",
+    badgeLabel: "Verified",
+    badgeVariant: "verified",
+  },
 ];

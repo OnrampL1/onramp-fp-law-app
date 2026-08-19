@@ -21,14 +21,14 @@ interface ContractRowProps {
 export function ContractRow({ contract: c }: ContractRowProps) {
   return (
     <TableRow className="group">
-      <TableCell>
-        <div className="flex items-center gap-3">
+      <TableCell className="max-w-[240px]">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
             <FileText className="size-4" />
           </div>
           <Link
             to={`/contracts/${c.id}`}
-            className="truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
+            className="block min-w-0 truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
           >
             {c.title}
           </Link>

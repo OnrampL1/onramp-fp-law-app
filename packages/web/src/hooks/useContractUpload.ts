@@ -4,9 +4,9 @@ import { uploadContractFile } from "../services/contract-upload.service";
 import type { UploadContractResponse } from "../services/contract-upload.service";
 import type {
   ContractFileValidationError,
-  ContractMetadata,
   SelectedContractFile,
 } from "../types/contracts";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type ContractUploadStatus =
   | "idle"
@@ -26,12 +26,13 @@ export interface UseContractUploadResult {
   selectFile: (file: File | null | undefined) => void;
   removeFile: () => void;
   setIsDragging: (isDragging: boolean) => void;
-  uploadSelectedFile: (metadata: ContractMetadata) => Promise<void>;
+  uploadSelectedFile: () => Promise<void>;
   resetUpload: () => void;
   cancelUpload: () => void;
 }
 
 export function useContractUpload(): UseContractUploadResult {
+  const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<SelectedContractFile | null>(
     null,
   );
@@ -93,42 +94,39 @@ export function useContractUpload(): UseContractUploadResult {
     [cancelUpload],
   );
 
-  const uploadSelectedFile = useCallback(
-    async (metadata: ContractMetadata) => {
-      if (!selectedFile || isUploading) {
+  const uploadSelectedFile = useCallback(async () => {
+    if (!selectedFile || isUploading) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    setStatus("uploading");
+    setUploadError(null);
+    setUploadResult(null);
+
+    try {
+      const result = await uploadContractFile({
+        selectedFile,
+        signal: abortController.signal,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      setUploadResult(result);
+      setStatus("success");
+    } catch (error) {
+      if (isAbortError(error)) {
+        setStatus(selectedFile ? "ready" : "idle");
         return;
       }
 
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      setStatus("uploading");
-      setUploadError(null);
-      setUploadResult(null);
-
-      try {
-        const result = await uploadContractFile({
-          selectedFile,
-          metadata,
-          signal: abortController.signal,
-        });
-
-        setUploadResult(result);
-        setStatus("success");
-      } catch (error) {
-        if (isAbortError(error)) {
-          setStatus(selectedFile ? "ready" : "idle");
-          return;
-        }
-
-        setUploadError("We could not upload the contract. Please try again.");
-        setStatus("error");
-      } finally {
-        abortControllerRef.current = null;
-      }
-    },
-    [isUploading, selectedFile],
-  );
+      setUploadError("We could not upload the contract. Please try again.");
+      setStatus("error");
+    } finally {
+      abortControllerRef.current = null;
+    }
+  }, [isUploading, selectedFile]);
 
   useEffect(() => {
     return () => {

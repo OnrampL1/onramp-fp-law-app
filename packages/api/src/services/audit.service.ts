@@ -74,6 +74,13 @@ const TARGET_RESOLVERS: Partial<Record<string, TargetResolver>> = {
     });
     return new Map(contracts.map((c) => [c.id, c.title]));
   },
+  OrganizationBrainItem: async (ids, organizationId) => {
+    const items = await prisma.organizationBrainItem.findMany({
+      where: { id: { in: ids }, organizationId },
+      select: { id: true, title: true },
+    });
+    return new Map(items.map((item) => [item.id, item.title]));
+  },
   // WitnessInvitation has no organizationId of its own — it's scoped to the
   // org through its Contract, same as every other witness query.
   WitnessInvitation: async (ids, organizationId) => {
@@ -121,7 +128,9 @@ export class AuditService {
       ...(filters.contractId && { contractId: filters.contractId }),
       ...(filters.actorUserId && { actorUserId: filters.actorUserId }),
       ...(filters.action && {
-        action: Array.isArray(filters.action) ? { in: filters.action } : filters.action,
+        action: Array.isArray(filters.action)
+          ? { in: filters.action }
+          : filters.action,
       }),
       ...((filters.dateFrom || filters.dateTo) && {
         createdAt: {

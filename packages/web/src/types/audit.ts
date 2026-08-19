@@ -22,8 +22,10 @@ export const AUDIT_ACTIONS = [
   "CONTRACT_UPLOADED",
   "CONTRACT_TEXT_EXTRACTED",
   "CONTRACT_METADATA_UPDATED",
+  "CONTRACT_CONTENT_UPDATED",
   "CONTRACT_BUSINESS_STATUS_CHANGED",
   "CONTRACT_PROCESSING_STATUS_CHANGED",
+  "CONTRACT_LEGAL_STATE_CHANGED",
   "CONTRACT_SOFT_DELETED",
   "NOTE_ADDED",
   "NOTE_EDITED",
@@ -34,6 +36,10 @@ export const AUDIT_ACTIONS = [
   "AI_ANALYSIS_REQUESTED",
   "AI_ANALYSIS_COMPLETED",
   "AI_ANALYSIS_FAILED",
+  "ORGANIZATION_BRAIN_ITEM_CREATED",
+  "ORGANIZATION_BRAIN_ITEM_DELETED",
+  "ORGANIZATION_LOGO_UPLOADED",
+  "ORGANIZATION_LOGO_DELETED",
   "PLATFORM_SUPPORT_ACCESS_GRANTED",
   "PLATFORM_SUPPORT_ACCESS_REVOKED",
 ] as const;
@@ -75,8 +81,10 @@ export const AUDIT_ACTION_GROUP: Record<AuditAction, AuditActionGroup> = {
   CONTRACT_UPLOADED: "Contract",
   CONTRACT_TEXT_EXTRACTED: "Contract",
   CONTRACT_METADATA_UPDATED: "Contract",
+  CONTRACT_CONTENT_UPDATED: "Contract",
   CONTRACT_BUSINESS_STATUS_CHANGED: "Contract",
   CONTRACT_PROCESSING_STATUS_CHANGED: "Contract",
+  CONTRACT_LEGAL_STATE_CHANGED: "Contract",
   CONTRACT_SOFT_DELETED: "Contract",
 
   NOTE_ADDED: "Note",
@@ -93,6 +101,12 @@ export const AUDIT_ACTION_GROUP: Record<AuditAction, AuditActionGroup> = {
 
   PLATFORM_SUPPORT_ACCESS_GRANTED: "Platform",
   PLATFORM_SUPPORT_ACCESS_REVOKED: "Platform",
+
+  ORGANIZATION_BRAIN_ITEM_CREATED: "AI",
+  ORGANIZATION_BRAIN_ITEM_DELETED: "AI",
+
+  ORGANIZATION_LOGO_UPLOADED: "Organization",
+  ORGANIZATION_LOGO_DELETED: "Organization",
 };
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
@@ -116,8 +130,10 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   CONTRACT_UPLOADED: "Contract uploaded",
   CONTRACT_TEXT_EXTRACTED: "Contract text extracted",
   CONTRACT_METADATA_UPDATED: "Contract metadata updated",
+  CONTRACT_CONTENT_UPDATED: "Extracted text updated",
   CONTRACT_BUSINESS_STATUS_CHANGED: "Contract status changed",
   CONTRACT_PROCESSING_STATUS_CHANGED: "Contract processing status changed",
+  CONTRACT_LEGAL_STATE_CHANGED: "Contract legal state changed",
   CONTRACT_SOFT_DELETED: "Contract deleted",
 
   NOTE_ADDED: "Note added",
@@ -134,6 +150,12 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 
   PLATFORM_SUPPORT_ACCESS_GRANTED: "Platform support access granted",
   PLATFORM_SUPPORT_ACCESS_REVOKED: "Platform support access revoked",
+
+  ORGANIZATION_BRAIN_ITEM_CREATED: "Organization brain item added",
+  ORGANIZATION_BRAIN_ITEM_DELETED: "Organization brain item deleted",
+
+  ORGANIZATION_LOGO_UPLOADED: "Organization logo uploaded",
+  ORGANIZATION_LOGO_DELETED: "Organization logo deleted",
 };
 
 export interface AuditLogEntry {

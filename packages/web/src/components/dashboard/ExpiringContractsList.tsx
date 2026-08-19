@@ -6,21 +6,42 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { expiringContracts } from "@/lib/data";
 import { CalendarClock, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-import { RiskBadge } from "../ui/badges";
+import type { DashboardContractItem } from "@/types/dashboard";
 
-const CONTRACT_ROUTES: Record<string, string> = {
-  "Manufacturing Supply Contract": "/contracts/CTR-10470",
-  "Enterprise SaaS License": "/contracts/CTR-10479",
-  "Office Lease Agreement": "/contracts/CTR-10447",
-  "Marketing Retainer": "/contracts/CTR-10442",
-};
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function ExpiringContractsList() {
+interface ExpiringContractsListProps {
+  contracts: DashboardContractItem[] | undefined;
+  isLoading?: boolean;
+}
+
+function daysUntil(dateString: string): number {
+  const today = new Date();
+  const todayUtcMidnight = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate(),
+  );
+
+  const date = new Date(dateString);
+  const dateUtcMidnight = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+  );
+
+  return Math.round((dateUtcMidnight - todayUtcMidnight) / DAY_MS);
+}
+
+export function ExpiringContractsList({
+  contracts,
+  isLoading = false,
+}: ExpiringContractsListProps) {
   const navigate = useNavigate();
+  const items = contracts ?? [];
 
   return (
     <Card>
@@ -34,55 +55,71 @@ export function ExpiringContractsList() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2.5">
-        {expiringContracts.map((c) => {
-          const urgent = c.daysLeft <= 30;
-          const route = CONTRACT_ROUTES[c.name] ?? "/contracts";
-          return (
-            <div
-              key={c.name}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate(route)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  navigate(route);
-                }
-              }}
-              className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
+        {isLoading ? (
+          <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+            Loading expiring contracts...
+          </div>
+        ) : items.length === 0 ? (
+          <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+            No contracts expire in the next 30 days.
+          </div>
+        ) : (
+          items.map((contract) => {
+            const daysLeft = contract.expirationDate
+              ? daysUntil(contract.expirationDate)
+              : null;
+            const urgent = daysLeft !== null && daysLeft <= 7;
+
+            return (
               <div
-                className={cn(
-                  "flex size-12 shrink-0 flex-col items-center justify-center rounded-lg",
-                  urgent
-                    ? "bg-red-50 text-red-600"
-                    : "bg-accent text-accent-foreground",
-                )}
+                key={contract.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/contracts/${contract.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    navigate(`/contracts/${contract.id}`);
+                  }
+                }}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className="text-base font-semibold leading-none">
-                  {c.daysLeft}
-                </span>
-                <span className="text-[10px] font-medium uppercase">days</span>
+                <div
+                  className={cn(
+                    "flex size-12 shrink-0 flex-col items-center justify-center rounded-lg",
+                    urgent
+                      ? "bg-red-50 text-red-600"
+                      : "bg-accent text-accent-foreground",
+                  )}
+                >
+                  <span className="text-base font-semibold leading-none">
+                    {daysLeft}
+                  </span>
+                  <span className="text-[10px] font-medium uppercase">
+                    days
+                  </span>
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {contract.title}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {contract.counterparty} · expires{" "}
+                    {formatDate(contract.expirationDate)}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {c.name}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {c.counterparty} · {c.value}
-                </p>
-              </div>
-              <RiskBadge risk={c.risk} />
-            </div>
-          );
-        })}
+            );
+          })
+        )}
+
         <Button
           variant="outline"
           className="w-full gap-1.5"
-          disabled
-          title="Coming soon"
+          onClick={() => navigate("/contracts")}
         >
-          View renewal calendar
+          View All Contracts
           <ArrowRight className="size-4" />
         </Button>
       </CardContent>

@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -96,9 +97,15 @@ export async function downloadFile(key: string): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+interface PresignedUrlOptions {
+  responseContentDisposition?: string;
+  responseContentType?: string;
+}
+
 export async function getPresignedUrl(
   key: string,
   expiresIn = 3600,
+  options: PresignedUrlOptions = {},
 ): Promise<string> {
   const bucket = getRequiredEnv("S3_BUCKET");
 
@@ -107,7 +114,24 @@ export async function getPresignedUrl(
     new GetObjectCommand({
       Bucket: bucket,
       Key: key,
+      ResponseContentDisposition: options.responseContentDisposition,
+      ResponseContentType: options.responseContentType,
     }),
     { expiresIn },
   );
+}
+
+export async function deleteFile(key: string): Promise<void> {
+  const bucket = getRequiredEnv("S3_BUCKET");
+
+  try {
+    await getS3Client().send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      }),
+    );
+  } catch {
+    throw new Error("Could not delete stored file");
+  }
 }

@@ -11,8 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { statusLabels, type TeamMember, type UserAccountStatus } from "@/lib/users";
-import { isAdminRole, roleLabels, type BackendUserRole } from "@/lib/permissions";
+import {
+  statusLabels,
+  type TeamMember,
+  type UserAccountStatus,
+} from "@/lib/users";
+import {
+  isAdminRole,
+  roleLabels,
+  type BackendUserRole,
+  getAssignableRolesForActor,
+} from "@/lib/permissions";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCreateInvitation,
@@ -54,6 +63,14 @@ export function UserManagement() {
   const [roleChangeOpen, setRoleChangeOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<TeamMember | null>(null);
   const [revokeOpen, setRevokeOpen] = useState(false);
+  // Invitation id -> accept-invitation URL, populated only from create/resend
+  // mutation responses (the raw token is never persisted, so this is the one
+  // and only chance to grab a copyable link — same constraint the witness-
+  // link "Copy Link" feature already lives with). Session-only by design:
+  // reloading the page loses it, matching the witness panel's own behavior.
+  const [copyableLinks, setCopyableLinks] = useState<Record<string, string>>(
+    {},
+  );
 
   const { members, isLoading, isError } = useTeamMembers();
   const { invitations: expiredInvitations } = useInvitationHistory();
@@ -67,6 +84,11 @@ export function UserManagement() {
   // PUT /users/:id/role, /status, POST /invitations) — this only controls
   // what the UI offers, matching a read-only INTERNAL account's real access.
   const isCurrentUserAdmin = isAdminRole(currentUser?.role);
+
+  const assignableRoleOptions = useMemo(
+    () => getAssignableRolesForActor(currentUser?.role),
+    [currentUser?.role],
+  );
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -91,29 +113,58 @@ export function UserManagement() {
   }
 
   function handleInviteUser(payload: InviteUserPayload) {
-    if (!isCurrentUserAdmin) {
+    if (
+      !isCurrentUserAdmin ||
+      (payload.role === "ADMIN" && currentUser?.role !== "OWNER")
+    ) {
       return;
     }
 
-    createInvitation.mutate({
-      email: payload.email,
-      fullName: payload.name,
-      role: payload.role,
-    });
+    createInvitation.mutate(
+      {
+        email: payload.email,
+        fullName: payload.name,
+        role: payload.role,
+      },
+      { onSuccess: rememberCopyableLink },
+    );
+  }
+
+  // Shared by every call site that can return a fresh accept-invitation link
+  // (create, and both resend entry points below) — resend rotates the token,
+  // so this always overwrites any previously stored link for that id, since
+  // the old one just stopped working.
+  function rememberCopyableLink(invitation: {
+    id: string;
+    acceptInvitationUrl: string | null;
+  }) {
+    if (!invitation.acceptInvitationUrl) return;
+    setCopyableLinks((prev) => ({
+      ...prev,
+      [invitation.id]: invitation.acceptInvitationUrl!,
+    }));
   }
 
   function handleResendInvite(user: TeamMember) {
     if (!canManageUserAccess(user) || user.source !== "invitation") {
       return;
     }
-    resendInvitationMutation.mutate(user.id);
+    resendInvitationMutation.mutate(user.id, {
+      onSuccess: rememberCopyableLink,
+    });
   }
 
   function handleResendExpiredInvite(invitationId: string) {
     if (!isCurrentUserAdmin) {
       return;
     }
-    resendInvitationMutation.mutate(invitationId);
+    // Resend always sets status back to PENDING (whatever it started as),
+    // so this row moves out of invitation history and into the main roster
+    // on the next refetch — that's where its Copy Link ends up rendering,
+    // not here.
+    resendInvitationMutation.mutate(invitationId, {
+      onSuccess: rememberCopyableLink,
+    });
   }
 
   function handleOpenRevokeInvite(user: TeamMember) {
@@ -148,7 +199,7 @@ export function UserManagement() {
 
   function canChangeUserRole(user: TeamMember) {
     return (
-      isCurrentUserAdmin &&
+      currentUser?.role === "OWNER" &&
       user.source === "user" &&
       user.role !== "OWNER" &&
       !isCurrentUser(user)
@@ -156,9 +207,7 @@ export function UserManagement() {
   }
 
   function canManageUserAccess(user: TeamMember) {
-    return (
-      isCurrentUserAdmin && user.role !== "OWNER" && !isCurrentUser(user)
-    );
+    return isCurrentUserAdmin && user.role !== "OWNER" && !isCurrentUser(user);
   }
 
   function handleOpenRoleChange(user: TeamMember) {
@@ -174,7 +223,10 @@ export function UserManagement() {
     user: TeamMember,
     role: Extract<BackendUserRole, "ADMIN" | "INTERNAL">,
   ) {
-    if (!canChangeUserRole(user)) {
+    if (
+      !canChangeUserRole(user) ||
+      (role === "ADMIN" && currentUser?.role !== "OWNER")
+    ) {
       return;
     }
 
@@ -240,8 +292,7 @@ export function UserManagement() {
               User Management
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage team members, role-based access, and pending
-              invitations.
+              Manage team members, role-based access, and pending invitations.
             </p>
           </div>
         </div>
@@ -320,7 +371,11 @@ export function UserManagement() {
               className="w-full sm:w-44"
               aria-label="Filter users by role"
             >
-              <SelectValue />
+              <SelectValue placeholder="All roles">
+                {(val) =>
+                  val === "all" ? "All roles" : roleLabels[val as BackendUserRole]
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {roleFilters.map((role) => (
@@ -339,7 +394,13 @@ export function UserManagement() {
               className="w-full sm:w-44"
               aria-label="Filter users by status"
             >
-              <SelectValue />
+              <SelectValue placeholder="All statuses">
+                {(val) =>
+                  val === "all"
+                    ? "All statuses"
+                    : statusLabels[val as UserAccountStatus]
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {statusFilters.map((status) => (
@@ -367,6 +428,7 @@ export function UserManagement() {
           onChangeRole={handleOpenRoleChange}
           canChangeRole={canChangeUserRole}
           canManageAccess={canManageUserAccess}
+          copyableLinks={copyableLinks}
         />
       )}
 
@@ -381,6 +443,7 @@ export function UserManagement() {
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         onInvite={handleInviteUser}
+        availableRoles={assignableRoleOptions}
       />
 
       <UserDetailSheet
@@ -394,6 +457,7 @@ export function UserManagement() {
         open={roleChangeOpen}
         onOpenChange={setRoleChangeOpen}
         onSave={handleSaveRole}
+        availableRoles={assignableRoleOptions}
       />
 
       <RevokeInvitationDialog

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
-import { SparklesIcon, UploadIcon } from "../shared/icons";
+import { UploadIcon } from "../shared/icons";
 
 interface DashboardHeaderProps {
   userName: string;
@@ -11,7 +11,6 @@ export function DashboardHeader({ userName }: DashboardHeaderProps) {
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      {/* Title + subtitle */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
@@ -20,12 +19,7 @@ export function DashboardHeader({ userName }: DashboardHeaderProps) {
         </p>
       </div>
 
-      {/* Actions */}
       <div className="flex shrink-0 gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <SparklesIcon />
-          Run AI Analysis
-        </Button>
         <Button
           size="sm"
           className="gap-1.5"

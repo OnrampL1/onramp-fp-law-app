@@ -1,6 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { KeyRound, LogOut, MonitorSmartphone, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { KeyRound, MonitorSmartphone, ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 import { useAuth } from "@/hooks/useAuth";
 
@@ -46,19 +44,10 @@ function SecurityStatusRow({
 }
 
 export function SecuritySettings() {
-  const { user, logout } = useAuth();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { user } = useAuth();
 
   if (!user) {
     return null;
-  }
-  async function handleLogout() {
-    try {
-      setIsLoggingOut(true);
-      await logout();
-    } finally {
-      setIsLoggingOut(false);
-    }
   }
 
   return (
@@ -113,37 +102,6 @@ export function SecuritySettings() {
           <Badge variant="secondary" className="capitalize">
             {user.role}
           </Badge>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Sign out</CardTitle>
-          <CardDescription>
-            End your current session on this device.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <LogOut className="size-4" />
-            </div>
-
-            <div>
-              <p className="text-sm font-medium">Current account</p>
-              <p className="text-xs text-muted-foreground">{user.email}</p>
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="w-full sm:w-auto"
-          >
-            {isLoggingOut ? "Signing out..." : "Sign out"}
-          </Button>
         </CardContent>
       </Card>
     </div>

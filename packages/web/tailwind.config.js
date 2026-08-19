@@ -51,6 +51,29 @@ export default {
           active: "var(--sidebar-active)",
           "active-foreground": "var(--sidebar-active-foreground)",
         },
+        // Landing-page-only tokens. Values are defined exclusively inside
+        // `.landing-scope` (see src/styles/landing.css) -- these utilities
+        // resolve to nothing outside that scope, so they cannot leak into
+        // or override the authenticated application's palette above.
+        "border-strong": "var(--border-strong)",
+        surface: {
+          DEFAULT: "var(--surface)",
+          raised: "var(--surface-raised)",
+        },
+        signal: {
+          DEFAULT: "var(--signal)",
+          foreground: "var(--signal-foreground)",
+        },
+        risk: "var(--risk)",
+        ok: "var(--ok)",
+        paper: {
+          DEFAULT: "var(--paper)",
+          foreground: "var(--paper-foreground)",
+        },
+        metal: {
+          DEFAULT: "var(--metal)",
+          edge: "var(--metal-edge)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

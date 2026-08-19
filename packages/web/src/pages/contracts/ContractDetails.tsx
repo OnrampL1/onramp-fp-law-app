@@ -1,6 +1,5 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/badges";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,13 +9,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  contractDetails,
-  contractPagesById,
-  contractTimelineById,
-  internalNotesById,
-} from "@/lib/data";
-import type { ContractStatus } from "@/lib/data";
 import {
   ChevronRight,
   Pencil,
@@ -36,16 +28,15 @@ import { ContractMetadata } from "@/components/contracts/ContractMetaData";
 import { ContractContentViewer } from "@/components/contracts/ContractContentViewer";
 import { ContractInsights } from "@/components/contracts/ContractInsights";
 import { ContractTimeline } from "@/components/contracts/ContractTimeline";
-import { useContractDetail } from "@/hooks/useContractDetail";
-
-const statuses: ContractStatus[] = ["Draft", "Active", "Expired", "Terminated"];
-
-const LEGAL_STATE_TO_STATUS: Record<string, ContractStatus> = {
-  DRAFT: "Draft",
-  ACTIVE: "Active",
-  EXPIRED: "Expired",
-  TERMINATED: "Terminated",
-};
+import {
+  useContractDetail,
+  useSetContractLegalState,
+} from "@/hooks/useContractDetail";
+import { useTriggerContractAnalysis } from "@/hooks/useContractAnalysis";
+import { isAxiosError } from "axios";
+import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
+import { TerminateContractDialog } from "@/components/contracts/TerminateContractDialog";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -56,19 +47,14 @@ function formatDate(value: string | null): string {
   });
 }
 
-// Insights/Timeline/Notes are not backed by a real API yet (no AI analysis
-// or audit-log read endpoint for the frontend) — still sourced from mock
-// fixtures until those features exist. Everything else on this page (title,
-// counterparty, status, dates, tags, uploader, document content) is real.
-const MOCK_DATA_KEY = "CTR-10470";
-
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data: contract, isLoading, isError } = useContractDetail(id);
-
-  const pages = contractPagesById[MOCK_DATA_KEY];
-  const timeline = contractTimelineById[MOCK_DATA_KEY];
-  const notes = internalNotesById[MOCK_DATA_KEY];
+  const triggerAnalysis = useTriggerContractAnalysis(id);
+  const setLegalState = useSetContractLegalState(id);
+  const { user } = useAuth();
+  const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -90,9 +76,8 @@ export default function ContractDetailPage() {
     );
   }
 
-  const status = contract.legalState
-    ? LEGAL_STATE_TO_STATUS[contract.legalState]
-    : null;
+  const canManageLegalState = user?.role === "OWNER" || user?.role === "ADMIN";
+  const isTerminated = contract.legalState === "TERMINATED";
 
   return (
     <div className="space-y-6">
@@ -144,8 +129,10 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {/* Action buttons — AI Tools / Edit / Download / Witness Link stay
-            non-functional placeholders until those features are built */}
+        {/* Action buttons — Download / Witness Link remain non-functional
+    placeholders until those features are built. Edit Contract,
+    Contract Investigator, and Analyze Contract are wired to real
+    pages/endpoints. */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -166,54 +153,68 @@ export default function ContractDetailPage() {
               <DropdownMenuGroup>
                 <DropdownMenuLabel>AI Tools</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem
+                  className="gap-2"
+                  disabled={
+                    triggerAnalysis.isPending ||
+                    contract.processingStatus === "PENDING_EXTRACTION" ||
+                    contract.processingStatus === "EXTRACTION_FAILED" ||
+                    contract.processingStatus === "AI_PENDING"
+                  }
+                  onClick={() => triggerAnalysis.mutate()}
+                >
                   <ScrollText className="size-4 text-muted-foreground" />
-                  Analyze Contract
+                  {triggerAnalysis.isPending
+                    ? "Queuing..."
+                    : "Analyze Contract"}
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => navigate(`/contracts/${id}/investigator`)}
+                >
                   <Search className="size-4 text-muted-foreground" />
-                  Clause Investigator
+                  Contract Investigator
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" className="gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate(`/contracts/${id}/edit`)}
+          >
             <Pencil className="size-4" />
             Edit Contract
           </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" className="gap-2" />}
-            >
-              <span className="flex items-center gap-2">
-                Status
-                {status ? (
-                  <StatusBadge status={status} />
-                ) : (
-                  <span className="text-muted-foreground">Not set</span>
-                )}
-                <ChevronDown className="size-4 text-muted-foreground" />
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Set contract status</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {statuses.map((s) => (
-                  <DropdownMenuItem key={s} className="gap-2">
-                    <StatusBadge status={s} />
-                    {s === status && (
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        Current
-                      </span>
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            {canManageLegalState &&
+              (isTerminated ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={setLegalState.isPending}
+                  onClick={() =>
+                    setLegalState.mutate({
+                      action: "reactivate",
+                      version: contract.version,
+                    })
+                  }
+                >
+                  {setLegalState.isPending ? "Reactivating…" : "Reactivate"}
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={setLegalState.isPending}
+                  onClick={() => setTerminateDialogOpen(true)}
+                >
+                  Terminate
+                </Button>
+              ))}
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -233,7 +234,10 @@ export default function ContractDetailPage() {
                   <Download className="size-4 text-muted-foreground" />
                   Download PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => navigate(`/witness-workflow?contractId=${id}`)}
+                >
                   <Link2 className="size-4 text-muted-foreground" />
                   Generate Witness Link
                 </DropdownMenuItem>
@@ -241,7 +245,32 @@ export default function ContractDetailPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        {triggerAnalysis.isError && (
+          <p className="text-sm text-destructive">
+            {isAxiosError(triggerAnalysis.error) &&
+            triggerAnalysis.error.response?.status === 409
+              ? "This contract hasn't finished text extraction yet."
+              : "Couldn't queue analysis. Please try again."}
+          </p>
+        )}
+        {setLegalState.isError && (
+          <p className="text-sm text-destructive">
+            Couldn't update the contract status. Reload and try again.
+          </p>
+        )}
       </div>
+
+      <TerminateContractDialog
+        open={terminateDialogOpen}
+        onOpenChange={setTerminateDialogOpen}
+        isPending={setLegalState.isPending}
+        onConfirm={() =>
+          setLegalState.mutate(
+            { action: "terminate", version: contract.version },
+            { onSuccess: () => setTerminateDialogOpen(false) },
+          )
+        }
+      />
 
       {/* 3-column workspace */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -257,14 +286,14 @@ export default function ContractDetailPage() {
         </div>
         <div className="lg:col-span-3">
           <ContractInsights
-            contract={contractDetails[MOCK_DATA_KEY]}
-            notes={notes}
+            contractId={contract.id}
+            processingStatus={contract.processingStatus}
           />
         </div>
       </div>
 
       {/* Bottom: activity timeline */}
-      <ContractTimeline events={timeline} />
+      <ContractTimeline key={contract.id} contractId={contract.id} />
     </div>
   );
 }

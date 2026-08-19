@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 // ─── Organization domain ─────────────────────────────────────────────────
@@ -29,12 +31,18 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  ownerUser   User?                 @relation("OrganizationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
-  settings    OrganizationSettings?
-  members     User[]                @relation("OrganizationMembers")
-  invitations Invitation[]
-  contracts   Contract[]
-  auditLogs   AuditLog[]
+  ownerUser               User?                      @relation("OrganizationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  settings                OrganizationSettings?
+  members                 User[]                     @relation("OrganizationMembers")
+  invitations             Invitation[]
+  contracts               Contract[]
+  auditLogs               AuditLog[]
+  aiCallLogs              AICallLog[]
+  contractChunks          ContractChunk[]
+  riskFlags               RiskFlag[]
+  organizationBrainItems  OrganizationBrainItem[]
+  organizationBrainChunks OrganizationBrainChunk[]
+  accessRequest           OrganizationAccessRequest? @relation("AccessRequestOrganization")
 
   @@map("organizations")
 }
@@ -43,9 +51,9 @@ model OrganizationSettings {
   id             String @id @default(uuid()) @db.Uuid
   organizationId String @unique @map("organization_id") @db.Uuid
 
-  timezone String  @default("UTC")
-  language String  @default("en")
-  logoUrl  String? @map("logo_url")
+  timezone       String  @default("UTC")
+  language       String  @default("en")
+  logoStorageKey String? @map("logo_storage_key")
 
   notificationPreferences Json? @map("notification_preferences")
   branding                Json?
@@ -83,9 +91,58 @@ model PlatformUser {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  auditLogs AuditLog[]
+  auditLogs              AuditLog[]
+  reviewedAccessRequests OrganizationAccessRequest[] @relation("AccessRequestReviewer")
 
   @@map("platform_users")
+}
+
+enum OrganizationAccessRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum OrganizationAccessRequestCompanySize {
+  ONE_TO_TEN
+  ELEVEN_TO_FIFTY
+  FIFTY_ONE_TO_TWO_HUNDRED
+  TWO_HUNDRED_ONE_TO_ONE_THOUSAND
+  ONE_THOUSAND_PLUS
+}
+
+model OrganizationAccessRequest {
+  id String @id @default(uuid()) @db.Uuid
+
+  contactFirstName String @map("contact_first_name")
+  contactLastName  String @map("contact_last_name")
+  contactEmail     String @unique @map("contact_email")
+
+  organizationName String                                @map("organization_name")
+  websiteUrl       String?                               @map("website_url")
+  companySize      OrganizationAccessRequestCompanySize? @map("company_size")
+  country          String?
+
+  intendedUse String  @map("intended_use") @db.Text
+  notes       String? @db.Text
+
+  status OrganizationAccessRequestStatus @default(PENDING)
+
+  reviewedAt               DateTime? @map("reviewed_at")
+  reviewedByPlatformUserId String?   @map("reviewed_by_platform_user_id") @db.Uuid
+  declineReason            String?   @map("decline_reason") @db.Text
+
+  organizationId String? @unique @map("organization_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  reviewedByPlatformUser PlatformUser? @relation("AccessRequestReviewer", fields: [reviewedByPlatformUserId], references: [id], onDelete: SetNull)
+  organization           Organization? @relation("AccessRequestOrganization", fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("organization_access_requests")
 }
 
 // ─── User domain ──────────────────────────────────────────────────────────
@@ -122,13 +179,14 @@ model User {
   ownedOrganization  Organization? @relation("OrganizationOwner")
   acceptedInvitation Invitation?   @relation("InvitationAcceptedUser", fields: [invitationId], references: [id], onDelete: Restrict)
 
-  invitationsSent    Invitation[]        @relation("InvitationInviter")
-  invitationsRevoked Invitation[]        @relation("InvitationRevokedBy")
-  uploadedContracts  Contract[]          @relation("ContractUploadedBy")
-  contractNotes      ContractNote[]
-  witnessInvitations WitnessInvitation[]
-  aiAnalyses         AIAnalysis[]
-  auditLogs          AuditLog[]
+  invitationsSent        Invitation[]            @relation("InvitationInviter")
+  invitationsRevoked     Invitation[]            @relation("InvitationRevokedBy")
+  uploadedContracts      Contract[]              @relation("ContractUploadedBy")
+  contractNotes          ContractNote[]
+  witnessInvitations     WitnessInvitation[]
+  aiAnalyses             AIAnalysis[]
+  auditLogs              AuditLog[]
+  organizationBrainItems OrganizationBrainItem[] @relation("OrganizationBrainItemCreatedBy")
 
   @@index([organizationId, role])
   @@map("users")
@@ -203,7 +261,7 @@ model Contract {
   businessStatus   ContractBusinessStatus   @default(DRAFT) @map("business_status")
   processingStatus ContractProcessingStatus @default(PENDING_EXTRACTION) @map("processing_status")
   processingError  String?                  @map("processing_error") @db.Text
-  legalState       ContractLegalState?      @map("legal_state")
+  legalState       ContractLegalState?      @default(DRAFT) @map("legal_state")
 
   tags           String[]
   effectiveDate  DateTime? @map("effective_date") @db.Date
@@ -223,6 +281,8 @@ model Contract {
   uploadedBy         User                @relation("ContractUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
   notes              ContractNote[]
   aiAnalyses         AIAnalysis[]
+  riskFlags          RiskFlag[]
+  chunks             ContractChunk[]
   witnessInvitations WitnessInvitation[]
   auditLogs          AuditLog[]
 
@@ -250,6 +310,41 @@ model ContractNote {
 
   @@index([contractId, createdAt])
   @@map("contract_notes")
+}
+
+// ─── Clause Investigator domain ──────────────────────────────────────────
+// Phase 3 (AI_ARCHITECTURE.md Section 6): per-contract text chunks, embedded
+// for retrieval. organizationId is denormalized from Contract so retrieval
+// queries can be org-scoped at the query itself (Section 14) without a join.
+
+model ContractChunk {
+  id             String @id @default(uuid()) @db.Uuid
+  contractId     String @map("contract_id") @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+
+  chunkIndex  Int     @map("chunk_index")
+  headingPath String? @map("heading_path")
+  content     String  @db.Text
+  tokenCount  Int?    @map("token_count")
+
+  // Populated by the embeddings pipeline after chunking; nullable so a row
+  // can exist mid-pipeline without violating a NOT NULL constraint.
+  embedding Unsupported("vector(1536)")?
+
+  // Generated column (to_tsvector) for hybrid full-text search — declared
+  // here for schema completeness, but defined as GENERATED ALWAYS AS by
+  // hand in the migration; Prisma has no syntax for generated columns.
+  contentTsv Unsupported("tsvector")? @map("content_tsv")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  contract     Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([contractId, chunkIndex])
+  @@index([contractId])
+  @@index([organizationId])
+  @@map("contract_chunks")
 }
 
 // ─── Witness domain ───────────────────────────────────────────────────────
@@ -297,6 +392,7 @@ enum AIAnalysisType {
   SUMMARY
   RISK
   CLAUSE_QUERY
+  METADATA
 }
 
 enum AIAnalysisStatus {
@@ -310,20 +406,313 @@ model AIAnalysis {
   contractId      String @map("contract_id") @db.Uuid
   createdByUserId String @map("created_by_user_id") @db.Uuid
 
-  type         AIAnalysisType
-  status       AIAnalysisStatus @default(PENDING)
-  promptUsed   String           @map("prompt_used") @db.Text
-  result     Json?          
-  modelVersion String?          @map("model_version")
-  tokensUsed   Int?             @map("tokens_used")
+  type          AIAnalysisType
+  status        AIAnalysisStatus @default(PENDING)
+  promptUsed    String           @map("prompt_used") @db.Text
+  promptVersion String?          @map("prompt_version")
+  schemaVersion String?          @map("schema_version")
+  result        Json?
+  modelVersion  String?          @map("model_version")
+  tokensUsed    Int?             @map("tokens_used")
 
   createdAt DateTime @default(now()) @map("created_at")
 
   contract  Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
   createdBy User     @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
 
+  riskFlags RiskFlag[]
+
   @@index([contractId, type])
   @@map("ai_analyses")
+}
+
+// ─── Risk taxonomy ────────────────────────────────────────────────────────
+// One row per flag in a RISK analysis's result. Always mirrors the *latest*
+// completed RISK analysis for a contract — replaced, not accumulated, on
+// re-analysis (see markAnalysisCompleted). organizationId is denormalized
+// from Contract, same rationale as ContractChunk: portfolio-wide queries can
+// be org-scoped at the query itself without a join.
+enum RiskCategory {
+  LIABILITY
+  INDEMNIFICATION
+  AUTO_RENEWAL
+  TERMINATION
+  PAYMENT
+  CONFIDENTIALITY
+  NON_COMPETE
+  IP_ASSIGNMENT
+  OTHER
+}
+
+enum RiskSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model RiskFlag {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  contractId     String @map("contract_id") @db.Uuid
+  analysisId     String @map("analysis_id") @db.Uuid
+
+  severity    RiskSeverity
+  category    RiskCategory
+  description String       @db.Text
+  sourceText  String       @map("source_text") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contract     Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  analysis     AIAnalysis   @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, category])
+  @@index([contractId])
+  @@map("risk_flags")
+}
+
+enum AICallStatus {
+  SUCCESS
+  VALIDATION_FAILED
+  PROVIDER_ERROR
+}
+
+model AICallLog {
+  id             String  @id @default(uuid()) @db.Uuid
+  organizationId String? @map("organization_id") @db.Uuid
+
+  provider      String
+  model         String
+  promptId      String? @map("prompt_id")
+  promptVersion String? @map("prompt_version")
+  schemaId      String? @map("schema_id")
+  schemaVersion String? @map("schema_version")
+
+  tokensIn         Int?     @map("tokens_in")
+  tokensOut        Int?     @map("tokens_out")
+  estimatedCostUsd Decimal? @map("estimated_cost_usd") @db.Decimal(10, 6)
+
+  latencyMs         Int  @map("latency_ms")
+  workerExecutionMs Int? @map("worker_execution_ms")
+  retryCount        Int  @default(0) @map("retry_count")
+
+  status       AICallStatus
+  errorMessage String?      @map("error_message") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([model, createdAt(sort: Desc)])
+  @@index([promptId, promptVersion])
+  @@map("ai_call_logs")
+}
+
+enum OrganizationBrainItemType {
+  TEMPLATE
+  POLICY
+  CLAUSE
+  GUIDELINE
+}
+
+enum OrganizationBrainItemSource {
+  UPLOAD
+  PASTE
+}
+
+model OrganizationBrainItem {
+  id              String @id @default(uuid()) @db.Uuid
+  organizationId  String @map("organization_id") @db.Uuid
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+
+  title  String
+  type   OrganizationBrainItemType
+  source OrganizationBrainItemSource
+
+  storageKey String  @map("storage_key")
+  fileName   String? @map("file_name")
+  mimeType   String  @map("mime_type")
+  sizeBytes  Int     @map("size_bytes")
+  checksum   String
+
+  // Populated once by the ingestion pipeline (Phase 5, Batch 3) via the
+  // same extractText() Phase 2 already uses for contracts — null until
+  // then, and null forever for an item that fails extraction. Persisted
+  // so re-chunking/re-embedding never needs to re-download and reparse
+  // the original file.
+  extractedText String? @map("extracted_text") @db.Text
+
+  // Set when extraction fails (e.g. a scanned/image-only PDF with no
+  // extractable text), cleared on a successful (re-)extraction. Without
+  // this, a failed item silently sits with extractedText: null forever
+  // with no way for a user to see why via the API.
+  extractionError String? @map("extraction_error") @db.Text
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy    User                     @relation("OrganizationBrainItemCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  chunks       OrganizationBrainChunk[]
+
+  @@index([organizationId, type])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, title])
+  @@map("organization_brain_items")
+}
+
+// ─── Organization Brain retrieval domain ────────────────────────
+
+model OrganizationBrainChunk {
+  id                      String @id @default(uuid()) @db.Uuid
+  organizationBrainItemId String @map("organization_brain_item_id") @db.Uuid
+  organizationId          String @map("organization_id") @db.Uuid
+
+  chunkIndex  Int     @map("chunk_index")
+  headingPath String? @map("heading_path")
+  content     String  @db.Text
+  tokenCount  Int?    @map("token_count")
+
+  embedding Unsupported("vector(1536)")?
+
+  contentTsv Unsupported("tsvector")? @map("content_tsv")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organizationBrainItem OrganizationBrainItem @relation(fields: [organizationBrainItemId], references: [id], onDelete: Cascade)
+  organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationBrainItemId, chunkIndex])
+  @@index([organizationBrainItemId])
+  @@index([organizationId])
+  @@map("organization_brain_chunks")
+}
+
+// ─── Legal Knowledge Base domain ────────────────────────────────────────────
+// Phase 6 (Lebanese Legal Knowledge Base). Global, non-organization-scoped
+// corpus — no `organizationId` anywhere on either model, by design
+// (docs/AI_ROADMAP.md Section 4, docs/DOMAIN_REVIEW_BACKLOG.md Decision 2).
+// Field-for-field per docs/PHASE6_IMPLEMENTATION_PLAN.md Section 14
+// (Batch 1, Domain Review approved 2026-08-12). Enum member lists are frozen
+// per that review — do not add, remove, reorder, or rename without a new
+// Domain Review.
+
+enum LegalSourceType {
+  LEGISLATION
+  CODE
+  DECREE
+  JURISPRUDENCE
+  DOCTRINE
+  ADMINISTRATIVE_GUIDANCE
+}
+
+enum LegalAuthorityTier {
+  BINDING_LEGISLATION
+  JURISPRUDENCE
+  DOCTRINE
+  ADMINISTRATIVE_GUIDANCE
+}
+
+enum LegalStatus {
+  IN_FORCE
+  REPEALED
+  UNKNOWN
+}
+
+/// CLEARED_FOR_PRODUCTION on a row is not self-executing: searchLegalKbChunks()
+/// (packages/shared/ai/retrieval/search.ts) only serves a
+/// CLEARED_FOR_PRODUCTION source in production mode if its id also appears
+/// in the checked-in packages/shared/ai/retrieval/legal-kb-production-clearances.ts
+/// registry. Setting this status without that registry entry requires the
+/// actual legal/licensing risk-acceptance review to have happened first —
+/// do not set CLEARED_FOR_PRODUCTION as a shortcut to unblock a query bug.
+enum LegalLicenseStatus {
+  DEVELOPMENT_ONLY
+  UNDER_REVIEW
+  CLEARED_FOR_PRODUCTION
+}
+
+model LegalSource {
+  id String @id @default(uuid()) @db.Uuid
+
+  title            String
+  sourceType       LegalSourceType    @map("source_type")
+  authorityTier    LegalAuthorityTier @map("authority_tier")
+  instrumentNumber String             @map("instrument_number")
+  language         String             @default("ar")
+  jurisdiction     String             @default("LB")
+
+  promulgatingAuthority String  @map("promulgating_authority")
+  compilerSource        String  @map("compiler_source")
+  sourceUrl             String  @map("source_url")
+  rawSnapshotStorageKey String? @map("raw_snapshot_storage_key")
+
+  officialGazetteNumber      String?   @map("official_gazette_number")
+  officialGazettePublishDate DateTime? @map("official_gazette_publish_date") @db.Date
+  officialGazettePage        String?   @map("official_gazette_page")
+  promulgationDate           DateTime? @map("promulgation_date") @db.Date
+
+  legalStatus   LegalStatus        @default(IN_FORCE) @map("legal_status")
+  licenseStatus LegalLicenseStatus @default(DEVELOPMENT_ONLY) @map("license_status")
+
+  lastVerifiedAt DateTime? @map("last_verified_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  chunks LegalChunk[]
+
+  @@index([sourceType])
+  @@index([legalStatus])
+  @@index([licenseStatus])
+  @@map("legal_sources")
+}
+
+model LegalChunk {
+  id            String @id @default(uuid()) @db.Uuid
+  legalSourceId String @map("legal_source_id") @db.Uuid
+
+  chunkIndex    Int     @map("chunk_index")
+  headingPath   String? @map("heading_path")
+  articleNumber String? @map("article_number")
+  content       String  @db.Text
+  tokenCount    Int?    @map("token_count")
+
+  amendingInstrument     String?   @map("amending_instrument")
+  amendmentEffectiveDate DateTime? @map("amendment_effective_date") @db.Date
+
+  // Denormalized from LegalSource (same reasoning as organizationId on
+  // ContractChunk — AI_ROADMAP.md Section 4): lets the retrieval WHERE
+  // clause filter directly on the chunk table without a join. Always
+  // copied from the parent LegalSource at write time; no default here.
+  legalStatus   LegalStatus        @map("legal_status")
+  licenseStatus LegalLicenseStatus @map("license_status")
+
+  // Populated by the embeddings pipeline after chunking; nullable so a row
+  // can exist mid-pipeline without violating a NOT NULL constraint (same
+  // convention as ContractChunk/OrganizationBrainChunk).
+  embedding Unsupported("vector(1536)")?
+
+  // Generated column (to_tsvector('simple', ...) — not 'english', per the
+  // Arabic full-text handling decision) — declared here for schema
+  // completeness, defined as GENERATED ALWAYS AS by hand in the migration;
+  // Prisma has no syntax for generated columns.
+  contentTsv Unsupported("tsvector")? @map("content_tsv")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  legalSource LegalSource @relation(fields: [legalSourceId], references: [id], onDelete: Cascade)
+
+  @@unique([legalSourceId, chunkIndex])
+  @@index([legalSourceId])
+  @@index([articleNumber])
+  @@index([licenseStatus])
+  @@map("legal_chunks")
 }
 
 // ─── Audit domain ──────────────────────────────────────────────────────────
@@ -355,8 +744,10 @@ enum AuditAction {
   CONTRACT_UPLOADED
   CONTRACT_TEXT_EXTRACTED
   CONTRACT_METADATA_UPDATED
+  CONTRACT_CONTENT_UPDATED
   CONTRACT_BUSINESS_STATUS_CHANGED
   CONTRACT_PROCESSING_STATUS_CHANGED
+  CONTRACT_LEGAL_STATE_CHANGED
   CONTRACT_SOFT_DELETED
 
   NOTE_ADDED
@@ -370,6 +761,12 @@ enum AuditAction {
   AI_ANALYSIS_REQUESTED
   AI_ANALYSIS_COMPLETED
   AI_ANALYSIS_FAILED
+
+  ORGANIZATION_BRAIN_ITEM_CREATED
+  ORGANIZATION_BRAIN_ITEM_DELETED
+
+  ORGANIZATION_LOGO_UPLOADED
+  ORGANIZATION_LOGO_DELETED
 
   PLATFORM_SUPPORT_ACCESS_GRANTED
   PLATFORM_SUPPORT_ACCESS_REVOKED

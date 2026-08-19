@@ -1,0 +1,40 @@
+<!--
+  SYNTHETIC FIXTURE — rebuilt 2026-08-14 after the Batch 2 live cross-check
+  showed the original version of this fixture assumed the wrong link
+  pattern. The real Law.aspx tree (see tree-index.real.html) is a Telerik
+  RadTreeView where every hierarchy level — not just per-article leaves —
+  links via LawArticles.aspx?LawTreeSectionID=...&LawID=..., and each
+  node's own label carries an inclusive article-number range in
+  "(min - max)" or "(min-max)" form (both spacing styles occur on the real
+  page). There is no direct per-article LawArticleID link anywhere in the
+  tree; that value is only known via a separately-obtained deep link (see
+  legal-source-crawler.ts's ArticleIdAnchor). This fixture models that
+  corrected structure with a small, hand-built hierarchy — it is still not
+  a captured copy of the real page.
+-->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>قانون الموجبات والعقود</title>
+</head>
+<body>
+  <div id="lawTree">
+    <ul>
+      <li>
+        <a href="LawArticles.aspx?LawTreeSectionID=1000&amp;LawID=244226">الكتاب الاول (1 - 200)</a>
+        <ul>
+          <li><a href="LawArticles.aspx?LawTreeSectionID=1001&amp;LawID=244226">الباب الاول - في الموجبات عموما (2 - 8)</a></li>
+          <li><a href="LawArticles.aspx?LawTreeSectionID=1002&amp;LawID=244226">الباب الثاني - في موجبات اخرى (9-20)</a></li>
+        </ul>
+      </li>
+      <li>
+        <a href="LawArticles.aspx?LawTreeSectionID=2000&amp;LawID=244226">الكتاب الثاني (201 - 900)</a>
+        <ul>
+          <li><a href="LawArticles.aspx?LawTreeSectionID=2001&amp;LawID=244226">الباب الثالث - في اثار الموجبات (840 - 900)</a></li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</body>
+</html>

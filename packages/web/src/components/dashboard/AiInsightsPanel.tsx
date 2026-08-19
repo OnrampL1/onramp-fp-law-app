@@ -6,36 +6,58 @@ import {
   CardTitle,
   CardDescription,
 } from "../ui/card";
-import { SparklesIcon, ChevronRightIcon } from "../shared/icons";
-import { aiInsights } from "@/lib/data";
-import type { InsightIconName, InsightTone } from "@/lib/data";
-import { Ban, Fingerprint, RefreshCw, Scale, ShieldAlert } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-const ICONS: Record<InsightIconName, typeof ShieldAlert> = {
-  ShieldAlert,
-  RefreshCw,
-  Scale,
+import { Button } from "@/components/ui/button";
+import { SparklesIcon } from "../shared/icons";
+import {
+  AlertCircle,
+  ArrowRight,
   Ban,
-  Fingerprint,
-};
+  CalendarClock,
+  Copyright,
+  ShieldAlert,
+  type LucideIcon,
+} from "lucide-react";
+import { useInsightsSummary } from "@/hooks/useInsights";
+import type { RiskCategory } from "@/types/insights";
 
-const TONE_STYLES: Record<InsightTone, string> = {
-  critical: "bg-red-50 text-red-600",
-  warning: "bg-amber-50 text-amber-600",
-  info: "bg-accent text-accent-foreground",
-};
-
-const INSIGHT_ROUTES: Record<string, string> = {
-  "High Risk Contracts": "/contracts?filter=high-risk",
-  "Auto Renewal Alerts": "/insights/auto-renewal",
-  "Liability Risks": "/insights/liability",
-  "Non-Compete Detection": "/insights/non-compete",
-  "IP Assignment Detection": "/insights/ip-assignment",
-};
+const CATEGORY_LINKS: {
+  category: RiskCategory;
+  label: string;
+  icon: LucideIcon;
+  href: string;
+}[] = [
+  {
+    category: "AUTO_RENEWAL",
+    label: "Auto-renewal",
+    icon: CalendarClock,
+    href: "/insights/auto-renewal",
+  },
+  {
+    category: "LIABILITY",
+    label: "Liability",
+    icon: ShieldAlert,
+    href: "/insights/liability",
+  },
+  {
+    category: "NON_COMPETE",
+    label: "Non-compete",
+    icon: Ban,
+    href: "/insights/non-compete",
+  },
+  {
+    category: "IP_ASSIGNMENT",
+    label: "IP assignment",
+    icon: Copyright,
+    href: "/insights/ip-assignment",
+  },
+];
 
 export function AiInsightsPanel() {
   const navigate = useNavigate();
+  const { data, isLoading, isError, refetch } = useInsightsSummary();
+
+  const countFor = (category: RiskCategory) =>
+    data?.categories.find((c) => c.category === category)?.contractCount;
 
   return (
     <Card className="h-full">
@@ -45,51 +67,58 @@ export function AiInsightsPanel() {
           <CardTitle className="text-base font-semibold">AI Insights</CardTitle>
         </div>
         <CardDescription>
-          Automated risk and clause detection across your portfolio
+          Portfolio-wide risk categories, drawn from every contract's completed
+          analysis.
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="p-0">
-        <ul className="divide-y divide-border">
-          {aiInsights.map((insight) => {
-            const route = INSIGHT_ROUTES[insight.title] ?? "/placeholder";
-            const Icon = ICONS[insight.icon];
-            return (
-              <li key={insight.title}>
+      <CardContent className="space-y-4">
+        {isError ? (
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-border p-6 text-center">
+            <AlertCircle className="size-5 text-destructive" />
+            <p className="text-sm text-muted-foreground">
+              Insights could not be loaded.
+            </p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {CATEGORY_LINKS.map(({ category, label, icon: Icon, href }) => {
+              const count = countFor(category);
+              return (
                 <button
+                  key={category}
                   type="button"
-                  onClick={() => navigate(route)}
-                  className="flex w-full cursor-pointer items-center justify-between px-6 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => navigate(href)}
+                  className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/40"
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex size-10 shrink-0 items-center justify-center rounded-lg",
-                        TONE_STYLES[insight.tone],
-                      )}
-                    >
-                      <Icon className="size-5" />
-                    </div>
-
-                    <div className="text-left">
-                      <p className="text-sm font-medium">
-                        {insight.title}
-                        <span className="ml-1.5 font-semibold text-foreground">
-                          {insight.count}
-                        </span>
-                      </p>
-                      <p className="line-clamp-1 text-xs text-muted-foreground">
-                        {insight.description}
-                      </p>
-                    </div>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                    <Icon className="size-4" />
                   </div>
-
-                  <ChevronRightIcon className="text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">
+                      {label}
+                    </p>
+                  </div>
+                  <span className="text-lg font-semibold tabular-nums text-foreground">
+                    {isLoading ? "…" : (count ?? 0)}
+                  </span>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
                 </button>
-              </li>
-            );
-          })}
-        </ul>
+              );
+            })}
+          </div>
+        )}
+
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => navigate("/contracts")}
+        >
+          View Contracts
+        </Button>
       </CardContent>
     </Card>
   );

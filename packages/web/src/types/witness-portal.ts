@@ -1,4 +1,5 @@
 import type { WitnessLinkResult } from "./witness";
+import type { ContractDetailResponse } from "./contracts";
 
 // Matches toPublicContractPreview() in witness.service.ts — the minimal
 // preview returned alongside redemption, not the full scoped-read view.
@@ -28,6 +29,11 @@ export interface WitnessPortalContract {
   tags: string[];
   effectiveDate: string | null;
   expirationDate: string | null;
+  // Only PENDING_EXTRACTION/EXTRACTION_FAILED matter to the portal UI — the
+  // AI_* values are internal analysis progress, irrelevant to a witness, and
+  // treated the same as EXTRACTION_COMPLETED (show the document).
+  processingStatus: ContractDetailResponse["processingStatus"];
+  processingError: string | null;
   extractedText: string | null;
   fileUrl: string;
   fileUrlExpiresInSeconds: number;

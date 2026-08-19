@@ -14,6 +14,7 @@ const prisma = getPrismaClient();
 // Every seeded user shares this password so you can log in as any of them
 // while testing. Never reuse this pattern outside a local/demo database.
 //
+//   Platform Admin:   platform.admin@clausio.local
 //   Owner:            sarah.whitfield@ridgelinevoss.com
 //   Admin:             marcus.chen@ridgelinevoss.com
 //   Internal (Legal):  priya.nair@ridgelinevoss.com
@@ -24,6 +25,7 @@ const DEMO_PASSWORD = "Password123!";
 // Fixed UUIDs for every seeded row so this script is idempotent: re-running
 // it upserts the same rows to the same values instead of erroring on unique
 // constraints or duplicating data.
+const PLATFORM_SUPER_ADMIN_ID = "00000000-0000-4000-8000-000000000001";
 const ORG_ID = "00000000-0000-4000-8000-000000000001";
 
 const USER_OWNER_ID = "00000000-0000-4000-8000-000000000101";
@@ -70,6 +72,23 @@ async function main(): Promise<void> {
   console.info("Seeding Clausio demo data...");
 
   const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
+  // ─── Platform Super Admin ─────────────────────────────────────────────
+  // Platform users are Clausio operators, not Organization members. This
+  // seeded account exists outside any Organization and is used to test
+  // platform-only authentication and management flows.
+  await prisma.platformUser.upsert({
+    where: { id: PLATFORM_SUPER_ADMIN_ID },
+    update: { passwordHash: demoPasswordHash },
+    create: {
+      id: PLATFORM_SUPER_ADMIN_ID,
+      email: "platform.admin@clausio.local",
+      passwordHash: demoPasswordHash,
+      fullName: "Platform Admin",
+      role: "SUPER_ADMIN",
+      status: "ACTIVE",
+      createdAt: daysFromNow(-200),
+    },
+  });
 
   // ─── Organization ─────────────────────────────────────────────────────
   await prisma.organization.upsert({
@@ -344,6 +363,13 @@ async function main(): Promise<void> {
     processingError?: string;
     legalState?: "DRAFT" | "ACTIVE" | "EXPIRED" | "TERMINATED";
     tags: string[];
+    // Required whenever legalState is ACTIVE/EXPIRED/TERMINATED —
+    // deriveLegalState() (packages/shared/contracts/legal-state.ts) treats a
+    // missing effectiveDate as an unconditional DRAFT regardless of what's
+    // stored here, and the API now recomputes legalState from these dates on
+    // every read (self-healing any mismatch back into the database). Leave
+    // unset only for genuine DRAFT fixtures.
+    effectiveDate?: Date;
     expirationDate?: Date;
     extractedTextPresent: boolean;
     createdAt: Date;
@@ -364,6 +390,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "ACTIVE",
       tags: ["msa", "vendor", "technology"],
+      effectiveDate: daysFromNow(-145),
       expirationDate: daysFromNow(420),
       extractedTextPresent: true,
       createdAt: daysFromNow(-150),
@@ -426,6 +453,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_PENDING",
       legalState: "ACTIVE",
       tags: ["supply", "manufacturing"],
+      effectiveDate: daysFromNow(-35),
       expirationDate: daysFromNow(180),
       extractedTextPresent: true,
       createdAt: daysFromNow(-40),
@@ -477,6 +505,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "EXPIRED",
       tags: ["lease", "real-estate"],
+      effectiveDate: daysFromNow(-395),
       expirationDate: daysFromNow(-90),
       extractedTextPresent: true,
       createdAt: daysFromNow(-400),
@@ -527,6 +556,7 @@ async function main(): Promise<void> {
       processingStatus: "EXTRACTION_COMPLETED",
       legalState: "ACTIVE",
       tags: ["dpa", "healthcare", "compliance"],
+      effectiveDate: daysFromNow(-18),
       expirationDate: daysFromNow(280),
       extractedTextPresent: true,
       createdAt: daysFromNow(-20),
@@ -559,6 +589,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "TERMINATED",
       tags: ["logistics", "terminated"],
+      effectiveDate: daysFromNow(-295),
       expirationDate: daysFromNow(-60),
       extractedTextPresent: true,
       createdAt: daysFromNow(-300),
@@ -624,6 +655,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "ACTIVE",
       tags: ["loan", "finance", "high-risk"],
+      effectiveDate: daysFromNow(-90),
       expirationDate: daysFromNow(610),
       extractedTextPresent: true,
       createdAt: daysFromNow(-95),
@@ -674,6 +706,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "ACTIVE",
       tags: ["vendor", "hospitality"],
+      effectiveDate: daysFromNow(-55),
       expirationDate: daysFromNow(25),
       extractedTextPresent: true,
       createdAt: daysFromNow(-60),
@@ -713,6 +746,7 @@ async function main(): Promise<void> {
       processingStatus: "AI_COMPLETED",
       legalState: "TERMINATED",
       tags: ["security", "vendor"],
+      effectiveDate: daysFromNow(-495),
       expirationDate: daysFromNow(-30),
       extractedTextPresent: true,
       createdAt: daysFromNow(-500),
@@ -738,30 +772,48 @@ async function main(): Promise<void> {
   ];
 
   for (const c of CONTRACTS) {
-    await prisma.contract.upsert({
+    // Not upsert-with-update:{} - Prisma appends @updatedAt to the
+    // generated SET clause on every update execution, including an
+    // upsert's update path, regardless of whether the caller's own
+    // `update` object has any real fields in it. Re-running `npm run
+    // db:seed` against an already-seeded database was silently bumping
+    // every contract's updatedAt to "now", making the whole list look
+    // freshly edited even though nothing had changed (found live,
+    // 2026-08-19 - version stayed at 1, confirming no real update path
+    // ever ran). Same root cause as the ai_analyses staleness bug logged
+    // in DOMAIN_REVIEW_BACKLOG.md, different symptom. A pre-check keeps
+    // reseeding idempotent - safe to run repeatedly - without ever
+    // issuing an update against a row that already exists.
+    const existingContract = await prisma.contract.findUnique({
       where: { id: c.id },
-      update: {},
-      create: {
-        id: c.id,
-        organizationId: ORG_ID,
-        uploadedByUserId: c.uploadedByUserId,
-        title: c.title,
-        counterparty: c.counterparty,
-        businessStatus: c.businessStatus,
-        processingStatus: c.processingStatus,
-        processingError: c.processingError,
-        legalState: c.legalState,
-        tags: c.tags,
-        expirationDate: c.expirationDate,
-        fileKey: `contracts/${ORG_ID}/${c.slug}.pdf`,
-        fileChecksum: fakeChecksum(c.slug),
-        extractedText: c.extractedTextPresent
-          ? `[Seed demo text] ${c.title} between Ridgeline & Voss LLP and ${c.counterparty}. Full extracted contract body would appear here in a real upload.`
-          : null,
-        deletedAt: c.deletedAt,
-        createdAt: c.createdAt,
-      },
+      select: { id: true },
     });
+
+    if (!existingContract) {
+      await prisma.contract.create({
+        data: {
+          id: c.id,
+          organizationId: ORG_ID,
+          uploadedByUserId: c.uploadedByUserId,
+          title: c.title,
+          counterparty: c.counterparty,
+          businessStatus: c.businessStatus,
+          processingStatus: c.processingStatus,
+          processingError: c.processingError,
+          legalState: c.legalState,
+          tags: c.tags,
+          effectiveDate: c.effectiveDate,
+          expirationDate: c.expirationDate,
+          fileKey: `contracts/${ORG_ID}/${c.slug}.pdf`,
+          fileChecksum: fakeChecksum(c.slug),
+          extractedText: c.extractedTextPresent
+            ? `[Seed demo text] ${c.title} between Ridgeline & Voss LLP and ${c.counterparty}. Full extracted contract body would appear here in a real upload.`
+            : null,
+          deletedAt: c.deletedAt,
+          createdAt: c.createdAt,
+        },
+      });
+    }
 
     for (const note of c.notes) {
       await prisma.contractNote.upsert({

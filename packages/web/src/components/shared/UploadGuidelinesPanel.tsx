@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 export function UploadGuidelinesPanel() {
   return (
-    <Card className="min-w-0 lg:sticky lg:top-6">
+    <Card className="min-w-0 sticky top-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Info className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -16,7 +16,7 @@ export function UploadGuidelinesPanel() {
           <ul className="space-y-2 text-muted-foreground">
             <li className="flex min-w-0 items-center gap-2">
               <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>PDF (.pdf), text or scanned</span>
+              <span>Text-based PDF (.pdf)</span>
             </li>
             <li className="flex min-w-0 items-center gap-2">
               <FileType2 className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -34,9 +34,8 @@ export function UploadGuidelinesPanel() {
         <GuidelineSection title="Recommended file size">
           <p className="text-muted-foreground">
             Keep files under{" "}
-            <span className="font-medium text-foreground">25 MB</span>.
-            Text-based PDFs usually process faster and more accurately than
-            scanned images.
+            <span className="font-medium text-foreground">25 MB</span>. Scanned
+            or image-only PDFs are not supported.
           </p>
         </GuidelineSection>
 

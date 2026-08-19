@@ -14,7 +14,8 @@
     "queue/**/*",
     "db/**/*",
     "storage/**/*",
+    "contracts/**/*",
     "prisma/seed.ts"
   ],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

@@ -59,8 +59,7 @@ function renderTemplate(
       const greeting = variables.fullName
         ? `Hello ${variables.fullName},`
         : "Hello,";
-      const token = variables.token ?? "";
-      const registerUrl = variables.registerUrl ?? "";
+      const acceptInvitationUrl = variables.acceptInvitationUrl ?? "";
       const intro = buildInvitationIntro(
         variables.inviterName,
         variables.organizationName,
@@ -72,10 +71,8 @@ function renderTemplate(
           "",
           intro,
           "",
-          "Go to the registration page and enter this invitation token along with your name and password:",
-          registerUrl,
-          "",
-          `Invitation token: ${token}`,
+          "Open the link below to set up your name and password:",
+          acceptInvitationUrl,
           "",
           "This invitation will expire in 7 days. If you weren't expecting this invitation, you can safely ignore this email.",
           "",
@@ -88,13 +85,10 @@ function renderTemplate(
             </p>
             <p>${greeting}</p>
             <p>${intro}</p>
-            <p>Go to the registration page and enter the invitation token below along with your name and password:</p>
-            <p style="margin: 20px 0;">
-              <code style="display:block;white-space:nowrap;overflow-x:auto;font-family:'SF Mono',Consolas,Menlo,monospace;font-size:16px;letter-spacing:0.02em;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:12px 16px;color:#1a1a1a;user-select:all;">${token}</code>
-            </p>
+            <p>Use the button below to set up your name and password:</p>
             <p style="margin: 28px 0;">
-              <a href="${registerUrl}" style="display:inline-block;padding:12px 24px;background:#1E3A5F;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
-                Go to Registration
+              <a href="${acceptInvitationUrl}" style="display:inline-block;padding:12px 24px;background:#1E3A5F;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+                Accept Invitation
               </a>
             </p>
             <p style="color:#666;font-size:13px;">

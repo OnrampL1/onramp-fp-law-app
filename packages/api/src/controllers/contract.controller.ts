@@ -5,6 +5,9 @@ import { createContractMetadataSchema } from "../schemas/contract.schemas";
 import type {
   ContractIdParam,
   ListContractsQuery,
+  UpdateContractContentInput,
+  UpdateContractMetadataInput,
+  SetContractLegalStateInput,
 } from "../schemas/contract.schemas";
 
 async function upload(
@@ -40,6 +43,90 @@ async function upload(
     });
 
     res.status(201).json({ data: contract });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateMetadata(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as unknown as ContractIdParam;
+    const input = req.body as UpdateContractMetadataInput;
+
+    const contract = await contractService.updateContractMetadata(
+      id,
+      input,
+      {
+        userId: req.user.userId,
+        organizationId: req.user.orgId,
+      },
+      {
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      },
+    );
+
+    res.json({ data: contract });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function setLegalState(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as unknown as ContractIdParam;
+    const input = req.body as SetContractLegalStateInput;
+
+    const contract = await contractService.setContractLegalState(
+      id,
+      input,
+      {
+        userId: req.user.userId,
+        organizationId: req.user.orgId,
+      },
+      {
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      },
+    );
+
+    res.json({ data: contract });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateContent(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as unknown as ContractIdParam;
+    const input = req.body as UpdateContractContentInput;
+
+    const content = await contractService.updateContractContent(
+      id,
+      input,
+      {
+        userId: req.user.userId,
+        organizationId: req.user.orgId,
+      },
+      {
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      },
+    );
+
+    res.json({ data: content });
   } catch (error) {
     next(error);
   }
@@ -107,6 +194,9 @@ async function getContent(
 
 export const contractController = {
   upload,
+  updateMetadata,
+  setLegalState,
+  updateContent,
   list,
   getById,
   getContent,
