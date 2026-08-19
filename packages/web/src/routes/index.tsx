@@ -6,6 +6,7 @@ import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { PlatformLayout } from "../layouts/PlatformLayout";
 import { Landing } from "../pages/Landing";
+import { RequestAccess } from "../pages/RequestAccess";
 import { Login } from "../pages/auth/Login";
 import { AcceptInvitation } from "../pages/auth/AcceptInvitation";
 import { PlatformLogin } from "../pages/platform/PlatformLogin";
@@ -26,6 +27,7 @@ import { AuditLogPage } from "../pages/AuditLogPage";
 import { OrganizationBrain } from "../pages/dashboard/OrganizationBrain";
 import LegalAssistantPage from "../pages/dashboard/LegalAssistant";
 import { InsightCategoryPage } from "@/pages/insights/InsightCategoryPage";
+import { PlatformAccessRequests } from "../pages/platform/PlatformAccessRequests";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
@@ -51,11 +53,15 @@ export function AppRoutes() {
             path="/platform/organizations"
             element={<PlatformOrganizations />}
           />
+          <Route
+            path="/platform/access-requests"
+            element={<PlatformAccessRequests />}
+          />
         </Route>
       </Route>
       {/* Public landing page */}
       <Route path="/" element={<Landing />} />
-        
+      <Route path="/request-access" element={<RequestAccess />} />
 
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>

@@ -6,7 +6,10 @@ import { SensorPulse } from "./SensorPulse";
 /** The conclusion of the transformation story. */
 export function FinalCTA() {
   return (
-    <section id="cta" className="spotlight spotlight-tight relative overflow-hidden border-b border-border">
+    <section
+      id="cta"
+      className="spotlight spotlight-tight relative overflow-hidden border-b border-border"
+    >
       <div className="pointer-events-none absolute inset-0 stage-grid opacity-40" />
       <SensorPulse />
       <div className="relative z-[1] mx-auto max-w-[1400px] px-6 py-28 lg:px-10 lg:py-36">
@@ -36,7 +39,7 @@ export function FinalCTA() {
                 <ArrowUpRight className="size-4" strokeWidth={2} />
               </Link>
               <Link
-                to="/login"
+                to="/request-access"
                 className="inline-flex h-11 items-center rounded-[10px] border border-border-strong px-5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Request access

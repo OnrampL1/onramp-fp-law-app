@@ -23,7 +23,7 @@ export async function authenticatePlatform(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const token = req.cookies?.accessToken as string | undefined;
+  const token = req.cookies?.platformAccessToken as string | undefined;
 
   if (!token) {
     res.status(401).json({ error: "Authentication required" });

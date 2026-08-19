@@ -6,7 +6,9 @@ export function LandingNav() {
       <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 lg:px-10">
         <a href="#top" className="flex items-center gap-2.5">
           <img src="/favicon.svg" alt="" className="size-6 shrink-0" />
-          <span className="text-[14px] font-medium tracking-[-0.01em]">Clausio</span>
+          <span className="text-[14px] font-medium tracking-[-0.01em]">
+            Clausio
+          </span>
         </a>
         <nav className="hidden items-center gap-7 md:flex">
           {[
@@ -31,7 +33,7 @@ export function LandingNav() {
             Sign in
           </Link>
           <Link
-            to="/login"
+            to="/request-access"
             className="inline-flex h-8 items-center rounded-[8px] bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             Request access

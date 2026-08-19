@@ -3,8 +3,8 @@ import { platformAuthService } from "../services/platform-auth.service";
 
 const isProduction = process.env.NODE_ENV === "production";
 
-const ACCESS_COOKIE = "accessToken";
-const REFRESH_COOKIE = "refreshToken";
+const ACCESS_COOKIE = "platformAccessToken";
+const REFRESH_COOKIE = "platformRefreshToken";
 
 const ACCESS_MAX_AGE = 15 * 60 * 1000;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000;

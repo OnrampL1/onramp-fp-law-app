@@ -17,3 +17,13 @@ export const authRateLimiter = rateLimit({
     error: "Too many authentication attempts, please try again later.",
   },
 });
+
+export const accessRequestRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1_000,
+  max: 5,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    error: "Too many access requests, please try again later.",
+  },
+});
