@@ -530,21 +530,23 @@ before Batch 1 is explicitly authorized to begin.**
 
 ---
 
-## Phase 7 — AI Assistant — ⏳ Future (not started)
+## Phase 7 — AI Assistant — ✅ Complete (Batches 1–5, 2026-08-19)
 
-**Roadmap-level only — see `docs/AI_ROADMAP.md` Sections 2–3 and
-`AI_ARCHITECTURE.md` Section 7 for the full agreed direction.** Not
-implementation-ready detail; do not begin without an explicit instruction
-to start Phase 7.
+**Roadmap-level only — see `docs/AI_ROADMAP.md` Sections 2–3 and 11, and
+`AI_ARCHITECTURE.md` Section 7, for the full agreed direction and the
+completion record.** `AI_ROADMAP.md` Section 11 is authoritative for what
+was actually built, including the tools table, the security guarantees,
+and the real findings (a prompt-injection vulnerability found and fixed
+during evaluation) — not duplicated here.
 
 **Sequencing note:** an earlier version of this document placed the AI
 Assistant immediately after Phase 3, since it only *structurally* depends
 on Analysis (Phase 2) and Investigator (Phase 3). That technical
-dependency is still true. **It has been deliberately superseded by a
-product decision**: the Assistant ships after Organization Brain
-Retrieval (Phase 5) and the Legal Knowledge Base (Phase 6) so it launches
+dependency is still true. **It was deliberately superseded by a product
+decision**: the Assistant shipped after Organization Brain Retrieval
+(Phase 5) and the Legal Knowledge Base (Phase 6) so it launched
 orchestrating a mature set of capabilities rather than a thin two-tool
-chatbot. See `AI_ROADMAP.md` Section 2 — this is an intentional, approved
+chatbot. See `AI_ROADMAP.md` Section 2 — this was an intentional, approved
 amendment, not a contradiction to silently resolve back to the old order.
 
 **Purpose:** plan-and-execute orchestration (`AI_ARCHITECTURE.md` Section
@@ -554,10 +556,17 @@ Knowledge Base as tools.
 **Architectural principle (unchanged):** the Assistant is an orchestration
 layer that consumes existing capabilities as tools — "a new capability
 should generally be a new tool/function, not a new orchestration system"
-(`AI_ARCHITECTURE.md` Section 18). It must not reimplement Analysis,
-Investigator, or retrieval logic.
+(`AI_ARCHITECTURE.md` Section 18). It does not reimplement Analysis,
+Investigator, or retrieval logic — confirmed true of the shipped
+implementation, not just the plan.
 
-**Depends on:** Phase 2, Phase 3, Phase 5, and Phase 6 all being complete.
+**Depended on:** Phase 2, Phase 3, Phase 5, and Phase 6 all complete —
+satisfied.
+
+**Not built, explicitly deferred:** multi-hop tool chaining beyond one
+planning round, write/mutation tools, persisted server-side conversation
+history. Starting any of these requires the same explicit-instruction gate
+that applied before Phase 7 itself was started.
 
 ---
 
@@ -575,6 +584,19 @@ conversation happens.
 ---
 
 ## Dependencies
+
+**This diagram's per-phase status labels are stale** (Phase 3/4 shown "in
+progress," Phase 5/6/7 shown "future") — they predate Phase 5's
+completion and were never updated afterward, a gap already flagged once
+before (`PHASE6_IMPLEMENTATION_PLAN.md` Section 0.1, 2026-08-12) and not
+fixed then either. Left as-is here rather than hand-editing one line out
+of a stale four-phase sequence, which would just trade one inconsistency
+for a more confusing one (a "done" Phase 7 hanging off "in progress"
+Phase 3). The dependency *shape* below (which phase reuses which
+infrastructure) is still accurate — only the status words on each line
+are wrong. `AI_ROADMAP.md` Section 1's Phase Status table is the
+authoritative, current source; re-deriving it here is exactly the
+duplication this document warns against.
 
 ```
 Phase 1 (AI Foundation) — done

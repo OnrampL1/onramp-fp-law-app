@@ -278,6 +278,10 @@ const updateContent = async (
       where: { id, organizationId },
       select: CONTRACT_CONTENT_SELECT,
     });
+  });
+};
+
+/**
  * Best-effort self-heal for a stale `legalState` found at read time (see
  * contract.service.ts refreshLegalState). Deliberately does NOT increment
  * `version` — this isn't a semantic edit a user made, and bumping it would
