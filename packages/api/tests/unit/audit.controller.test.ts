@@ -1,7 +1,14 @@
 import request from "supertest";
 
+const mockPrisma = {
+  user: {
+    findUnique: jest.fn(),
+  },
+};
+
 jest.mock("@starter-kit/shared", () => ({
   ...jest.requireActual("@starter-kit/shared"),
+  getPrismaClient: jest.fn(() => mockPrisma),
   isJtiBlacklisted: jest.fn().mockResolvedValue(false),
 }));
 
@@ -18,6 +25,16 @@ import { auditService } from "../../src/services/audit.service";
 const mockAuditService = auditService as jest.Mocked<typeof auditService>;
 
 function cookieFor(role: "OWNER" | "ADMIN" | "INTERNAL", orgId = "org-1") {
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: orgId,
+    role,
+    status: "ACTIVE",
+    organization: {
+      status: "ACTIVE",
+    },
+  });
+
   const token = signAccessToken({ userId: "user-1", orgId, role });
   return `accessToken=${token}`;
 }
@@ -29,6 +46,16 @@ const emptyResult = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: "org-1",
+    role: "INTERNAL",
+    status: "ACTIVE",
+    organization: {
+      status: "ACTIVE",
+    },
+  });
 });
 
 // ─── GET /api/organizations/:id/audit-logs ─────────────────────────────────────

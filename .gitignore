@@ -86,3 +86,10 @@ home
 
 # ─── Local DB backups (pg_dump snapshots taken before risky migrations) ───────
 backups/
+
+# ─── Local credential/debug artifacts — never legitimate to commit ────────────
+# curl cookie jars from manual API testing (contain live signed JWTs).
+*-cookies.txt
+# A one-off stray shell-redirect output (git log output saved under the wrong
+# filename), not a real config file — the exact name it was committed as.
+e.prod.yml

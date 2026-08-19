@@ -1,7 +1,14 @@
 import request from "supertest";
 
+const mockPrisma = {
+  user: {
+    findUnique: jest.fn(),
+  },
+};
+
 jest.mock("@starter-kit/shared", () => ({
   ...jest.requireActual("@starter-kit/shared"),
+  getPrismaClient: jest.fn(() => mockPrisma),
   isJtiBlacklisted: jest.fn().mockResolvedValue(false),
 }));
 
@@ -23,12 +30,32 @@ const mockInvitationService = invitationService as jest.Mocked<
 >;
 
 function cookieFor(role: "OWNER" | "ADMIN" | "INTERNAL") {
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: "org-1",
+    role,
+    status: "ACTIVE",
+    organization: {
+      status: "ACTIVE",
+    },
+  });
+
   const token = signAccessToken({ userId: "user-1", orgId: "org-1", role });
   return `accessToken=${token}`;
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: "org-1",
+    role: "INTERNAL",
+    status: "ACTIVE",
+    organization: {
+      status: "ACTIVE",
+    },
+  });
 });
 
 // ─── POST /api/invitations ─────────────────────────────────────────────────────
