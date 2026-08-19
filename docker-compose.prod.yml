@@ -14,12 +14,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    # Tuned down from Postgres's defaults, which assume a larger host than
-    # this VPS provides.
-    command: >
-      postgres
-      -c shared_buffers=64MB
-      -c max_connections=50
+    # No shared_buffers/max_connections override: that used to tune both
+    # *below* Postgres's own compiled-in defaults (128MB/100) specifically
+    # for a 1 GB VPS. The real VPS (6 vCPU/12 GB) doesn't need that — see
+    # the Deployment Review Log in docs/Clausio_Deployment_Architecture.md.
     volumes:
       - ${CLAUSIO_DATA_DIR:-/opt/clausio/data}/postgres:/var/lib/postgresql/data
     networks:
@@ -32,7 +30,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 200M
+          memory: 1G
 
   redis:
     image: redis:7-alpine
@@ -49,7 +47,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 256M
 
   minio:
     image: minio/minio:latest
@@ -70,7 +68,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 200M
+          memory: 512M
 
   minio-init:
     image: minio/mc:latest
@@ -104,7 +102,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 200M
+          memory: 512M
 
   workers:
     image: ghcr.io/onrampl1/clausio-workers:${IMAGE_TAG:-latest}
@@ -125,7 +123,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 200M
+          memory: 1.5G
 
   web:
     image: ghcr.io/onrampl1/clausio-web:${IMAGE_TAG:-latest}
@@ -135,4 +133,4 @@ services:
     deploy:
       resources:
         limits:
-          memory: 64M
+          memory: 128M
