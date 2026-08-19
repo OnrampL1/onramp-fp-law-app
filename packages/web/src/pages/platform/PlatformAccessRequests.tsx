@@ -652,12 +652,16 @@ export function PlatformAccessRequests() {
                       Organization Link
                     </dt>
                     <dd className="mt-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <a href="/platform/organizations">
-                          <Building2 className="mr-2 size-4" />
-                          Open Organizations
-                        </a>
-                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        render={
+                          <a href="/platform/organizations">
+                            <Building2 className="mr-2 size-4" />
+                            Open Organizations
+                          </a>
+                        }
+                      />
                     </dd>
                   </div>
                 )}

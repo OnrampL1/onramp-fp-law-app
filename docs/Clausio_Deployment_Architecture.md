@@ -8,6 +8,20 @@ authoritative for the application itself. Implementation batches execute
 this design; they do not redesign it. Changes to anything in this document
 require a new Deployment Review, not an ad hoc change during implementation.
 
+### Deployment Review Log
+
+- **2026-08-19 — Resource Review.** The actual provisioned VPS is 6 vCPU /
+  12 GB RAM / 200 GB SSD, not the 1 vCPU / 1 GB RAM / 25 GB SSD this document
+  originally assumed everywhere memory limits, `shared_buffers`,
+  `max_connections`, and worker concurrency are discussed below. The
+  architecture itself (Compose, bind mounts, two-network model, one shared
+  reverse proxy, images built in CI) was reviewed against the real hardware
+  and requires no change — every constraint below that was genuinely a
+  function of the 1 GB ceiling has been relaxed back toward this project's
+  own otherwise-normal defaults (see Sections 3 and 10), not maximized
+  against the new capacity. Nothing here was arbitrarily inflated just
+  because more headroom exists.
+
 ---
 
 ## 1. Overview
@@ -215,11 +229,16 @@ Two networks:
   future phases may write derived artifacts).
 - **Persistence:** None — stateless. Job state lives in Redis; results land
   in PostgreSQL.
-- **Security:** No host port, no public reachability at all. Extraction
-  concurrency is deliberately kept low (1–2, down from the higher value
-  used in development) specifically because of the 1 GB RAM ceiling —
-  parsing large files is the single most likely source of memory pressure
-  on this VPS.
+- **Security:** No host port, no public reachability at all.
+- **Concurrency (updated 2026-08-19):** `EXTRACTION_CONCURRENCY`/
+  `AI_ANALYSIS_CONCURRENCY` were lowered to `1`/`1` specifically because of
+  the original 1 GB RAM ceiling — parsing large files is the single most
+  likely source of memory pressure on this box. On the real 12 GB VPS,
+  production now uses the same concurrency this project already treats as
+  its normal default everywhere else (`.env.example` and the code's own
+  fallback in `packages/workers/src/queues/index.ts`): `3`/`2`. This is a
+  reversion to the project's existing baseline, not a new, larger number
+  invented for this VPS.
 
 ### PostgreSQL
 
@@ -234,8 +253,17 @@ Two networks:
 - **Persistence:** Bind-mounted to `/opt/clausio/data/postgres`. See
   Section 7 for why bind mounts specifically.
 - **Security:** Credentials rotated for production (never the development
-  defaults). `shared_buffers` and connection limits tuned down from
-  Postgres's defaults, which assume a larger host than this VPS provides.
+  defaults).
+- **Resource tuning (updated 2026-08-19):** `shared_buffers`/
+  `max_connections` were previously tuned *below* Postgres's own compiled-in
+  defaults (`shared_buffers=64MB`, `max_connections=50` vs. the defaults of
+  128MB/100) specifically because the original 1 GB VPS couldn't safely
+  absorb the stock configuration. On the real 12 GB VPS that constraint
+  doesn't apply, so the override was removed — Postgres now runs with its
+  own standard defaults rather than a bespoke number invented for this
+  document. The container's memory limit (Section 10) was raised
+  accordingly so the daemon isn't squeezed against a ceiling smaller than
+  its own default working-memory footprint.
 
 ### Redis
 
@@ -501,12 +529,31 @@ something more than "the compose command exited zero."
 - **Restart policy is `unless-stopped`** across every service — restarts
   automatically after a crash or host reboot, but does not fight a
   deliberate `docker compose stop`.
-- **Memory limits are set per service**, sized against the 1 GB total
-  budget (minus OS/Docker daemon overhead), so a spike or leak in any one
+- **Memory limits are set per service**, so a spike or leak in any one
   container — most plausibly `workers` during large-file extraction —
-  cannot exhaust the host and take down PostgreSQL or Redis with it. The
-  2 GB swap already provisioned is a safety margin for slowdown, not a
+  cannot exhaust the host and take down PostgreSQL or Redis with it. Any
+  swap the host provisions is a safety margin for slowdown, not a
   substitute for these limits.
+
+  **Updated 2026-08-19** for the real 6 vCPU / 12 GB VPS (previously sized
+  against a 1 GB total budget). These are calibrated allocations, not the
+  VPS's full capacity — each number reflects what its service actually
+  needs now that the constraints in Sections 3 (Postgres tuning, worker
+  concurrency) were relaxed, not an even or maximal split of 12 GB:
+
+  | Service | Previous limit | New limit | Why |
+  |---|---|---|---|
+  | `postgres` | 200M | 1G | Needs headroom for its own default `shared_buffers` (128MB) plus per-connection working memory, now that the sub-default override is gone. |
+  | `redis` | 128M | 256M | Small bump — more concurrent BullMQ jobs in flight now that worker concurrency is restored to 3/2. |
+  | `minio` | 200M | 512M | Server process overhead only; stored objects live on disk under the bind mount, not in this limit. |
+  | `api` | 200M | 512M | Stateless Express process; no longer squeezed against the old ceiling. |
+  | `workers` | 200M | 1.5G | The service Section 3 already identifies as the most likely source of memory pressure — sized for 3 concurrent extractions + 2 concurrent AI analyses, not 1 of each. |
+  | `web` | 64M | 128M | Static nginx; doubled for margin, still trivial. |
+
+  Total: ~3.9 GB of the VPS's 12 GB — leaving substantial headroom for the
+  OS, the Docker daemon, and load this document doesn't yet need to plan
+  for. Not maximized deliberately: there's no repository evidence calling
+  for more than this, and inflating these further would just be guessing.
 - **Backup and restore-verification** run on their own schedule,
   independent of deploys, per Section 7.
 

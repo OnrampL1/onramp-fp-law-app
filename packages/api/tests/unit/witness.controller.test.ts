@@ -4,6 +4,9 @@ const mockWitnessDb = {
   witnessInvitation: {
     findUnique: jest.fn(),
   },
+  user: {
+    findUnique: jest.fn(),
+  },
 };
 
 jest.mock("@starter-kit/shared", () => ({
@@ -33,6 +36,16 @@ const mockWitnessService = witnessService as jest.Mocked<typeof witnessService>;
 const mockVerifyWitnessSessionToken = verifyWitnessSessionToken as jest.Mock;
 
 function cookieFor(role: "OWNER" | "ADMIN" | "INTERNAL") {
+  mockWitnessDb.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: "org-1",
+    role,
+    status: "ACTIVE",
+    organization: {
+      status: "ACTIVE",
+    },
+  });
+
   const token = signAccessToken({ userId: "user-1", orgId: "org-1", role });
   return `accessToken=${token}`;
 }
@@ -58,6 +71,16 @@ const validBody = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+
+  mockWitnessDb.user.findUnique.mockResolvedValue({
+    id: "user-1",
+    organizationId: "org-1",
+    role: "INTERNAL",
+    status: "ACTIVE",
+    organization: {
+      status: "ACTIVE",
+    },
+  });
 });
 
 // ─── GET /api/users/witness-link ───────────────────────────────────────────────

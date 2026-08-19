@@ -58,6 +58,7 @@ describe("AuthService.acceptInvitation", () => {
       id: "inv-1",
       status: "ACCEPTED",
       expiresAt: new Date(Date.now() + 60_000),
+      organization: { status: "ACTIVE" },
     });
 
     await expect(
@@ -71,6 +72,7 @@ describe("AuthService.acceptInvitation", () => {
       id: "inv-1",
       status: "REVOKED",
       expiresAt: new Date(Date.now() + 60_000),
+      organization: { status: "ACTIVE" },
     });
 
     await expect(
@@ -84,6 +86,7 @@ describe("AuthService.acceptInvitation", () => {
       id: "inv-1",
       status: "PENDING",
       expiresAt: new Date(Date.now() - 60_000), // already past
+      organization: { status: "ACTIVE" },
     });
 
     await expect(
@@ -102,6 +105,7 @@ describe("AuthService.acceptInvitation", () => {
       id: "inv-1",
       status: "EXPIRED",
       expiresAt: new Date(Date.now() - 60_000),
+      organization: { status: "ACTIVE" },
     });
 
     await expect(
@@ -120,6 +124,7 @@ describe("AuthService.acceptInvitation", () => {
       role: "INTERNAL",
       status: "PENDING",
       expiresAt: new Date(Date.now() + 60_000),
+      organization: { status: "ACTIVE" },
     });
     mockDb.user.create.mockResolvedValue({
       id: "user-1",

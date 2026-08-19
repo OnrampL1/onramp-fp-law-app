@@ -1,5 +1,5 @@
 import { cn } from "../../lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Card, CardContent, CardTitle } from "../../components/ui/card";
 import { SECURITY_BADGE_STYLES } from "./types/styles";
 import type { SecurityFeature } from "./types";
 
