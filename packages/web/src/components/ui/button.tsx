@@ -1,4 +1,5 @@
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
@@ -31,20 +32,27 @@ const buttonVariants = cva(
   },
 );
 
-export interface ButtonProps
-  extends
-    ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+export type ButtonProps = useRender.ComponentProps<"button"> &
+  React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants>;
 
-const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => (
-    <button
-      className={cn(buttonVariants({ variant, size, className }))}
-      ref={ref}
-      {...props}
-    />
-  ),
-);
-Button.displayName = "Button";
+// Composition uses Base UI's render-prop (`useRender`/`mergeProps`), the
+// same primitive already used throughout components/ui/sidebar.tsx — not
+// Radix's asChild/Slot, which this project doesn't depend on anywhere.
+// Callers that need Button to render as something other than <button>
+// (e.g. a react-router Link) pass `render={<Link to="..." />}` instead of
+// an asChild boolean wrapping a single child.
+function Button({ className, variant, size, render, ...props }: ButtonProps) {
+  return useRender({
+    defaultTagName: "button",
+    props: mergeProps<"button">(
+      {
+        className: cn(buttonVariants({ variant, size, className })),
+      },
+      props,
+    ),
+    render,
+  });
+}
 
 export { Button, buttonVariants };

@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -42,11 +43,19 @@ function mockAuth(overrides = {}) {
   });
 }
 
+function renderLogin() {
+  render(
+    <MemoryRouter>
+      <Login />
+    </MemoryRouter>,
+  );
+}
+
 describe("Login", () => {
   it("shows a loading state while authentication initializes", () => {
     mockAuth({ isLoading: true });
 
-    render(<Login />);
+    renderLogin();
 
     expect(
       screen.queryByRole("button", { name: /sign in/i }),
@@ -66,7 +75,7 @@ describe("Login", () => {
       isLoading: false,
     });
 
-    render(<Login />);
+    renderLogin();
 
     await waitFor(() => {
       expect(mocks.navigate).toHaveBeenCalledWith("/dashboard", {
@@ -82,7 +91,7 @@ describe("Login", () => {
   it("renders the login form for unauthenticated users", () => {
     mockAuth();
 
-    render(<Login />);
+    renderLogin();
 
     expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
@@ -93,7 +102,7 @@ describe("Login", () => {
     const user = userEvent.setup();
     mockAuth();
 
-    render(<Login />);
+    renderLogin();
 
     await user.type(
       screen.getByLabelText(/email address/i),

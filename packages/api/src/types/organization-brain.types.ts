@@ -32,7 +32,7 @@ export interface OrganizationBrainItemDetailDto extends OrganizationBrainItemLis
   downloadUrlExpiresInSeconds: number;
 }
 
-export interface OrganizationBrainItemCreateResultDto extends OrganizationBrainItemListItemDto {}
+export type OrganizationBrainItemCreateResultDto = OrganizationBrainItemListItemDto;
 
 export interface OrganizationBrainItemListPaginationMeta {
   page: number;
