@@ -2,18 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, Clock, LogOut, Moon, Sparkles, Sun } from "lucide-react";
+import { Search, Bell, LogOut, Moon, Sun } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useNotifications } from "@/hooks/useNotifications";
+import {
+  useMarkNotificationRead,
+  useNotificationsFeed,
+} from "@/hooks/useNotifications";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import { SearchDropdown } from "@/components/layout/search/SearchDropdown";
 import { SearchModal } from "@/components/layout/search/SearchModal";
-import { cn, formatRelativeTime } from "@/lib/utils";
+import { NotificationsViewAllModal } from "@/components/notifications/NotificationsViewAllModal";
+import { cn } from "@/lib/utils";
+import { toNotificationDisplay } from "@/lib/notifications";
 import type { NotificationItem } from "@/types/notifications";
 import { useTheme } from "@/providers/ThemeProvider";
 
-import { Badge } from "../ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,70 +31,11 @@ import { SidebarTrigger } from "../ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { Separator } from "@base-ui/react";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function formatExpiryInDays(isoDate: string): string {
-  const today = new Date();
-  const todayUtcMidnight = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
-  const expiry = new Date(isoDate);
-  const expiryUtcMidnight = Date.UTC(
-    expiry.getUTCFullYear(),
-    expiry.getUTCMonth(),
-    expiry.getUTCDate(),
-  );
-  const daysUntil = Math.round((expiryUtcMidnight - todayUtcMidnight) / DAY_MS);
-
-  if (daysUntil <= 0) return "today";
-  if (daysUntil === 1) return "tomorrow";
-  return `in ${daysUntil} days`;
-}
-
-function toDisplayNotification(item: NotificationItem) {
-  if (item.type === "CONTRACT_EXPIRING") {
-    const expiry = formatExpiryInDays(item.occurredAt);
-    return {
-      key: item.id,
-      icon: Clock,
-      iconClassName: "bg-amber-50 text-amber-600",
-      title: "Contract expiring soon",
-      description: `${item.contractTitle} expires ${expiry}.`,
-      time: expiry,
-    };
-  }
-
-  const time = formatRelativeTime(item.occurredAt);
-  return {
-    key: item.id,
-    icon: Sparkles,
-    iconClassName: "bg-emerald-50 text-emerald-600",
-    title: "AI analysis complete",
-    description: `Analysis completed for ${item.contractTitle}.`,
-    time,
-  };
-}
-
-const SEEN_STORAGE_KEY = "clausio:notifications:seenIds";
-
-function readSeenIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(SEEN_STORAGE_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeSeenIds(ids: string[]): void {
-  try {
-    localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(ids));
-  } catch {
-    // localStorage unavailable; notification seen state just will not persist.
-  }
-}
+const DROPDOWN_PAGE_SIZE = 10;
+// The dropdown is a quick glance, not the full history — cap what it'll
+// ever accumulate via "Load more" and point to the "View all" modal (which
+// scrolls without limit) once a user actually wants to dig further back.
+const DROPDOWN_ITEM_CAP = 20;
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -102,6 +47,14 @@ export function Header() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Deliberately a separate state variable from the search modal's
+  // `modalOpen` above — Header.tsx previously had a real naming collision
+  // here (a notifications `handleViewAll` that actually opened the search
+  // modal because both features shared one `modalOpen`/`handleViewAll`
+  // pair). Kept distinct on purpose so that can't happen again.
+  const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
+  const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
 
   const showDropdown = dropdownOpen && search.isActive && !modalOpen;
 
@@ -133,22 +86,41 @@ export function Header() {
     search.setQuery("");
   }
 
-  function handleViewAll() {
+  function handleViewAllSearch() {
     setDropdownOpen(false);
     setModalOpen(true);
   }
 
-  const { data: notifications, isLoading, isError } = useNotifications();
-  const notificationCount = notifications?.length ?? 0;
+  function handleViewAllNotifications() {
+    setNotificationsMenuOpen(false);
+    setNotificationsModalOpen(true);
+  }
 
-  const [seenIds, setSeenIds] = useState<Set<string>>(() => readSeenIds());
-  const hasUnseen = (notifications ?? []).some((item) => !seenIds.has(item.id));
+  const {
+    data: notificationPages,
+    isLoading: notificationsLoading,
+    isError: notificationsError,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useNotificationsFeed(DROPDOWN_PAGE_SIZE);
 
-  function handleNotificationsOpenChange(open: boolean) {
-    if (!open || !notifications) return;
-    const ids = notifications.map((item) => item.id);
-    writeSeenIds(ids);
-    setSeenIds(new Set(ids));
+  const markRead = useMarkNotificationRead();
+
+  const allLoadedNotifications = notificationPages?.pages.flatMap((page) => page.items) ?? [];
+  const notifications = allLoadedNotifications.slice(0, DROPDOWN_ITEM_CAP);
+  const notificationCount = notifications.length;
+  const canLoadMore = hasNextPage && allLoadedNotifications.length < DROPDOWN_ITEM_CAP;
+  const atCap = allLoadedNotifications.length >= DROPDOWN_ITEM_CAP;
+  const hasUnread = notifications.some((item) => !item.read);
+  const orgNotifications = notifications.filter((item) => item.scope === "ORG");
+  const personalNotifications = notifications.filter(
+    (item) => item.scope === "PERSONAL",
+  );
+
+  function handleNotificationSelect(item: NotificationItem) {
+    if (!item.read) markRead.mutate(item.id);
+    navigate(toNotificationDisplay(item).route);
   }
 
   async function handleLogout() {
@@ -159,6 +131,58 @@ export function Header() {
     } finally {
       setIsLoggingOut(false);
     }
+  }
+
+  function renderNotificationGroup(label: string, items: NotificationItem[]) {
+    if (items.length === 0) return null;
+
+    return (
+      <div key={label}>
+        <div className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </div>
+        {items.map((item) => {
+          const display = toNotificationDisplay(item);
+          const Icon = display.icon;
+
+          return (
+            <DropdownMenuItem
+              key={item.id}
+              className="items-start gap-2.5 py-2.5"
+              onClick={() => handleNotificationSelect(item)}
+            >
+              <span
+                className={cn(
+                  "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full",
+                  display.iconClassName,
+                )}
+              >
+                <Icon className="size-3.5" />
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                    {!item.read && (
+                      <span
+                        className="size-1.5 shrink-0 rounded-full bg-destructive"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span className="truncate">{display.title}</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {display.time}
+                  </span>
+                </div>
+                <span className="truncate text-xs text-muted-foreground">
+                  {display.description}
+                </span>
+              </div>
+            </DropdownMenuItem>
+          );
+        })}
+      </div>
+    );
   }
 
   return (
@@ -195,7 +219,7 @@ export function Header() {
             isLoadingLive={search.isLoadingLive}
             isLiveError={search.isLiveError}
             onSelect={handleDropdownSelect}
-            onViewAll={handleViewAll}
+            onViewAll={handleViewAllSearch}
           />
         )}
       </div>
@@ -208,6 +232,11 @@ export function Header() {
         groups={search.groups}
         isLoadingLive={search.isLoadingLive}
         isLiveError={search.isLiveError}
+      />
+
+      <NotificationsViewAllModal
+        open={notificationsModalOpen}
+        onOpenChange={setNotificationsModalOpen}
       />
 
       <div className="ml-auto flex items-center gap-2">
@@ -226,7 +255,10 @@ export function Header() {
           )}
         </Button>
 
-        <DropdownMenu onOpenChange={handleNotificationsOpenChange}>
+        <DropdownMenu
+          open={notificationsMenuOpen}
+          onOpenChange={setNotificationsMenuOpen}
+        >
           <DropdownMenuTrigger
             render={
               <Button
@@ -238,75 +270,78 @@ export function Header() {
             }
           >
             <Bell className="size-4" />
-            {notificationCount > 0 && hasUnseen && (
+            {notificationCount > 0 && hasUnread && (
               <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive ring-2 ring-background" />
             )}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
+          <DropdownMenuContent align="end" className="w-96">
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="flex items-center justify-between">
-                Notifications
-                {notificationCount > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {notificationCount}
-                  </Badge>
-                )}
-              </DropdownMenuLabel>
+              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
 
-              {isLoading && (
+              {notificationsLoading && (
                 <div className="px-2 py-4 text-center text-xs text-muted-foreground">
                   Loading notifications...
                 </div>
               )}
 
-              {isError && (
+              {notificationsError && (
                 <div className="px-2 py-4 text-center text-xs text-destructive">
                   Unable to load notifications.
                 </div>
               )}
 
-              {!isLoading && !isError && notificationCount === 0 && (
+              {!notificationsLoading && !notificationsError && notificationCount === 0 && (
                 <div className="px-2 py-4 text-center text-xs text-muted-foreground">
                   You're all caught up - no notifications right now.
                 </div>
               )}
 
-              {!isLoading &&
-                !isError &&
-                notifications?.map((item) => {
-                  const display = toDisplayNotification(item);
-                  const Icon = display.icon;
+              {!notificationsLoading &&
+                !notificationsError &&
+                renderNotificationGroup("Organization", orgNotifications)}
+              {!notificationsLoading &&
+                !notificationsError &&
+                renderNotificationGroup("For You", personalNotifications)}
 
-                  return (
-                    <DropdownMenuItem
-                      key={display.key}
-                      className="items-start gap-2.5 py-2.5"
+              {!notificationsLoading && !notificationsError && notificationCount > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="flex items-center justify-between gap-2 px-1 py-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      disabled={!canLoadMore || isFetchingNextPage}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        fetchNextPage();
+                      }}
                     >
-                      <span
-                        className={cn(
-                          "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full",
-                          display.iconClassName,
-                        )}
-                      >
-                        <Icon className="size-3.5" />
-                      </span>
-                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <div className="flex w-full items-center justify-between gap-2">
-                          <span className="text-sm font-medium">
-                            {display.title}
-                          </span>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {display.time}
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {display.description}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  );
-                })}
+                      {isFetchingNextPage
+                        ? "Loading…"
+                        : atCap
+                          ? "View all for more"
+                          : hasNextPage
+                            ? "Load more"
+                            : "No more notifications"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleViewAllNotifications();
+                      }}
+                    >
+                      View all
+                    </Button>
+                  </div>
+                </>
+              )}
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
