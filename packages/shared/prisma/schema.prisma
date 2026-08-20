@@ -43,6 +43,7 @@ model Organization {
   organizationBrainItems  OrganizationBrainItem[]
   organizationBrainChunks OrganizationBrainChunk[]
   accessRequest           OrganizationAccessRequest? @relation("AccessRequestOrganization")
+  notifications           Notification[]
 
   @@map("organizations")
 }
@@ -187,6 +188,16 @@ model User {
   aiAnalyses             AIAnalysis[]
   auditLogs              AuditLog[]
   organizationBrainItems OrganizationBrainItem[] @relation("OrganizationBrainItemCreatedBy")
+  notificationsReceived  Notification[]          @relation("NotificationRecipient")
+  notificationsTriggered Notification[]          @relation("NotificationActor")
+
+  // Personal, self-service notification toggles (contractExpiring,
+  // aiAnalysisCompleted) — separate from OrganizationSettings.
+  // notificationPreferences, which is the admin-gated org-wide kill switch.
+  // Missing/null key means enabled; only an explicit `false` mutes it, so an
+  // untouched User row keeps receiving notifications rather than silently
+  // opting out by omission.
+  notificationPreferences Json? @map("notification_preferences")
 
   @@index([organizationId, role])
   @@map("users")
@@ -285,6 +296,7 @@ model Contract {
   chunks             ContractChunk[]
   witnessInvitations WitnessInvitation[]
   auditLogs          AuditLog[]
+  notifications      Notification[]
 
   @@index([organizationId, businessStatus])
   @@index([organizationId, processingStatus])
@@ -805,4 +817,60 @@ model AuditLog {
   @@index([contractId])
   @@index([actorUserId])
   @@map("audit_logs")
+}
+
+// ─── Notification domain ──────────────────────────────────────────────────
+// One row per (recipient, event) — ORG-scoped events are fanned out to every
+// eligible member at creation time rather than stored once and joined
+// against a read-tracker, so preference muting can skip creating a row for
+// an individual recipient instead of hiding an already-created shared row.
+// See DOMAIN_REVIEW_BACKLOG.md for the sign-off note on this addition.
+
+enum NotificationScope {
+  ORG
+  PERSONAL
+}
+
+enum NotificationType {
+  CONTRACT_EXPIRING
+  AI_ANALYSIS_COMPLETED
+  RISK_FLAG_DETECTED
+}
+
+model Notification {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  userId         String @map("user_id") @db.Uuid
+  actorUserId    String? @map("actor_user_id") @db.Uuid
+
+  scope NotificationScope
+  type  NotificationType
+
+  targetEntityType String  @map("target_entity_type")
+  targetEntityId   String  @map("target_entity_id") @db.Uuid
+  contractId       String? @map("contract_id") @db.Uuid
+
+  // Denormalized rendering payload (e.g. contractTitle, occurredAt) captured
+  // at creation time so listing never needs to join back to Contract/
+  // AIAnalysis just to render a title that may since have changed.
+  data Json?
+
+  read   Boolean   @default(false)
+  readAt DateTime? @map("read_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  // Cascade (not this schema's usual Restrict) deliberately: Users are only
+  // ever soft-status'd, never hard-deleted, so this never fires in practice —
+  // but "block deleting a user because they have notifications" would be the
+  // wrong failure mode if that ever changes. Same reasoning for contractId.
+  user      User      @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actorUser User?     @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  contract  Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, read])
+  @@index([type, contractId])
+  @@map("notifications")
 }
