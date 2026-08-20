@@ -9,6 +9,7 @@ export const QUEUE_NAMES = {
   AI_ANALYSIS_AGGREGATE: "ai-analysis-aggregate",
   ORGANIZATION_BRAIN_EMBEDDINGS: "organization-brain-embeddings",
   LEGAL_KB_EMBEDDINGS: "legal-kb-embeddings",
+  NOTIFICATION_EXPIRING_SWEEP: "notification-expiring-sweep",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -34,6 +35,11 @@ export type InvitationExpiryJobData = Record<string, never>;
 // against "now", it takes no parameters.
 export type ContractLegalStateSweepJobData = Record<string, never>;
 
+// Same shape again — recomputes CONTRACT_EXPIRING notifications for every
+// org against "now" each run; dedup against already-notified (userId,
+// contractId) pairs happens inside the job, not via job parameters.
+export type NotificationExpiringSweepJobData = Record<string, never>;
+
 export interface ExtractionJobData {
   contractId: string;
   fileKey: string;
@@ -55,6 +61,10 @@ export interface InvitationExpiryJobResult {
 
 export interface ContractLegalStateSweepJobResult {
   updatedCount: number;
+}
+
+export interface NotificationExpiringSweepJobResult {
+  createdCount: number;
 }
 
 export interface ExtractionJobResult {
@@ -141,4 +151,5 @@ export type JobData =
   | AIAnalysisJobData
   | AIAnalysisAggregateJobData
   | OrganizationBrainEmbeddingsJobData
-  | LegalKbEmbeddingsJobData;
+  | LegalKbEmbeddingsJobData
+  | NotificationExpiringSweepJobData;

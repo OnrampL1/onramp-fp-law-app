@@ -6,6 +6,7 @@ import {
   createWorkers,
   scheduleInvitationExpirySweep,
   scheduleContractLegalStateSweep,
+  scheduleNotificationExpiringSweep,
 } from "./src/queues";
 
 async function main(): Promise<void> {
@@ -15,6 +16,7 @@ async function main(): Promise<void> {
   const workers = createWorkers();
   await scheduleInvitationExpirySweep();
   await scheduleContractLegalStateSweep();
+  await scheduleNotificationExpiringSweep();
 
   console.info(
     `Started ${workers.length} worker(s): ${workers.map((w) => w.name).join(", ")}`,

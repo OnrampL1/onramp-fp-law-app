@@ -5,6 +5,7 @@ import {
 } from "@prisma/client";
 import { getPrismaClient } from "@starter-kit/shared";
 import { auditService } from "../services/audit.service";
+import { notificationService } from "../services/notification.service";
 import {
   AI_ANALYSIS_DETAIL_SELECT,
   AI_ANALYSIS_LIST_SELECT,
@@ -78,6 +79,14 @@ const create = async (
       ipAddress: audit.ipAddress,
       userAgent: audit.userAgent,
     });
+
+    if (input.status === "COMPLETED") {
+      await notificationService.createForAnalysisCompleted(tx, {
+        organizationId: audit.organizationId,
+        contractId: input.contractId,
+        actorUserId: audit.actorUserId,
+      });
+    }
 
     return analysis;
   });

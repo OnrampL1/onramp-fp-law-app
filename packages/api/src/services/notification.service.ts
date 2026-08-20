@@ -1,47 +1,176 @@
+import type { Prisma, NotificationType } from "@prisma/client";
+import {
+  isOrgNotificationEnabled,
+  isPersonalNotificationEnabled,
+  type OrganizationNotificationPreferences,
+  type UserNotificationPreferences,
+} from "@starter-kit/shared";
 import { notificationRepository } from "../repositories/notification.repository";
-import type { NotificationItemDto } from "../types/notification.types";
+import type {
+  ListNotificationsQuery,
+  UpdateNotificationPreferencesInput,
+} from "../schemas/notification.schemas";
+import type {
+  NotificationItemDto,
+  NotificationListResult,
+} from "../types/notification.types";
 
-const LIMIT_PER_TYPE = 5;
-const TOTAL_LIMIT = 10;
+interface NotificationDataPayload {
+  contractTitle: string;
+  occurredAt: string;
+  severity?: string;
+  category?: string;
+  flagCount?: number;
+}
+
+function toDto(row: {
+  id: string;
+  type: NotificationType;
+  scope: "ORG" | "PERSONAL";
+  contractId: string | null;
+  data: Prisma.JsonValue;
+  read: boolean;
+  readAt: Date | null;
+}): NotificationItemDto {
+  const data = row.data as unknown as NotificationDataPayload;
+
+  return {
+    id: row.id,
+    type: row.type,
+    scope: row.scope,
+    contractId: row.contractId!,
+    contractTitle: data.contractTitle,
+    occurredAt: data.occurredAt,
+    severity: data.severity,
+    category: data.category,
+    flagCount: data.flagCount,
+    read: row.read,
+    readAt: row.readAt?.toISOString() ?? null,
+  };
+}
+
+interface CreateForEventInput {
+  organizationId: string;
+  contractId: string;
+  actorUserId?: string;
+}
+
+// The single hook AI_ANALYSIS_COMPLETED fires through — called from inside
+// ai-analysis.repository.ts's create() transaction, same invariant as
+// auditService.logEvent (write lands in the same transaction as the event
+// it documents, or not at all). PERSONAL-scope recipient is the contract's
+// uploader today; there's no reviewer/assignee concept in the domain model
+// yet, so "for you" can only ever mean "you uploaded this" — see
+// DOMAIN_REVIEW_BACKLOG.md.
+async function createForAnalysisCompleted(
+  tx: Prisma.TransactionClient,
+  input: CreateForEventInput,
+): Promise<void> {
+  const contract = await tx.contract.findUnique({
+    where: { id: input.contractId },
+    select: { title: true, uploadedByUserId: true },
+  });
+  if (!contract) return;
+
+  const orgSettings = await tx.organizationSettings.findUnique({
+    where: { organizationId: input.organizationId },
+    select: { notificationPreferences: true },
+  });
+  const orgPreferences =
+    orgSettings?.notificationPreferences as OrganizationNotificationPreferences | null;
+  if (!isOrgNotificationEnabled(orgPreferences, "AI_ANALYSIS_COMPLETED")) {
+    return;
+  }
+
+  const recipient = await tx.user.findUnique({
+    where: { id: contract.uploadedByUserId },
+    select: { status: true, notificationPreferences: true },
+  });
+  if (!recipient || recipient.status !== "ACTIVE") return;
+
+  const personalPreferences =
+    recipient.notificationPreferences as UserNotificationPreferences | null;
+  if (!isPersonalNotificationEnabled(personalPreferences, "AI_ANALYSIS_COMPLETED")) {
+    return;
+  }
+
+  await notificationRepository.create(tx, {
+    organizationId: input.organizationId,
+    userId: contract.uploadedByUserId,
+    actorUserId: input.actorUserId,
+    scope: "PERSONAL",
+    type: "AI_ANALYSIS_COMPLETED",
+    targetEntityType: "Contract",
+    targetEntityId: input.contractId,
+    contractId: input.contractId,
+    data: {
+      contractTitle: contract.title,
+      occurredAt: new Date().toISOString(),
+    },
+  });
+}
 
 async function listNotifications(
-  organizationId: string,
-): Promise<NotificationItemDto[]> {
-  const [expiringContracts, recentAnalyses] = await Promise.all([
-    notificationRepository.findExpiringContracts(organizationId, LIMIT_PER_TYPE),
-    notificationRepository.findRecentCompletedAnalyses(
-      organizationId,
-      LIMIT_PER_TYPE,
-    ),
-  ]);
-
-  // expirationDate is guaranteed non-null by the repository's where clause;
-  // the filter just satisfies Prisma's nullable field type without an
-  // unsafe assertion.
-  const expiringItems: NotificationItemDto[] = expiringContracts
-    .filter((contract) => contract.expirationDate !== null)
-    .map((contract) => ({
-      id: `contract-expiring:${contract.id}`,
-      type: "CONTRACT_EXPIRING",
-      contractId: contract.id,
-      contractTitle: contract.title,
-      occurredAt: contract.expirationDate!.toISOString(),
-    }));
-
-  const analysisItems: NotificationItemDto[] = recentAnalyses.map(
-    (analysis) => ({
-      id: `ai-analysis-completed:${analysis.id}`,
-      type: "AI_ANALYSIS_COMPLETED",
-      contractId: analysis.contractId,
-      contractTitle: analysis.contract.title,
-      occurredAt: analysis.createdAt.toISOString(),
-    }),
+  userId: string,
+  query: ListNotificationsQuery,
+): Promise<NotificationListResult> {
+  const { rows, total } = await notificationRepository.list(
+    userId,
+    {
+      scope: query.scope,
+      type: query.type,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+    },
+    { page: query.page, limit: query.limit },
   );
 
-  // Expiring-soon first (more actionable), then recent analyses, capped.
-  return [...expiringItems, ...analysisItems].slice(0, TOTAL_LIMIT);
+  return {
+    data: rows.map(toDto),
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
+  };
+}
+
+async function markRead(
+  userId: string,
+  id: string,
+): Promise<NotificationItemDto | null> {
+  const row = await notificationRepository.markRead(id, userId);
+  return row ? toDto(row) : null;
+}
+
+async function markAllRead(userId: string): Promise<{ updatedCount: number }> {
+  const result = await notificationRepository.markAllRead(userId);
+  return { updatedCount: result.count };
+}
+
+async function getPersonalPreferences(
+  userId: string,
+): Promise<UserNotificationPreferences> {
+  const user = await notificationRepository.getUserPreferences(userId);
+  return (user.notificationPreferences as UserNotificationPreferences | null) ?? {};
+}
+
+async function updatePersonalPreferences(
+  userId: string,
+  input: UpdateNotificationPreferencesInput,
+): Promise<UserNotificationPreferences> {
+  const current = await getPersonalPreferences(userId);
+  const next = { ...current, ...input };
+  const updated = await notificationRepository.updateUserPreferences(userId, next);
+  return (updated.notificationPreferences as UserNotificationPreferences | null) ?? {};
 }
 
 export const notificationService = {
+  createForAnalysisCompleted,
   listNotifications,
+  markRead,
+  markAllRead,
+  getPersonalPreferences,
+  updatePersonalPreferences,
 };

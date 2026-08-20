@@ -15,3 +15,6 @@ export * from "../storage";
 
 // Contracts
 export * from "../contracts";
+
+// Notifications
+export * from "../notifications";

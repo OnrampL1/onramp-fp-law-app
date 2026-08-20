@@ -1,3 +1,4 @@
+import * as React from "react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -42,17 +43,28 @@ export type ButtonProps = useRender.ComponentProps<"button"> &
 // Callers that need Button to render as something other than <button>
 // (e.g. a react-router Link) pass `render={<Link to="..." />}` instead of
 // an asChild boolean wrapping a single child.
-function Button({ className, variant, size, render, ...props }: ButtonProps) {
-  return useRender({
-    defaultTagName: "button",
-    props: mergeProps<"button">(
-      {
-        className: cn(buttonVariants({ variant, size, className })),
-      },
-      props,
-    ),
-    render,
-  });
-}
+//
+// Must be React.forwardRef: base-ui primitives that render Button via
+// `render={<Button ... />}` (e.g. DropdownMenuTrigger) attach a ref to
+// register the DOM node as the floating-ui anchor. Without forwardRef,
+// React silently drops that ref on a plain function component, so
+// floating-ui never learns which element is the trigger — its
+// outside-press dismiss logic then treats a click on the trigger itself
+// as "outside", closing the menu the instant it opens.
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button({ className, variant, size, render, ...props }, ref) {
+    return useRender({
+      defaultTagName: "button",
+      ref,
+      props: mergeProps<"button">(
+        {
+          className: cn(buttonVariants({ variant, size, className })),
+        },
+        props,
+      ),
+      render,
+    });
+  },
+);
 
 export { Button, buttonVariants };
