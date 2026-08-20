@@ -588,3 +588,195 @@ what we noticed.
   the same document already stating "Batches 1–6 are complete" since
   2026-08-14. Corrected to match; not a new decision, just the table
   catching up to what the document's own body already said.
+
+### AI_ANALYSIS_COMPLETED PERSONAL Notifications Can Only Ever Mean "You Uploaded This"
+
+- Identified: Persisted per-user Notifications backend (2026-08-20).
+- Classification: Pre-existing domain-model limit, not a bug in this feature.
+- Status: Open, not built.
+- Notes: `notificationService.createForAnalysisCompleted` resolves the
+  PERSONAL-scope recipient as `Contract.uploadedByUserId` — there's no
+  reviewer/assignee/watcher concept anywhere in the schema, so "for you" on
+  an AI analysis notification can only ever mean "you're the uploader."
+  Revisit once (if) a real assignment/reviewer concept exists on `Contract`;
+  don't bolt a second recipient path onto notifications ahead of that.
+
+### `AuditLog.contractId`'s `onDelete: SetNull` Is Unreachable — `audit_logs` Is Append-Only by DB Trigger
+
+- Identified: Persisted per-user Notifications backend, while writing a
+  verification script that hard-deleted a test `Contract` (2026-08-20).
+- Classification: Real schema/DB inconsistency, discovered incidentally —
+  not caused by, or specific to, the Notifications feature.
+- Status: Open, not fixed.
+- Notes: `schema.prisma` declares `AuditLog.contract` as
+  `onDelete: SetNull`, but the DB has `audit_logs_no_update` /
+  `audit_logs_no_delete` triggers (`reject_audit_log_mutation()`) enforcing
+  true append-only immutability — confirmed directly:
+  `prisma.contract.delete()` on a contract with any audit history throws
+  Postgres error `P0001 audit_logs is append-only: UPDATE is not
+  permitted`, because the FK's SET NULL action is itself an UPDATE to
+  `audit_logs`. In practice this is harmless today — real application code
+  never hard-deletes a `Contract`, only sets `deletedAt` — but the schema
+  declares FK behavior the DB can never actually perform for any contract
+  with ≥1 audit log row (i.e. almost every real contract). Worth a Domain
+  Review pass to either document this as intentional (hard-delete is simply
+  not supported once audited) or change the declared `onDelete` behavior to
+  match reality.
+
+### `OrganizationSettings.notificationPreferences` Shape Mismatch Between Seed Data and the Live Settings Feature
+
+- Identified: Persisted per-user Notifications backend, while seeding test
+  data for verification (2026-08-20).
+- Classification: Stale seed fixture, not an application bug.
+- Status: Open, not fixed.
+- Notes: The seeded Ridgeline Voss org's `notification_preferences` JSON is
+  `{"emailDigestEnabled": true, "expiryAlertDaysBefore": 30}` — but
+  `NotificationSettings.tsx` / `settings.service.ts` / `settings.schemas.ts`
+  read and write a completely different shape:
+  `{contractUpdates, riskAlerts, aiInsights}`. Doesn't break anything today
+  (both this feature's and the settings UI's preference reads treat unknown
+  keys as "unset," which defaults to enabled/false respectively rather than
+  erroring), but `packages/shared/prisma/seed.ts` should be updated to match
+  the current settings shape so a fresh seed reflects real app behavior.
+
+### `pdfjs-dist` Missing From Installed `node_modules` Despite Being a Declared `packages/workers` Dependency
+
+- Identified: Persisted per-user Notifications backend, while typechecking
+  `packages/workers` for the new sweep job (2026-08-20).
+- Classification: Environment/install drift, not caused by this feature.
+- Status: Open, not fixed.
+- Notes: `packages/workers/package.json` declares `"pdfjs-dist": "^6.2.108"`,
+  but it's absent from `node_modules` entirely (not just missing types) in
+  this checkout. `npx tsc --project tsconfig.build.json` and `npm run build`
+  both fail on `src/lib/text-extraction.ts` with `Cannot find module
+  'pdfjs-dist/...'`. Because `packages/workers/src/queues/index.ts` wires up
+  every job (including extraction) into one `createWorkers()` call, this
+  would also break booting the entire worker fleet at runtime, not just the
+  extraction path specifically — worth an `npm install` / lockfile check
+  before anyone next needs a full `npm run dev`/`build` in `packages/workers`.
+
+### `DropdownMenuTrigger`'s `Button` Ref Isn't Forwarded — Breaks Floating-UI Anchor Positioning (at least in headless Chromium)
+
+- Identified: Notifications frontend pass, while browser-verifying the new
+  grouped bell dropdown (2026-08-20).
+- Classification: Pre-existing, systemic — not introduced by, or specific
+  to, the notifications feature.
+- Status: **Fixed** (2026-08-20). Confirmed not just cosmetic: in real
+  (non-headless-quirk) usage, the user reported the notifications dropdown
+  opening and then immediately closing itself on click — floating-ui's
+  outside-press dismiss logic couldn't recognize the trigger's own DOM node
+  as "inside" the anchor without a forwarded ref, so it treated the click
+  that opened the menu as an outside click and closed it again. Fixed by
+  wrapping `Button` in `React.forwardRef` in `components/ui/button.tsx` and
+  threading the ref into `useRender`'s dedicated `ref` parameter (not
+  `mergeProps`, which is for DOM props only). Verified via computed styles
+  that the resulting `data-active` attribute-based variants (see the tabs.tsx
+  entry below) and dropdown open/close behavior both now work correctly in
+  a real browser session, not just DOM-level assertions.
+
+### `components/ui/tabs.tsx` Used Tailwind v4 Variant Syntax in a Tailwind v3 Project — Active-Tab Styling Never Rendered
+
+- Identified: Notifications frontend pass, while restyling the "View all"
+  modal's tabs to an underline style (2026-08-20).
+- Classification: Pre-existing, systemic — not introduced by, or specific
+  to, the notifications feature. Affects every consumer of `Tabs`
+  (`ContractInsights.tsx` as well as the new notifications modal).
+- Status: **Fixed** (2026-08-20).
+- Notes: `tabs.tsx` used bare `data-active:...` classes throughout (e.g.
+  `data-active:bg-background data-active:text-foreground`, plus several
+  chained after `group-data-[variant=...]:`). Bare `data-*` variants without
+  bracket syntax are a Tailwind v4 feature; this project runs
+  `"tailwindcss": "^3.4.0"` (`packages/web/package.json`), where
+  `data-active:` isn't a recognized variant at all and Tailwind's JIT
+  silently generates no CSS for it — not a build error, just dead classes.
+  Confirmed via `getComputedStyle` in a live browser: the active tab
+  (base-ui correctly sets `data-active=""` on it — verified via
+  `outerHTML`) rendered with the exact same text color as the inactive tab,
+  and the "line" variant's underline pseudo-element stayed at `opacity: 0`
+  even when active. Fixed by replacing all 11 occurrences of `data-active:`
+  with `data-[active]:` (valid Tailwind v3 attribute-selector syntax) in
+  `components/ui/tabs.tsx`. Not independently reproduced on
+  `ContractInsights.tsx`'s tabs (time-boxed), but the same broken class
+  names are present there too, so its active/selected tab background
+  almost certainly has the identical rendering bug.
+
+### `aiAnalysisRepository.create()` in `packages/api` Is Dead Code — the Real Async Pipeline Never Called It
+
+- Identified: Notifications settings-gap pass, while wiring a new
+  `RISK_FLAG_DETECTED` notification and checking whether the existing
+  `AI_ANALYSIS_COMPLETED` hook (added in an earlier pass of this same
+  feature) actually fires for real analysis completions (2026-08-20).
+- Classification: Real, significant functional bug — not something this
+  feature introduced, but this feature's own earlier work was built on top
+  of it without noticing. Fixed as part of this pass; flagging the
+  underlying dead code for a separate cleanup decision.
+- Status: Partially fixed — see notes.
+- Notes: The real BullMQ AI-analysis pipeline
+  (`packages/workers/src/jobs/ai-analysis.job.ts`) calls
+  `markAnalysisCompleted` from `packages/workers/src/repositories/
+  ai-analysis.repository.ts`. There is a *separate*, similarly-named
+  `create()` function in `packages/api/src/repositories/
+  ai-analysis.repository.ts` — a different file in a different package —
+  which is where the `AI_ANALYSIS_COMPLETED` notification hook was
+  originally added. Grepping the whole `packages/api` tree for
+  `aiAnalysisRepository.create(` turns up zero call sites: nothing in
+  `ai-analysis.service.ts` or anywhere else ever invokes it. This means
+  `AI_ANALYSIS_COMPLETED` notifications have never actually fired for a
+  real, queue-processed analysis completion — only for the earlier
+  verification passes' direct calls into the service function, which
+  bypassed the (missing) real integration entirely and made the feature
+  look correct when it wasn't reachable in production. Fixed in this pass
+  by moving the equivalent notification-creation logic (org gate, ACTIVE
+  check, personal gate) directly into
+  `packages/workers/src/repositories/ai-analysis.repository.ts`'s
+  `markAnalysisCompleted`, matching the pattern already used there for the
+  new `RISK_FLAG_DETECTED` hook and for the sweep job — workers-side
+  notification creation is inlined with `@starter-kit/shared`'s preference
+  helpers rather than importing `packages/api`'s service, since no such
+  cross-package dependency exists today. The dead `create()` function and
+  its now-redundant notification call in `packages/api` were left in place
+  rather than deleted — it's plausible it was meant for a future
+  synchronous/manual re-analysis endpoint that hasn't been wired up yet,
+  and deleting an unused-but-possibly-intentional public repository method
+  felt like a bigger call than this pass's scope. Worth a deliberate
+  decision: either wire something real to it or remove it.
+
+### `ContractInsights.tsx` Has No URL Param to Pre-Select a Tab — Risk-Flag Notifications Can't Deep-Link to the Risk Tab
+
+- Identified: Notifications settings-gap pass, while deciding where
+  `RISK_FLAG_DETECTED` notifications should navigate to (2026-08-20).
+- Classification: Minor, pre-existing limitation — not introduced by this
+  feature.
+- Status: Open, not fixed.
+- Notes: `ContractInsights.tsx`'s `Tabs` uses local `defaultValue="summary"`
+  state with no URL/query-param wiring, so there's no way to link directly
+  to its "risk" tab from outside the component. `RISK_FLAG_DETECTED`
+  notifications currently route to the same `/contracts/:id/analysis`
+  destination as `AI_ANALYSIS_COMPLETED` (landing on the Summary tab by
+  default) rather than jumping straight to the flagged risk. Small,
+  contained fix if wanted: read an initial-tab query param in
+  `ContractInsights.tsx` and have `toNotificationDisplay`'s
+  `RISK_FLAG_DETECTED` case append it to the route.
+
+### `Sidebar.tsx` Hardcodes "Administrator" as the User's Role Label Regardless of Actual Role
+
+- Identified: Notifications settings-gap pass, while browser-verifying the
+  new personal risk-flag toggle as Priya Nair — seeded as `INTERNAL` role,
+  not `ADMIN` (2026-08-20).
+- Classification: Pre-existing, unrelated UI bug — not introduced by, or
+  specific to, the notifications feature. Found incidentally.
+- Status: Open, not fixed.
+- Notes: `components/layout/Sidebar.tsx:184` and `:193` render the literal
+  string `"Administrator"` under the signed-in user's name and in the
+  tooltip/label ("Signed in as Administrator"), unconditionally — not
+  derived from `user.role` at all. Confirmed live: Priya Nair (seeded as
+  `INTERNAL`, per `seed.ts`'s "Internal (Legal)" comment) is shown as
+  "Administrator" in the sidebar despite her org-settings permission check
+  (`isAdminRole`, used correctly elsewhere e.g. `adminNav` filtering on
+  line 86 of the same file) correctly returning `false` for her — visible
+  as the Workspace notifications toggles rendering disabled/dimmed for her
+  even though the sidebar claims she's an Administrator. Cosmetic only
+  (doesn't affect actual permission enforcement, which reads `user.role`
+  correctly elsewhere), but misleading. Fix would be a small, contained
+  change: derive the displayed label from `user.role` (e.g. via a
+  role-label map) instead of the hardcoded string.

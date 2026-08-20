@@ -1,5 +1,20 @@
-import { getPrismaClient, type RiskSchemaV3 } from "@starter-kit/shared";
-import type { Prisma } from "@prisma/client";
+import {
+  getPrismaClient,
+  isOrgNotificationEnabled,
+  isPersonalNotificationEnabled,
+  type OrganizationNotificationPreferences,
+  type RiskSchemaV3,
+  type UserNotificationPreferences,
+} from "@starter-kit/shared";
+import type { NotificationType, Prisma } from "@prisma/client";
+
+// Only HIGH/CRITICAL flags are worth an interruption — LOW/MEDIUM findings
+// are still visible on the contract's risk tab, they just don't page the
+// uploader. This is a judgment call (not specified anywhere in the domain
+// docs), made to keep "risk alert" meaning an actionable alert rather than
+// firing on every re-analysis that turns up a routine LOW flag.
+const ALERT_WORTHY_SEVERITIES = ["HIGH", "CRITICAL"] as const;
+const SEVERITY_RANK: Record<string, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
 
 const prisma = getPrismaClient();
 
@@ -16,6 +31,35 @@ export interface CompletedAnalysisInput {
   result: unknown;
   modelVersion: string;
   tokensUsed: number;
+}
+
+// Shared org-gate -> ACTIVE-status -> personal-gate check for both
+// notification types below. PERSONAL scope always resolves to the
+// contract's uploader — there's no reviewer/assignee concept in the domain
+// model, so "for you" can only ever mean "you uploaded this".
+async function isRecipientEligible(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  uploaderId: string,
+  type: NotificationType,
+): Promise<boolean> {
+  const orgSettings = await tx.organizationSettings.findUnique({
+    where: { organizationId },
+    select: { notificationPreferences: true },
+  });
+  const orgPreferences =
+    orgSettings?.notificationPreferences as OrganizationNotificationPreferences | null;
+  if (!isOrgNotificationEnabled(orgPreferences, type)) return false;
+
+  const recipient = await tx.user.findUnique({
+    where: { id: uploaderId },
+    select: { status: true, notificationPreferences: true },
+  });
+  if (!recipient || recipient.status !== "ACTIVE") return false;
+
+  const personalPreferences =
+    recipient.notificationPreferences as UserNotificationPreferences | null;
+  return isPersonalNotificationEnabled(personalPreferences, type);
 }
 
 export async function markAnalysisCompleted(
@@ -35,6 +79,11 @@ export async function markAnalysisCompleted(
         modelVersion: input.modelVersion,
         tokensUsed: input.tokensUsed,
       },
+    });
+
+    const contract = await tx.contract.findUnique({
+      where: { id: input.contractId },
+      select: { title: true, uploadedByUserId: true },
     });
 
     // RiskFlag always mirrors the *latest* completed RISK analysis for a
@@ -61,6 +110,84 @@ export async function markAnalysisCompleted(
           })),
         });
       }
+
+      // RISK_FLAG_DETECTED — PERSONAL scope. Deliberately not fanned out
+      // ORG-wide: a risk flag describes a specific contract's legal
+      // exposure, which isn't every member's business by default — the
+      // org-wide "riskAlerts" toggle in Settings still lets an admin mute
+      // this for everyone, same as it already gates aiInsights, but the
+      // notification itself only ever reaches someone who already has
+      // access to the contract (its uploader).
+      const alertWorthyFlags = risk.flags.filter((flag) =>
+        (ALERT_WORTHY_SEVERITIES as readonly string[]).includes(flag.severity),
+      );
+
+      if (
+        contract &&
+        alertWorthyFlags.length > 0 &&
+        (await isRecipientEligible(
+          tx,
+          input.organizationId,
+          contract.uploadedByUserId,
+          "RISK_FLAG_DETECTED",
+        ))
+      ) {
+        const topFlag = alertWorthyFlags.reduce((top, flag) =>
+          SEVERITY_RANK[flag.severity] > SEVERITY_RANK[top.severity] ? flag : top,
+        );
+
+        await tx.notification.create({
+          data: {
+            organizationId: input.organizationId,
+            userId: contract.uploadedByUserId,
+            actorUserId: input.createdByUserId,
+            scope: "PERSONAL",
+            type: "RISK_FLAG_DETECTED",
+            targetEntityType: "Contract",
+            targetEntityId: input.contractId,
+            contractId: input.contractId,
+            data: {
+              contractTitle: contract.title,
+              occurredAt: new Date().toISOString(),
+              severity: topFlag.severity,
+              category: topFlag.category,
+              flagCount: alertWorthyFlags.length,
+            },
+          },
+        });
+      }
+    }
+
+    // AI_ANALYSIS_COMPLETED — fires for every completed analysis type
+    // (SUMMARY/RISK/CLAUSE_QUERY/METADATA), independent of and in addition
+    // to RISK_FLAG_DETECTED above; the two have separate preference toggles
+    // in Settings on purpose, so a RISK completion with a critical flag can
+    // produce both notifications.
+    if (
+      contract &&
+      (await isRecipientEligible(
+        tx,
+        input.organizationId,
+        contract.uploadedByUserId,
+        "AI_ANALYSIS_COMPLETED",
+      ))
+    ) {
+      await tx.notification.create({
+        data: {
+          organizationId: input.organizationId,
+          userId: contract.uploadedByUserId,
+          actorUserId: input.createdByUserId,
+          scope: "PERSONAL",
+          type: "AI_ANALYSIS_COMPLETED",
+          targetEntityType: "Contract",
+          targetEntityId: input.contractId,
+          contractId: input.contractId,
+          data: {
+            contractTitle: contract.title,
+            occurredAt: new Date().toISOString(),
+          },
+        },
+      });
     }
 
     await tx.auditLog.create({
