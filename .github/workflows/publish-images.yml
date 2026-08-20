@@ -1,0 +1,87 @@
+name: Publish images
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: publish-images-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: onrampl1
+
+jobs:
+  publish:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set build metadata
+        id: meta
+        run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/clausio-api:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/clausio-api:${{ github.sha }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            IMAGE_VERSION=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.date }}
+          cache-from: type=gha,scope=clausio-api
+          cache-to: type=gha,mode=max,scope=clausio-api
+
+      - name: Build and push workers
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/workers/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/clausio-workers:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/clausio-workers:${{ github.sha }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            IMAGE_VERSION=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.date }}
+          cache-from: type=gha,scope=clausio-workers
+          cache-to: type=gha,mode=max,scope=clausio-workers
+
+      - name: Build and push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/clausio-web:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/clausio-web:${{ github.sha }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            IMAGE_VERSION=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.date }}
+          cache-from: type=gha,scope=clausio-web
+          cache-to: type=gha,mode=max,scope=clausio-web
