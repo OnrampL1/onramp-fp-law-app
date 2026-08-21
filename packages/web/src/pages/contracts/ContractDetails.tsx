@@ -63,7 +63,10 @@ export default function ContractDetailPage() {
     // browser's popup blocker allows this, but would block a window.open()
     // called later from the mutation's onSuccess (after the async request
     // resolves). We navigate this already-open tab once we have the URL.
-    const downloadWindow = window.open("", "_blank", "noopener,noreferrer");
+    const downloadWindow = window.open("", "_blank");
+    if (downloadWindow) {
+      downloadWindow.opener = null;
+    }
 
     downloadContract.mutate(undefined, {
       onSuccess: (result) => {
