@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { PlatformProtectedRoute } from "./PlatformProtectedRoute";
 import { PlatformOrganizations } from "../pages/platform/PlatformOrganizations";
@@ -49,6 +49,10 @@ export function AppRoutes() {
       {/* Protected platform routes */}
       <Route element={<PlatformProtectedRoute />}>
         <Route element={<PlatformLayout />}>
+          <Route
+            path="/platform"
+            element={<Navigate to="/platform/organizations" replace />}
+          />
           <Route
             path="/platform/organizations"
             element={<PlatformOrganizations />}
