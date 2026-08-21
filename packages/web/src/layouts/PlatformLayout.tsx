@@ -10,8 +10,19 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
 import { usePlatformAuth } from "../hooks/usePlatformAuth";
 import { useTheme } from "../providers/ThemeProvider";
+import { useState } from "react";
 
 function roleLabel(role: string) {
   if (role === "SUPER_ADMIN") return "Super Admin";
@@ -34,10 +45,17 @@ export function PlatformLayout() {
   const location = useLocation();
   const { platformUser, platformLogout } = usePlatformAuth();
   const { theme, toggleTheme } = useTheme();
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   async function handleLogout() {
-    await platformLogout();
-    navigate("/platform/login", { replace: true });
+    try {
+      setIsLoggingOut(true);
+      await platformLogout();
+      navigate("/platform/login", { replace: true });
+    } finally {
+      setIsLoggingOut(false);
+    }
   }
 
   return (
@@ -127,7 +145,8 @@ export function PlatformLayout() {
               variant="outline"
               size="sm"
               className="gap-2"
-              onClick={handleLogout}
+              onClick={() => setSignOutOpen(true)}
+              disabled={isLoggingOut}
             >
               <LogOut className="size-4" />
               Sign Out
@@ -141,6 +160,31 @@ export function PlatformLayout() {
           <Outlet />
         </div>
       </main>
+      <AlertDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign out of Platform Console?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will leave the platform management area and need to sign in
+              again before managing organizations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoggingOut}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isLoggingOut}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleLogout();
+              }}
+            >
+              {isLoggingOut ? "Signing out..." : "Yes, sign out"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -10,6 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import {
   statusLabels,
@@ -46,6 +56,10 @@ import {
 
 type RoleFilter = "all" | BackendUserRole;
 type StatusFilter = "all" | UserAccountStatus;
+type AccessChangeTarget = {
+  user: TeamMember;
+  action: "disable" | "reactivate";
+};
 
 const roleFilters: RoleFilter[] = ["all", "OWNER", "ADMIN", "INTERNAL"];
 const statusFilters: StatusFilter[] = ["all", "active", "disabled", "pending"];
@@ -63,6 +77,8 @@ export function UserManagement() {
   const [roleChangeOpen, setRoleChangeOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<TeamMember | null>(null);
   const [revokeOpen, setRevokeOpen] = useState(false);
+  const [accessChangeTarget, setAccessChangeTarget] =
+    useState<AccessChangeTarget | null>(null);
   // Invitation id -> accept-invitation URL, populated only from create/resend
   // mutation responses (the raw token is never persisted, so this is the one
   // and only chance to grab a copyable link — same constraint the witness-
@@ -183,14 +199,33 @@ export function UserManagement() {
     if (!canManageUserAccess(user) || user.source !== "user") {
       return;
     }
-    updateUserStatus.mutate({ userId: user.id, status: "SUSPENDED" });
+
+    setAccessChangeTarget({ user, action: "disable" });
   }
 
   function handleReactivateUser(user: TeamMember) {
     if (!canManageUserAccess(user) || user.source !== "user") {
       return;
     }
-    updateUserStatus.mutate({ userId: user.id, status: "ACTIVE" });
+
+    setAccessChangeTarget({ user, action: "reactivate" });
+  }
+
+  function handleConfirmAccessChange() {
+    if (!accessChangeTarget) return;
+
+    const { user, action } = accessChangeTarget;
+
+    if (!canManageUserAccess(user) || user.source !== "user") {
+      return;
+    }
+
+    updateUserStatus.mutate({
+      userId: user.id,
+      status: action === "disable" ? "SUSPENDED" : "ACTIVE",
+    });
+
+    setAccessChangeTarget(null);
   }
 
   function isCurrentUser(user: TeamMember) {
@@ -278,6 +313,12 @@ export function UserManagement() {
 
     URL.revokeObjectURL(url);
   }
+
+  const accessChangeUserName =
+    accessChangeTarget?.user.name ??
+    accessChangeTarget?.user.email ??
+    "this user";
+  const isDisablingAccess = accessChangeTarget?.action === "disable";
 
   return (
     <div className="space-y-6 pb-10">
@@ -373,7 +414,9 @@ export function UserManagement() {
             >
               <SelectValue placeholder="All roles">
                 {(val) =>
-                  val === "all" ? "All roles" : roleLabels[val as BackendUserRole]
+                  val === "all"
+                    ? "All roles"
+                    : roleLabels[val as BackendUserRole]
                 }
               </SelectValue>
             </SelectTrigger>
@@ -466,6 +509,46 @@ export function UserManagement() {
         onOpenChange={setRevokeOpen}
         onConfirm={handleConfirmRevokeInvite}
       />
+      <AlertDialog
+        open={!!accessChangeTarget}
+        onOpenChange={(open) => {
+          if (!open && !updateUserStatus.isPending) {
+            setAccessChangeTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isDisablingAccess
+                ? "Disable user access?"
+                : "Reactivate user access?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {accessChangeTarget
+                ? isDisablingAccess
+                  ? `${accessChangeUserName} will no longer be able to sign in or access organization resources. Existing audit history will be preserved.`
+                  : `${accessChangeUserName} will regain access to the organization according to their current role and permissions.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateUserStatus.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant={isDisablingAccess ? "destructive" : "default"}
+              disabled={updateUserStatus.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                handleConfirmAccessChange();
+              }}
+            >
+              {isDisablingAccess ? "Disable access" : "Reactivate user"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

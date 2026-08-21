@@ -149,6 +149,41 @@ function nextStatusActions(
   return [];
 }
 
+function statusDialogTitle(
+  status: UpdatePlatformOrganizationStatusPayload["status"],
+) {
+  if (status === "ACTIVE") return "Activate organization?";
+  if (status === "SUSPENDED") return "Suspend organization?";
+  return "Archive organization?";
+}
+
+function statusDialogDescription(
+  statusTarget: {
+    organization: PlatformOrganizationListItem;
+    status: UpdatePlatformOrganizationStatusPayload["status"];
+  } | null,
+) {
+  if (!statusTarget) return "This will update the organization status.";
+
+  if (statusTarget.status === "ACTIVE") {
+    return `${statusTarget.organization.name} will regain access to the application for active members.`;
+  }
+
+  if (statusTarget.status === "SUSPENDED") {
+    return `${statusTarget.organization.name} will be temporarily blocked from the application. Members will not be able to access the workspace until it is reactivated.`;
+  }
+
+  return `${statusTarget.organization.name} will be archived. This is a high-impact lifecycle change and should only be used when the organization should no longer operate in Clausio.`;
+}
+
+function statusDialogActionLabel(
+  status: UpdatePlatformOrganizationStatusPayload["status"],
+) {
+  if (status === "ACTIVE") return "Activate organization";
+  if (status === "SUSPENDED") return "Suspend organization";
+  return "Archive organization";
+}
+
 interface CreateOrganizationForm {
   name: string;
   slug: string;
@@ -789,15 +824,11 @@ export function PlatformOrganizations() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {statusTarget
-                ? `${STATUS_ACTION_LABELS[statusTarget.status]} organization`
+                ? statusDialogTitle(statusTarget.status)
                 : "Update organization"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {statusTarget
-                ? `This will change ${statusTarget.organization.name} to ${
-                    STATUS_LABELS[statusTarget.status]
-                  }.`
-                : "This will update the organization status."}
+              {statusDialogDescription(statusTarget)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -806,7 +837,10 @@ export function PlatformOrganizations() {
             </AlertDialogCancel>
             <AlertDialogAction
               variant={
-                statusTarget?.status === "ARCHIVED" ? "destructive" : "default"
+                statusTarget?.status === "ARCHIVED" ||
+                statusTarget?.status === "SUSPENDED"
+                  ? "destructive"
+                  : "default"
               }
               disabled={updateStatus.isPending}
               onClick={(event) => {
@@ -819,6 +853,8 @@ export function PlatformOrganizations() {
                   <Loader2 className="mr-2 size-4 animate-spin" />
                   Updating
                 </>
+              ) : statusTarget ? (
+                statusDialogActionLabel(statusTarget.status)
               ) : (
                 "Confirm"
               )}
