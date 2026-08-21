@@ -30,6 +30,7 @@ import { ContractInsights } from "@/components/contracts/ContractInsights";
 import { ContractTimeline } from "@/components/contracts/ContractTimeline";
 import {
   useContractDetail,
+  useContractDownloadUrl,
   useSetContractLegalState,
 } from "@/hooks/useContractDetail";
 import { useTriggerContractAnalysis } from "@/hooks/useContractAnalysis";
@@ -53,8 +54,28 @@ export default function ContractDetailPage() {
   const { data: contract, isLoading, isError } = useContractDetail(id);
   const triggerAnalysis = useTriggerContractAnalysis(id);
   const setLegalState = useSetContractLegalState(id);
+  const downloadContract = useContractDownloadUrl(id);
   const { user } = useAuth();
   const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
+
+  function handleDownload() {
+    // Open the tab synchronously, inside the click's own call stack — a
+    // browser's popup blocker allows this, but would block a window.open()
+    // called later from the mutation's onSuccess (after the async request
+    // resolves). We navigate this already-open tab once we have the URL.
+    const downloadWindow = window.open("", "_blank", "noopener,noreferrer");
+
+    downloadContract.mutate(undefined, {
+      onSuccess: (result) => {
+        if (downloadWindow) {
+          downloadWindow.location.href = result.fileUrl;
+        }
+      },
+      onError: () => {
+        downloadWindow?.close();
+      },
+    });
+  }
 
   if (isLoading) {
     return (
@@ -129,10 +150,7 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {/* Action buttons — Download / Witness Link remain non-functional
-    placeholders until those features are built. Edit Contract,
-    Contract Investigator, and Analyze Contract are wired to real
-    pages/endpoints. */}
+        {/* Action buttons — all wired to real pages/endpoints. */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -161,7 +179,10 @@ export default function ContractDetailPage() {
                     contract.processingStatus === "EXTRACTION_FAILED" ||
                     contract.processingStatus === "AI_PENDING"
                   }
-                  onClick={() => triggerAnalysis.mutate()}
+                  onClick={() => {
+                    triggerAnalysis.mutate();
+                    navigate(`/contracts/${id}/analysis`);
+                  }}
                 >
                   <ScrollText className="size-4 text-muted-foreground" />
                   {triggerAnalysis.isPending
@@ -230,9 +251,13 @@ export default function ContractDetailPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuGroup>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem
+                  className="gap-2"
+                  disabled={downloadContract.isPending}
+                  onClick={handleDownload}
+                >
                   <Download className="size-4 text-muted-foreground" />
-                  Download PDF
+                  {downloadContract.isPending ? "Preparing…" : "Download"}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2"
@@ -256,6 +281,11 @@ export default function ContractDetailPage() {
         {setLegalState.isError && (
           <p className="text-sm text-destructive">
             Couldn't update the contract status. Reload and try again.
+          </p>
+        )}
+        {downloadContract.isError && (
+          <p className="text-sm text-destructive">
+            Couldn't prepare the download. Please try again.
           </p>
         )}
       </div>

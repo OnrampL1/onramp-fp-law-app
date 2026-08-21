@@ -126,10 +126,6 @@ export function toNotificationDisplay(item: NotificationItem): NotificationDispl
       extraCount > 0
         ? `${categoryLabel} risk found in ${item.contractTitle} (+${extraCount} more).`
         : `${categoryLabel} risk found in ${item.contractTitle}.`,
-    // Same landing spot as AI_ANALYSIS_COMPLETED — deep-linking straight to
-    // the risk tab would need ContractInsights.tsx to read an initial-tab
-    // URL param, which it doesn't today; logged as a small follow-up rather
-    // than reworking that component's tab state for this feature.
     time: formatRelativeTime(item.occurredAt),
     route: `/contracts/${item.contractId}/analysis`,
   };
