@@ -142,7 +142,7 @@ function slugFromName(name: string) {
 function nextStatusActions(
   organization: PlatformOrganizationListItem,
 ): UpdatePlatformOrganizationStatusPayload["status"][] {
-  if (organization.status === "OWNER_ASSIGNED") return ["ACTIVE", "ARCHIVED"];
+  if (organization.status === "OWNER_ASSIGNED") return ["ARCHIVED"];
   if (organization.status === "ACTIVE") return ["SUSPENDED", "ARCHIVED"];
   if (organization.status === "SUSPENDED") return ["ACTIVE", "ARCHIVED"];
   if (organization.status === "CREATED") return ["ARCHIVED"];

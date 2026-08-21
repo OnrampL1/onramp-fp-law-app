@@ -63,6 +63,28 @@ const organizations: PlatformOrganizationListItem[] = [
       auditLogs: 0,
     },
   },
+  {
+    id: "org-3",
+    name: "Owner Pending Co",
+    slug: "owner-pending-co",
+    status: "OWNER_ASSIGNED",
+    ownerAssignedAt: "2026-08-20T00:00:00.000Z",
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-20T00:00:00.000Z",
+    owner: {
+      id: "owner-3",
+      email: "owner@pending.test",
+      fullName: "Pending Owner",
+      role: "OWNER",
+      status: "ACTIVE",
+    },
+    counts: {
+      members: 1,
+      invitations: 0,
+      contracts: 0,
+      auditLogs: 1,
+    },
+  },
 ];
 
 beforeEach(() => {
@@ -181,5 +203,14 @@ describe("PlatformOrganizations", () => {
     expect(
       screen.getByText("Unable to load organizations"),
     ).toBeInTheDocument();
+  });
+
+  it("does not show Activate for owner-assigned organizations", () => {
+    mockPlatformUser("SUPER_ADMIN");
+
+    render(<PlatformOrganizations />);
+
+    expect(screen.getByText("Owner Pending Co")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /activate/i })).toBeNull();
   });
 });
