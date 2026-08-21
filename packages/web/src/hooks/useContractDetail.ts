@@ -1,6 +1,7 @@
 import {
   fetchContractContent,
   fetchContractDetail,
+  fetchContractDownloadUrl,
   setContractLegalState,
   updateContractContent,
   updateContractMetadata,
@@ -36,6 +37,12 @@ export function useContractDetail(id: string | undefined) {
         ? PROCESSING_POLL_INTERVAL_MS
         : false;
     },
+  });
+}
+
+export function useContractDownloadUrl(id: string | undefined) {
+  return useMutation({
+    mutationFn: () => fetchContractDownloadUrl(id as string),
   });
 }
 
