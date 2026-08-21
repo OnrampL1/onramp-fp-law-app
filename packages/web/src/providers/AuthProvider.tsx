@@ -32,6 +32,7 @@ interface AuthContextValue {
     fullName: string,
     password: string,
   ) => Promise<AuthUser>;
+  refreshProfile: () => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -76,6 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.data.user;
   }
 
+  async function refreshProfile(): Promise<AuthUser> {
+    const { data } = await apiClient.get<{ data: AuthUser }>("/auth/me");
+    setUser(data.data);
+    return data.data;
+  }
+
   async function logout(): Promise<void> {
     try {
       await apiClient.post("/auth/logout");
@@ -87,7 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, login, acceptInvitation, logout }}
+      value={{
+        user,
+        isLoading,
+        login,
+        acceptInvitation,
+        refreshProfile,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>
