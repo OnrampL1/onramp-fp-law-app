@@ -17,7 +17,7 @@ import { ArrowRight, FileText } from "lucide-react";
 import { StatusBadge } from "../ui/badges";
 import { Badge } from "@/components/ui/badge";
 import { Link, useNavigate } from "react-router-dom";
-import { formatDate, formatRelativeTime } from "@/lib/utils";
+import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
 import type { DashboardContractItem } from "@/types/dashboard";
 import type { ContractLegalStatus } from "@/types/contracts";
 
@@ -36,6 +36,13 @@ export const BUSINESS_STATUS_LABELS: Record<string, string> = {
   UNDER_REVIEW: "Under review",
   COMPLETED: "Completed",
   ARCHIVED: "Archived",
+};
+
+const BUSINESS_STATUS_STYLES: Record<string, string> = {
+  DRAFT: "bg-amber-50 text-amber-700 border-amber-200",
+  UNDER_REVIEW: "bg-blue-50 text-blue-700 border-blue-200",
+  COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  ARCHIVED: "bg-muted text-muted-foreground border-border",
 };
 
 interface RecentContractsProps {
@@ -135,7 +142,13 @@ export function RecentContracts({
                   </TableCell>
 
                   <TableCell>
-                    <Badge variant="outline" className="font-medium">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "font-medium rounded-full",
+                        BUSINESS_STATUS_STYLES[contract.businessStatus],
+                      )}
+                    >
                       {BUSINESS_STATUS_LABELS[contract.businessStatus]}
                     </Badge>
                   </TableCell>

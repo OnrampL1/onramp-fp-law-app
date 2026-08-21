@@ -59,6 +59,7 @@ export interface RiskOverviewDto {
   summary: string;
   redFlags: RiskFlagDto[];
   timeline: TimelineEntryDto[];
+  model: string | null;
 }
 
 export interface SummaryOverviewDto {

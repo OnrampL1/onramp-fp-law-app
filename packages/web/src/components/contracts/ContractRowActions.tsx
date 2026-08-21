@@ -46,7 +46,7 @@ export function ContractRowActions({ id }: ContractRowActionsProps) {
           <Pencil className="size-4" />
           Edit Metadata
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem render={<Link to={`/contracts/${id}/analysis`} />}>
           <Sparkles className="size-4" />
           View AI Analysis
         </DropdownMenuItem>
