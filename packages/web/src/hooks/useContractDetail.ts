@@ -40,9 +40,16 @@ export function useContractDetail(id: string | undefined) {
   });
 }
 
-export function useContractDownloadUrl(id: string | undefined) {
-  return useMutation({
-    mutationFn: () => fetchContractDownloadUrl(id as string),
+// Auto-fetches on mount rather than being manually triggered — the wrapper
+// tab (ContractFileViewer) needs the presigned URL as soon as it opens, and
+// already knows the contract id synchronously from the route, so there's no
+// separate user action to hang a mutation off of.
+export function useContractFile(id: string | undefined) {
+  return useQuery({
+    queryKey: ["contract", id, "download"],
+    queryFn: () => fetchContractDownloadUrl(id as string),
+    enabled: Boolean(id),
+    retry: false,
   });
 }
 

@@ -90,6 +90,7 @@ export interface ContractDetailDto {
 export interface ContractDownloadUrlDto {
   fileUrl: string;
   fileUrlExpiresInSeconds: number;
+  fileName: string;
 }
 
 export interface ContractContentDto {

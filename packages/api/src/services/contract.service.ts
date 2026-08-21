@@ -630,14 +630,20 @@ async function getContractDownloadUrl(
     throw createError("Contract not found", 404);
   }
 
+  const fileName = extractFileNameFromKey(contract.fileKey);
+
   const fileUrl = await getPresignedUrl(
     contract.fileKey,
     CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
+    {
+      responseContentDisposition: `inline; filename="${fileName}"`,
+    },
   );
 
   return {
     fileUrl,
     fileUrlExpiresInSeconds: CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
+    fileName,
   };
 }
 

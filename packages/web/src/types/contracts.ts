@@ -134,6 +134,7 @@ export interface ContractDetailResponse {
 export interface ContractDownloadUrlResponse {
   fileUrl: string;
   fileUrlExpiresInSeconds: number;
+  fileName: string;
 }
 
 // Full-replace payload for PUT /contracts/:id/metadata — every field is

@@ -18,6 +18,7 @@ import ContractDetailPage from "@/pages/contracts/ContractDetails";
 import ContractEditPage from "@/pages/contracts/ContractEdit";
 import ContractAnalysisPage from "@/pages/contracts/ContractAnalysis";
 import ContractInvestigatorPage from "@/pages/contracts/ContractInvestigator";
+import ContractFileViewer from "@/pages/contracts/ContractFileViewer";
 import { UploadContract } from "../pages/contracts/UploadContract";
 import { WitnessWorkflow } from "../pages/WitnessWorkflow";
 import { WitnessReview } from "../pages/WitnessReview";
@@ -140,6 +141,10 @@ export function AppRoutes() {
           <Route path="/organization-brain" element={<OrganizationBrain />} />
           <Route path="/legal-assistant" element={<LegalAssistantPage />} />
         </Route>
+
+        {/* Outside AppLayout — a chrome-free tab for viewing a contract's
+        original file, opened by Contract Details' Download button. */}
+        <Route path="/contracts/:id/file" element={<ContractFileViewer />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

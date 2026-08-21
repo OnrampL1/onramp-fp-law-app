@@ -30,7 +30,6 @@ import { ContractInsights } from "@/components/contracts/ContractInsights";
 import { ContractTimeline } from "@/components/contracts/ContractTimeline";
 import {
   useContractDetail,
-  useContractDownloadUrl,
   useSetContractLegalState,
 } from "@/hooks/useContractDetail";
 import { useTriggerContractAnalysis } from "@/hooks/useContractAnalysis";
@@ -54,30 +53,16 @@ export default function ContractDetailPage() {
   const { data: contract, isLoading, isError } = useContractDetail(id);
   const triggerAnalysis = useTriggerContractAnalysis(id);
   const setLegalState = useSetContractLegalState(id);
-  const downloadContract = useContractDownloadUrl(id);
   const { user } = useAuth();
   const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
 
   function handleDownload() {
-    // Open the tab synchronously, inside the click's own call stack — a
-    // browser's popup blocker allows this, but would block a window.open()
-    // called later from the mutation's onSuccess (after the async request
-    // resolves). We navigate this already-open tab once we have the URL.
-    const downloadWindow = window.open("", "_blank");
-    if (downloadWindow) {
-      downloadWindow.opener = null;
-    }
-
-    downloadContract.mutate(undefined, {
-      onSuccess: (result) => {
-        if (downloadWindow) {
-          downloadWindow.location.href = result.fileUrl;
-        }
-      },
-      onError: () => {
-        downloadWindow?.close();
-      },
-    });
+    // Navigates to our own ContractFileViewer page rather than straight to
+    // the presigned S3 URL — that page owns the tab's title (see its own
+    // comment for why) and embeds the actual file. The target is a
+    // same-origin route known synchronously from `id`, so no popup-blocker
+    // workaround is needed here.
+    window.open(`/contracts/${id}/file`, "_blank", "noopener,noreferrer");
   }
 
   if (isLoading) {
@@ -254,13 +239,9 @@ export default function ContractDetailPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuGroup>
-                <DropdownMenuItem
-                  className="gap-2"
-                  disabled={downloadContract.isPending}
-                  onClick={handleDownload}
-                >
+                <DropdownMenuItem className="gap-2" onClick={handleDownload}>
                   <Download className="size-4 text-muted-foreground" />
-                  {downloadContract.isPending ? "Preparing…" : "Download"}
+                  Download
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2"
@@ -284,11 +265,6 @@ export default function ContractDetailPage() {
         {setLegalState.isError && (
           <p className="text-sm text-destructive">
             Couldn't update the contract status. Reload and try again.
-          </p>
-        )}
-        {downloadContract.isError && (
-          <p className="text-sm text-destructive">
-            Couldn't prepare the download. Please try again.
           </p>
         )}
       </div>
