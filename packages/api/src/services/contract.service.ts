@@ -5,6 +5,7 @@ import {
   extractionQueue,
   getPrismaClient,
   uploadFile,
+  getPresignedUrl,
   deriveLegalState,
   enqueueContractAnalysis,
   PLACEHOLDER_CONTRACT_TITLE,
@@ -26,6 +27,7 @@ import type {
 import type {
   ContractContentDto,
   ContractDetailDto,
+  ContractDownloadUrlDto,
   ContractListFilters,
   ContractListItemDto,
   ContractListPagination,
@@ -613,6 +615,32 @@ async function getContractById(
   return toContractDetailDto(contract, organizationId);
 }
 
+// Mirrors WITNESS_FILE_URL_EXPIRES_IN_SECONDS in witness.service.ts — same
+// short-lived rationale, kept separate since the two call sites have
+// unrelated auth models (regular authenticated user vs. external witness).
+const CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS = 15 * 60;
+
+async function getContractDownloadUrl(
+  id: string,
+  organizationId: string,
+): Promise<ContractDownloadUrlDto> {
+  const contract = await contractRepository.findById(id, organizationId);
+
+  if (!contract) {
+    throw createError("Contract not found", 404);
+  }
+
+  const fileUrl = await getPresignedUrl(
+    contract.fileKey,
+    CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
+  );
+
+  return {
+    fileUrl,
+    fileUrlExpiresInSeconds: CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
+  };
+}
+
 async function getContractContent(
   id: string,
   organizationId: string,
@@ -637,5 +665,6 @@ export const contractService = {
   updateContractContent,
   listContracts,
   getContractById,
+  getContractDownloadUrl,
   getContractContent,
 };

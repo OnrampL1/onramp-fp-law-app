@@ -87,6 +87,11 @@ export interface ContractDetailDto {
   updatedAt: string;
 }
 
+export interface ContractDownloadUrlDto {
+  fileUrl: string;
+  fileUrlExpiresInSeconds: number;
+}
+
 export interface ContractContentDto {
   processingStatus: ContractProcessingStatus;
   extractedText: string | null;
