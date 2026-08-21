@@ -13,18 +13,25 @@ interface AuthUser {
   organizationId: string;
   email: string;
   fullName: string;
-  role: string;
+  role: "OWNER" | "ADMIN" | "INTERNAL";
+  organizationStatus:
+    | "CREATED"
+    | "OWNER_ASSIGNED"
+    | "ACTIVE"
+    | "SUSPENDED"
+    | "ARCHIVED";
+  onboardingRequired: boolean;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   acceptInvitation: (
     invitationToken: string,
     fullName: string,
     password: string,
-  ) => Promise<void>;
+  ) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -43,18 +50,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  async function login(email: string, password: string): Promise<void> {
+  async function login(email: string, password: string): Promise<AuthUser> {
     const { data } = await apiClient.post<{
       data: { user: AuthUser };
     }>("/auth/login", { email, password });
+
     setUser(data.data.user);
+    return data.data.user;
   }
 
   async function acceptInvitation(
     invitationToken: string,
     fullName: string,
     password: string,
-  ): Promise<void> {
+  ): Promise<AuthUser> {
     const { data } = await apiClient.post<{
       data: { user: AuthUser };
     }>("/auth/accept-invitation", {
@@ -64,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     setUser(data.data.user);
+    return data.data.user;
   }
 
   async function logout(): Promise<void> {

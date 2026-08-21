@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
+import { getAuthenticatedEntryPath } from "../../lib/auth-navigation";
 
 const acceptInvitationSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
@@ -44,8 +45,12 @@ export function AcceptInvitation() {
   const onSubmit = async (data: AcceptInvitationFormData) => {
     try {
       setError(null);
-      await acceptInvitation(token ?? "", data.fullName, data.password);
-      navigate("/dashboard");
+      const authenticatedUser = await acceptInvitation(
+        token ?? "",
+        data.fullName,
+        data.password,
+      );
+      navigate(getAuthenticatedEntryPath(authenticatedUser));
     } catch {
       setError(
         "This invitation link is invalid, expired, or has already been used.",
