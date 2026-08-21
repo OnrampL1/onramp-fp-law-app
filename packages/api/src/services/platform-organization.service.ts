@@ -207,10 +207,14 @@ export class PlatformOrganizationService {
           );
         }
 
-        if (
-          current.status !== "OWNER_ASSIGNED" &&
-          current.status !== "SUSPENDED"
-        ) {
+        if (current.status === "OWNER_ASSIGNED") {
+          throw createError(
+            "Owner onboarding must be completed before activation",
+            409,
+          );
+        }
+
+        if (current.status !== "SUSPENDED") {
           throw createError(
             "Organization cannot be activated from its current status",
             409,

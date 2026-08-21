@@ -1,6 +1,10 @@
-import type { PlatformUserRole, UserRole } from "@prisma/client";
+import type {
+  OrganizationStatus,
+  PlatformUserRole,
+  UserRole,
+} from "@prisma/client";
 
-export type { PlatformUserRole, UserRole };
+export type { OrganizationStatus, PlatformUserRole, UserRole };
 
 export interface AccessTokenPayload {
   actorType?: "USER";
@@ -40,6 +44,8 @@ export interface AuthUser {
   email: string;
   fullName: string;
   role: UserRole;
+  organizationStatus: OrganizationStatus;
+  onboardingRequired: boolean;
 }
 
 export interface PlatformAuthUser {

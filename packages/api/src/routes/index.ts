@@ -18,6 +18,7 @@ import { platformOrganizationRouter } from "./platform-organization.routes";
 import { searchRouter } from "./search.routes";
 import { accessRequestRouter } from "./access-request.routes";
 import { platformAccessRequestRouter } from "./platform-access-request.routes";
+import { onboardingRouter } from "./onboarding.routes";
 
 const router = Router();
 
@@ -26,6 +27,7 @@ router.use("/platform/auth", platformAuthRouter);
 router.use("/platform/organizations", platformOrganizationRouter);
 router.use("/platform/access-requests", platformAccessRequestRouter);
 router.use("/access-requests", accessRequestRouter);
+router.use("/onboarding", onboardingRouter);
 router.use("/users", userRouter);
 router.use("/users", witnessRouter);
 router.use("/invitations", invitationRouter);

@@ -6,6 +6,7 @@ import {
 } from "@starter-kit/shared";
 import type { AccessTokenPayload } from "@starter-kit/shared";
 import type { AuthenticatedRequest } from "../types/express.types";
+import type { OrganizationStatus, UserRole } from "@prisma/client";
 
 type DecodedAccessToken = Omit<AccessTokenPayload, "actorType"> & {
   actorType?: string;
@@ -14,8 +15,40 @@ type DecodedAccessToken = Omit<AccessTokenPayload, "actorType"> & {
 
 const prisma = getPrismaClient();
 
-function organizationAllowsMemberAccess(status: string): boolean {
-  return status === "ACTIVE";
+interface AuthenticatedUserSnapshot {
+  id: string;
+  organizationId: string;
+  role: UserRole;
+  organization: {
+    status: OrganizationStatus;
+    ownerUserId: string | null;
+  };
+}
+
+function isOnboardingRequiredForUser(user: AuthenticatedUserSnapshot): boolean {
+  return (
+    user.organization.status === "OWNER_ASSIGNED" &&
+    user.role === "OWNER" &&
+    user.organization.ownerUserId === user.id
+  );
+}
+
+function organizationAllowsAuthenticatedSession(
+  user: AuthenticatedUserSnapshot,
+): boolean {
+  return (
+    user.organization.status === "ACTIVE" || isOnboardingRequiredForUser(user)
+  );
+}
+
+function isOnboardingSafeRequest(req: Request): boolean {
+  const routePath = `${req.baseUrl}${req.path}`;
+
+  return (
+    (req.method === "GET" && routePath === "/api/auth/me") ||
+    (req.method === "POST" && routePath === "/api/auth/logout") ||
+    routePath.startsWith("/api/onboarding")
+  );
 }
 
 declare global {
@@ -93,6 +126,7 @@ export async function authenticate(
         organization: {
           select: {
             status: true,
+            ownerUserId: true,
           },
         },
       },
@@ -114,8 +148,16 @@ export async function authenticate(
     return;
   }
 
-  if (!organizationAllowsMemberAccess(authenticatedUser.organization.status)) {
+  if (!organizationAllowsAuthenticatedSession(authenticatedUser)) {
     res.status(403).json({ error: "Organization is not active" });
+    return;
+  }
+
+  if (
+    isOnboardingRequiredForUser(authenticatedUser) &&
+    !isOnboardingSafeRequest(req)
+  ) {
+    res.status(403).json({ error: "Organization onboarding is required" });
     return;
   }
 

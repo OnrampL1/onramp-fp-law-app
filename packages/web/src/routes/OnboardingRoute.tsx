@@ -2,7 +2,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 
-export function ProtectedRoute() {
+export function OnboardingRoute() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -17,8 +17,8 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.onboardingRequired) {
-    return <Navigate to="/onboarding" replace />;
+  if (!user.onboardingRequired) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;

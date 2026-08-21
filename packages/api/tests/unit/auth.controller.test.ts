@@ -42,6 +42,7 @@ beforeEach(() => {
     status: "ACTIVE",
     organization: {
       status: "ACTIVE",
+      ownerUserId: null,
     },
   });
 });
@@ -56,6 +57,8 @@ describe("POST /api/auth/accept-invitation", () => {
         email: "alice@example.com",
         fullName: "Alice",
         role: "INTERNAL",
+        organizationStatus: "ACTIVE",
+        onboardingRequired: false,
       },
       accessToken: "access.token.here",
       refreshToken: "refresh.token.here",
@@ -102,6 +105,8 @@ describe("POST /api/auth/login", () => {
         email: "alice@example.com",
         fullName: "Alice",
         role: "OWNER",
+        organizationStatus: "ACTIVE",
+        onboardingRequired: false,
       },
       accessToken: "access.token.here",
       refreshToken: "refresh.token.here",
@@ -136,6 +141,7 @@ describe("POST /api/auth/change-password", () => {
       status: "ACTIVE",
       organization: {
         status: "SUSPENDED",
+        ownerUserId: "user-1",
       },
     });
 
