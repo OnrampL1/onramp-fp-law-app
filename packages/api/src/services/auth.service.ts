@@ -190,6 +190,7 @@ export class AuthService {
         organization: {
           select: {
             status: true,
+            ownerUserId: true,
           },
         },
       },
