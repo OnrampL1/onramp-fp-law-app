@@ -17,6 +17,10 @@ import { useAskAssistant } from "@/hooks/useLegalAssistant";
 import type { AskHistoryTurn, AssistantSource } from "@/types/legal-assistant";
 import { cn } from "@/lib/utils";
 import {
+  readPersistedThreads,
+  writePersistedThreads,
+} from "@/lib/chat-session-storage";
+import {
   ArrowUp,
   ChevronRight,
   FileText,
@@ -45,16 +49,19 @@ interface ChatMessage {
 let idCounter = 0;
 const nextId = () => `live-${Date.now()}-${idCounter++}`;
 
-// Multiple in-memory chat threads, not persisted anywhere - a page refresh
-// or closing the tab loses them, same as the single-thread version before
-// this. Real cross-session history would need a server-side Conversation
-// model, which is a deliberate, repeated architectural decision this
-// project has not made (see AI_ROADMAP.md Section 11's "Not built" list) -
-// out of scope here on purpose, not an oversight.
+// Multiple chat threads, persisted to sessionStorage only - they survive
+// navigating away from this page and back within the same tab, but not a
+// closed tab or a different device. Real cross-session, cross-device
+// history would need a server-side Conversation model, which is a
+// deliberate, repeated architectural decision this project has not made
+// (see AI_ROADMAP.md Section 11's "Not built" list) - out of scope here on
+// purpose, not an oversight.
 interface ChatThread {
   id: string;
   messages: ChatMessage[];
 }
+
+const THREADS_STORAGE_KEY = "legal-assistant:threads";
 
 function createEmptyThread(): ChatThread {
   return { id: nextId(), messages: [] };
@@ -125,8 +132,13 @@ const SUGGESTED_QUESTIONS = [
   "Which of our contracts are currently active?",
 ];
 
+function initialThreads(): ChatThread[] {
+  const persisted = readPersistedThreads<ChatThread>(THREADS_STORAGE_KEY);
+  return persisted && persisted.length > 0 ? persisted : [createEmptyThread()];
+}
+
 export default function LegalAssistantPage() {
-  const [threads, setThreads] = useState<ChatThread[]>(() => [createEmptyThread()]);
+  const [threads, setThreads] = useState<ChatThread[]>(initialThreads);
   const [activeThreadId, setActiveThreadId] = useState<string>(() => threads[0].id);
   const [input, setInput] = useState("");
   // The one thread (if any) currently awaiting a response - at most one
@@ -146,6 +158,10 @@ export default function LegalAssistantPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [activeThread.messages, isActiveThreadPending]);
+
+  useEffect(() => {
+    writePersistedThreads(THREADS_STORAGE_KEY, threads);
+  }, [threads]);
 
   function updateThread(
     threadId: string,
