@@ -180,10 +180,7 @@ export default function ContractDetailPage() {
                     contract.processingStatus === "EXTRACTION_FAILED" ||
                     contract.processingStatus === "AI_PENDING"
                   }
-                  onClick={() => {
-                    triggerAnalysis.mutate();
-                    navigate(`/contracts/${id}/analysis`);
-                  }}
+                  onClick={() => triggerAnalysis.mutate()}
                 >
                   <ScrollText className="size-4 text-muted-foreground" />
                   {triggerAnalysis.isPending
