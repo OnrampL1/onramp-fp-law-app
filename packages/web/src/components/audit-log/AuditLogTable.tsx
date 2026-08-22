@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { AlertCircle, ScrollText } from "lucide-react";
-import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../ui/button";
 import { AuditLogActionBadge } from "./AuditLogActionBadge";
 import { AuditLogViewChangesModal } from "./AuditLogViewChangesModal";
@@ -30,8 +29,6 @@ const TABLE_HEADERS = [
   "Actor",
   "Action",
   "Target",
-  "Before",
-  "After",
   "IP Address",
   "",
 ] as const;
@@ -173,42 +170,6 @@ function ActionIcon({ group }: { group: AuditActionGroup }) {
   );
 }
 
-// ─── Key-value cell ─────────────────────────────────────────────────────────
-
-const MAX_VISIBLE = 2;
-
-function AuditDataCell({ data }: { data: Record<string, unknown> | null }) {
-  if (!data) {
-    return <span className="text-sm text-muted-foreground">—</span>;
-  }
-
-  const entries = Object.entries(data);
-  const visible = entries.slice(0, MAX_VISIBLE);
-  const remaining = entries.length - MAX_VISIBLE;
-
-  return (
-    <div className="space-y-1.5">
-      {visible.map(([key, value]) => (
-        <div key={key}>
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            {key}
-          </p>
-          <p className="text-sm font-semibold text-foreground leading-snug">
-            {Array.isArray(value)
-              ? (value as unknown[]).join(", ")
-              : String(value)}
-          </p>
-        </div>
-      ))}
-      {remaining > 0 && (
-        <p className="text-xs text-muted-foreground">
-          +{remaining} more fields
-        </p>
-      )}
-    </div>
-  );
-}
-
 function formatTimestamp(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     year: "numeric",
@@ -235,20 +196,18 @@ export function AuditLogTable({
 
   return (
     <>
-      <Card className="overflow-hidden p-0">
-        <CardContent className="p-0">
-          {/*
-            max-h + overflow-auto (not overflow-x-auto) is required, not
-            cosmetic: overflow-x-auto alone makes the browser implicitly
-            compute overflow-y as auto too (CSS Overflow spec), which
-            silently makes THIS div the sticky containing block instead of
-            the page's scroll container. Since it had no bounded height it
-            never actually scrolled, so `sticky top-0` on the header cells
-            never visibly engaged. Giving it a real max-height makes it a
-            genuine scroll container so stickiness has something to stick
-            against.
-          */}
-          <div className="max-h-[70vh] overflow-auto">
+      {/*
+        max-h + overflow-auto (not overflow-x-auto) is required, not
+        cosmetic: overflow-x-auto alone makes the browser implicitly
+        compute overflow-y as auto too (CSS Overflow spec), which
+        silently makes THIS div the sticky containing block instead of
+        the page's scroll container. Since it had no bounded height it
+        never actually scrolled, so `sticky top-0` on the header cells
+        never visibly engaged. Giving it a real max-height makes it a
+        genuine scroll container so stickiness has something to stick
+        against.
+      */}
+      <div className="max-h-[70vh] overflow-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
@@ -318,14 +277,12 @@ export function AuditLogTable({
             </table>
           </div>
 
-          {pagination && pagination.total > 0 && (
-            <AuditLogPagination
-              pagination={pagination}
-              onPageChange={onPageChange}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {pagination && pagination.total > 0 && (
+        <AuditLogPagination
+          pagination={pagination}
+          onPageChange={onPageChange}
+        />
+      )}
 
       {activeEntry && (
         <AuditLogViewChangesModal
@@ -400,14 +357,6 @@ function AuditLogRow({
         >
           {target.detail}
         </p>
-      </td>
-
-      <td className="w-44 px-4 py-4">
-        <AuditDataCell data={entry.oldValue} />
-      </td>
-
-      <td className="w-44 px-4 py-4">
-        <AuditDataCell data={entry.newValue} />
       </td>
 
       <td className="whitespace-nowrap px-4 py-4 font-mono text-xs text-muted-foreground">
