@@ -238,7 +238,7 @@ export default function ContractInvestigatorPage() {
   const riskLevel = riskScore !== null ? riskLevelFromScore(riskScore) : null;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col space-y-4 pb-2">
+    <div className="flex h-full flex-col space-y-4 pb-2">
       {/* Breadcrumb */}
       <nav
         className="flex items-center gap-1.5 text-sm text-muted-foreground"

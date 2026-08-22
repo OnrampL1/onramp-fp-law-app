@@ -128,14 +128,15 @@ export function ContractMetadata({
             Uploaded By
           </dt>
           <dd className="flex min-w-0 flex-1 items-center gap-2 text-sm text-foreground ">
-            <Avatar className="size-6">
+            <Avatar className="size-6 shrink-0">
               <AvatarFallback className="bg-primary text-[10px] font-semibold text-primary-foreground">
                 {getInitials(c.uploadedByName)}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm font-medium text-foreground">
-              {c.uploadedByName}
-            </span>
+            <TruncatedValue
+              value={c.uploadedByName}
+              className="min-w-0 flex-1 font-medium text-foreground"
+            />
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">

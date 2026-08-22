@@ -63,6 +63,15 @@ export default function ContractDetailPage() {
   const { user } = useAuth();
   const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
 
+  function handleDownload() {
+    // Navigates to our own ContractFileViewer page rather than straight to
+    // the presigned S3 URL — that page owns the tab's title (see its own
+    // comment for why) and embeds the actual file. The target is a
+    // same-origin route known synchronously from `id`, so no popup-blocker
+    // workaround is needed here.
+    window.open(`/contracts/${id}/file`, "_blank", "noopener,noreferrer");
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center gap-3 text-sm text-muted-foreground">
@@ -113,10 +122,10 @@ export default function ContractDetailPage() {
       </nav>
 
       {/* Page header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight text-foreground">
               {contract.title}
             </h1>
           </div>
@@ -141,10 +150,9 @@ export default function ContractDetailPage() {
     stays a standalone, labeled, colored button rather than hidden in a
     menu — a legal-status change deserves visibility, not a guess from an
     icon. Only "More" (genuinely secondary utility actions) is icon-only,
-    the one place that convention is actually earned. Download / Witness
-    Link remain non-functional placeholders until those features are built.
-    */}
-        <div className="flex flex-wrap items-center gap-2">
+    the one place that convention is actually earned. All actions are wired
+    to real pages/endpoints. */}
+        <div className="flex shrink-0 flex-nowrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
@@ -172,7 +180,10 @@ export default function ContractDetailPage() {
                     contract.processingStatus === "EXTRACTION_FAILED" ||
                     contract.processingStatus === "AI_PENDING"
                   }
-                  onClick={() => triggerAnalysis.mutate()}
+                  onClick={() => {
+                    triggerAnalysis.mutate();
+                    navigate(`/contracts/${id}/analysis`);
+                  }}
                 >
                   <ScrollText className="size-4 text-muted-foreground" />
                   {triggerAnalysis.isPending
@@ -263,9 +274,9 @@ export default function ContractDetailPage() {
             </Tooltip>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuGroup>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem className="gap-2" onClick={handleDownload}>
                   <Download className="size-4 text-muted-foreground" />
-                  Download PDF
+                  Download
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2"

@@ -172,6 +172,26 @@ async function getById(
   }
 }
 
+async function getDownloadUrl(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as unknown as ContractIdParam;
+    const organizationId = req.user.orgId;
+
+    const download = await contractService.getContractDownloadUrl(
+      id,
+      organizationId,
+    );
+
+    res.json({ data: download });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getContent(
   req: AuthenticatedRequest,
   res: Response,
@@ -199,5 +219,6 @@ export const contractController = {
   updateContent,
   list,
   getById,
+  getDownloadUrl,
   getContent,
 };
