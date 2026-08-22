@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { Ban, CalendarClock, Copyright, Search, ShieldAlert } from "lucide-react";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { OnboardingRoute } from "./OnboardingRoute";
 import { ForcePasswordChangeRoute } from "./ForcePasswordChangeRoute";
@@ -111,6 +112,7 @@ export function AppRoutes() {
                 category="AUTO_RENEWAL"
                 title="Auto Renewal Alerts"
                 description="Contracts flagged for an auto-renewal clause worth reviewing."
+                icon={CalendarClock}
               />
             }
           />
@@ -121,6 +123,7 @@ export function AppRoutes() {
                 category="LIABILITY"
                 title="Liability Risks"
                 description="Contracts with an uncapped or broad liability exposure."
+                icon={ShieldAlert}
               />
             }
           />
@@ -131,6 +134,7 @@ export function AppRoutes() {
                 category="NON_COMPETE"
                 title="Non-Compete Detection"
                 description="Contracts with a non-compete or restrictive covenant flagged."
+                icon={Ban}
               />
             }
           />
@@ -141,6 +145,7 @@ export function AppRoutes() {
                 category="IP_ASSIGNMENT"
                 title="IP Assignment Detection"
                 description="Contracts with an IP assignment or transfer provision flagged."
+                icon={Copyright}
               />
             }
           />
@@ -151,6 +156,7 @@ export function AppRoutes() {
               <PlaceholderPage
                 title="Clause Investigator"
                 description="Search and compare clauses"
+                icon={Search}
               />
             }
           />

@@ -13,10 +13,20 @@ import {
 import type { ApiInvitation } from "@/services/invitations.service";
 
 import { UserRoleBadge, UserStatusBadge } from "./UserBadges";
+import { UserManagementPagination } from "./UserManagementPagination";
+
+interface InvitationHistoryPaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
 
 type InvitationHistoryProps = {
   invitations: ApiInvitation[];
   onResendInvite: (invitationId: string) => void;
+  pagination: InvitationHistoryPaginationMeta;
+  onPageChange: (page: number) => void;
 };
 
 function formatDate(value: string) {
@@ -34,8 +44,10 @@ function formatDate(value: string) {
 export function InvitationHistory({
   invitations,
   onResendInvite,
+  pagination,
+  onPageChange,
 }: InvitationHistoryProps) {
-  if (invitations.length === 0) {
+  if (pagination.total === 0) {
     return null;
   }
 
@@ -96,6 +108,13 @@ export function InvitationHistory({
             ))}
           </TableBody>
         </Table>
+
+        {pagination.total > 0 && (
+          <UserManagementPagination
+            pagination={pagination}
+            onPageChange={onPageChange}
+          />
+        )}
       </Card>
     </div>
   );

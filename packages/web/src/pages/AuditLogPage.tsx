@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, ShieldAlert } from "lucide-react";
+import { Download, ScrollText, ShieldAlert } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { AuditLogFilters } from "../components/audit-log/AuditLogFilters";
@@ -174,12 +174,17 @@ export function AuditLogPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Audit Logs</h1>
-          <p className="text-sm text-muted-foreground">
-            Immutable record of every contract and user action for compliance.
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <ScrollText className="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Audit Logs</h1>
+            <p className="text-sm text-muted-foreground">
+              Immutable record of every contract and user action for compliance.
+            </p>
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <Button

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { AxiosError } from "axios";
 import {
-  Archive,
   Building2,
   CheckCircle2,
   CircleSlash,
@@ -13,6 +12,7 @@ import {
   Plus,
   Search,
   ShieldAlert,
+  Trash2,
   UserPlus,
   Users,
   X,
@@ -61,6 +61,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { PlatformPagination } from "../../components/platform/PlatformPagination";
 import { cn } from "../../lib/utils";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { usePlatformAuth } from "../../hooks/usePlatformAuth";
@@ -90,7 +91,7 @@ const STATUS_LABELS: Record<PlatformOrganizationStatus, string> = {
   OWNER_ASSIGNED: "Owner Assigned",
   ACTIVE: "Active",
   SUSPENDED: "Suspended",
-  ARCHIVED: "Archived",
+  ARCHIVED: "Deleted",
 };
 
 const STATUS_ACTION_LABELS: Record<
@@ -99,7 +100,7 @@ const STATUS_ACTION_LABELS: Record<
 > = {
   ACTIVE: "Activate",
   SUSPENDED: "Suspend",
-  ARCHIVED: "Archive",
+  ARCHIVED: "Delete",
 };
 
 const STATUS_BADGE_STYLES: Record<PlatformOrganizationStatus, string> = {
@@ -171,7 +172,7 @@ function statusDialogTitle(
 ) {
   if (status === "ACTIVE") return "Activate organization?";
   if (status === "SUSPENDED") return "Suspend organization?";
-  return "Archive organization?";
+  return "Delete organization?";
 }
 
 function statusDialogDescription(
@@ -190,7 +191,7 @@ function statusDialogDescription(
     return `${statusTarget.organization.name} will be temporarily blocked from the application. Members will not be able to access the workspace until it is reactivated.`;
   }
 
-  return `${statusTarget.organization.name} will be archived. This is a high-impact lifecycle change and should only be used when the organization should no longer operate in Clausio.`;
+  return `${statusTarget.organization.name} will be permanently deleted and can never be reactivated. Type the organization name below to confirm.`;
 }
 
 function statusDialogActionLabel(
@@ -198,7 +199,7 @@ function statusDialogActionLabel(
 ) {
   if (status === "ACTIVE") return "Activate organization";
   if (status === "SUSPENDED") return "Suspend organization";
-  return "Archive organization";
+  return "Delete organization";
 }
 
 interface CreateOrganizationForm {
@@ -220,6 +221,7 @@ export function PlatformOrganizations() {
   const [status, setStatus] = useState<PlatformOrganizationStatus | "ALL">(
     "ALL",
   );
+  const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [ownerTarget, setOwnerTarget] =
     useState<PlatformOrganizationListItem | null>(null);
@@ -227,6 +229,7 @@ export function PlatformOrganizations() {
     organization: PlatformOrganizationListItem;
     status: UpdatePlatformOrganizationStatusPayload["status"];
   } | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -254,14 +257,18 @@ export function PlatformOrganizations() {
 
   const debouncedSearch = useDebouncedValue(search, 300);
 
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, status]);
+
   const queryParams = useMemo(
     () => ({
-      page: 1,
+      page,
       limit: 50,
       ...(debouncedSearch.trim() && { search: debouncedSearch.trim() }),
       ...(status !== "ALL" && { status }),
     }),
-    [debouncedSearch, status],
+    [page, debouncedSearch, status],
   );
 
   const { data, isLoading, isError, refetch } =
@@ -344,6 +351,7 @@ export function PlatformOrganizations() {
         }.`,
       });
       setStatusTarget(null);
+      setDeleteConfirmText("");
     } catch (error) {
       setFeedback({ type: "error", message: errorMessage(error) });
       setStatusTarget(null);
@@ -526,8 +534,8 @@ export function PlatformOrganizations() {
                 <TableHead>Organization</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Owner</TableHead>
-                <TableHead className="text-right">Members</TableHead>
-                <TableHead className="text-right">Contracts</TableHead>
+                <TableHead>Members</TableHead>
+                <TableHead>Contracts</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-64 text-right">Actions</TableHead>
               </TableRow>
@@ -575,15 +583,13 @@ export function PlatformOrganizations() {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <span className="inline-flex items-center justify-end gap-1">
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1">
                       <Users className="size-3.5 text-muted-foreground" />
                       {organization.counts.members}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    {organization.counts.contracts}
-                  </TableCell>
+                  <TableCell>{organization.counts.contracts}</TableCell>
                   <TableCell>{formatDate(organization.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap justify-end gap-2">
@@ -621,7 +627,7 @@ export function PlatformOrganizations() {
                           }
                         >
                           {targetStatus === "ARCHIVED" && (
-                            <Archive className="mr-2 size-4" />
+                            <Trash2 className="mr-2 size-4" />
                           )}
                           {targetStatus === "ACTIVE" && (
                             <CheckCircle2 className="mr-2 size-4" />
@@ -638,6 +644,10 @@ export function PlatformOrganizations() {
               ))}
             </TableBody>
           </Table>
+        )}
+
+        {pagination && pagination.total > 0 && (
+          <PlatformPagination pagination={pagination} onPageChange={setPage} />
         )}
       </section>
 
@@ -846,6 +856,7 @@ export function PlatformOrganizations() {
         onOpenChange={(open) => {
           if (!open && !updateStatus.isPending) {
             setStatusTarget(null);
+            setDeleteConfirmText("");
           }
         }}
       >
@@ -860,6 +871,29 @@ export function PlatformOrganizations() {
               {statusDialogDescription(statusTarget)}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {statusTarget?.status === "ARCHIVED" && (
+            <div className="space-y-2">
+              <Label htmlFor="delete-confirm-name">
+                Type{" "}
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium text-foreground">
+                  {statusTarget.organization.name}
+                </code>{" "}
+                to confirm
+              </Label>
+              <Input
+                id="delete-confirm-name"
+                value={deleteConfirmText}
+                onChange={(event) =>
+                  setDeleteConfirmText(event.target.value)
+                }
+                placeholder="Organization name"
+                autoComplete="off"
+                disabled={updateStatus.isPending}
+              />
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={updateStatus.isPending}>
               Cancel
@@ -871,7 +905,11 @@ export function PlatformOrganizations() {
                   ? "destructive"
                   : "default"
               }
-              disabled={updateStatus.isPending}
+              disabled={
+                updateStatus.isPending ||
+                (statusTarget?.status === "ARCHIVED" &&
+                  deleteConfirmText !== statusTarget.organization.name)
+              }
               onClick={(event) => {
                 event.preventDefault();
                 void handleStatusChange();

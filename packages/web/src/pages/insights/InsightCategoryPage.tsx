@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -14,9 +15,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BusinessStatusBadge, StatusBadge } from "@/components/ui/badges";
-import { AlertCircle, FileText } from "lucide-react";
+import { AlertCircle, ArrowLeft, FileText, type LucideIcon } from "lucide-react";
 import { LEGAL_STATE_LABELS } from "@/components/dashboard/RecentContractsTable";
+import { InsightCategoryPagination } from "@/components/insights/InsightCategoryPagination";
 import { useInsightCategoryContracts } from "@/hooks/useInsights";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 import type { RiskCategory } from "@/types/insights";
@@ -25,22 +28,46 @@ interface InsightCategoryPageProps {
   category: RiskCategory;
   title: string;
   description: string;
+  icon: LucideIcon;
 }
 
 export function InsightCategoryPage({
   category,
   title,
   description,
+  icon: Icon,
 }: InsightCategoryPageProps) {
-  const { data, isLoading, isError, refetch } =
-    useInsightCategoryContracts(category);
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError, refetch } = useInsightCategoryContracts(
+    category,
+    page,
+  );
   const contracts = data?.contracts ?? [];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        <p className="text-muted-foreground">{description}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Icon className="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            <p className="text-muted-foreground">{description}</p>
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5"
+          render={
+            <Link to="/dashboard">
+              <ArrowLeft className="size-4" />
+              Back to Dashboard
+            </Link>
+          }
+        />
       </div>
 
       <Card>
@@ -108,17 +135,26 @@ export function InsightCategoryPage({
               ) : (
                 contracts.map((contract) => (
                   <TableRow key={contract.id}>
-                    <TableCell>
+                    <TableCell className="max-w-[280px]">
                       <div className="flex items-center gap-3">
                         <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
                           <FileText className="size-4" />
                         </div>
-                        <Link
-                          to={`/contracts/${contract.id}`}
-                          className="truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
-                        >
-                          {contract.title}
-                        </Link>
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Link
+                                to={`/contracts/${contract.id}`}
+                                className="min-w-0 truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
+                              >
+                                {contract.title}
+                              </Link>
+                            }
+                          />
+                          <TooltipContent side="top" align="start">
+                            {contract.title}
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -148,6 +184,13 @@ export function InsightCategoryPage({
             </TableBody>
           </Table>
         </div>
+
+        {data && data.pagination.total > 0 ? (
+          <InsightCategoryPagination
+            pagination={data.pagination}
+            onPageChange={setPage}
+          />
+        ) : null}
       </Card>
     </div>
   );
