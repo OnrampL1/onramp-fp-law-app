@@ -86,13 +86,6 @@ const adminNav = [
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
-function getRoleLabel(role?: string) {
-  if (role && role in roleLabels) {
-    return roleLabels[role as BackendUserRole];
-  }
-  return role ?? "Team member";
-}
-
 function getInitials(name?: string) {
   if (!name) {
     return "AW";
