@@ -6,6 +6,16 @@ import { Search, Bell, LogOut, Moon, Sun } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   useMarkNotificationRead,
   useNotificationsFeed,
 } from "@/hooks/useNotifications";
@@ -42,6 +52,7 @@ export function Header() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
 
   const search = useGlobalSearch();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -107,10 +118,12 @@ export function Header() {
 
   const markRead = useMarkNotificationRead();
 
-  const allLoadedNotifications = notificationPages?.pages.flatMap((page) => page.items) ?? [];
+  const allLoadedNotifications =
+    notificationPages?.pages.flatMap((page) => page.items) ?? [];
   const notifications = allLoadedNotifications.slice(0, DROPDOWN_ITEM_CAP);
   const notificationCount = notifications.length;
-  const canLoadMore = hasNextPage && allLoadedNotifications.length < DROPDOWN_ITEM_CAP;
+  const canLoadMore =
+    hasNextPage && allLoadedNotifications.length < DROPDOWN_ITEM_CAP;
   const atCap = allLoadedNotifications.length >= DROPDOWN_ITEM_CAP;
   const hasUnread = notifications.some((item) => !item.read);
   const orgNotifications = notifications.filter((item) => item.scope === "ORG");
@@ -291,11 +304,13 @@ export function Header() {
                 </div>
               )}
 
-              {!notificationsLoading && !notificationsError && notificationCount === 0 && (
-                <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-                  You're all caught up - no notifications right now.
-                </div>
-              )}
+              {!notificationsLoading &&
+                !notificationsError &&
+                notificationCount === 0 && (
+                  <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                    You're all caught up - no notifications right now.
+                  </div>
+                )}
 
               {!notificationsLoading &&
                 !notificationsError &&
@@ -304,44 +319,46 @@ export function Header() {
                 !notificationsError &&
                 renderNotificationGroup("For You", personalNotifications)}
 
-              {!notificationsLoading && !notificationsError && notificationCount > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  <div className="flex items-center justify-between gap-2 px-1 py-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      disabled={!canLoadMore || isFetchingNextPage}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        fetchNextPage();
-                      }}
-                    >
-                      {isFetchingNextPage
-                        ? "Loading…"
-                        : atCap
-                          ? "View all for more"
-                          : hasNextPage
-                            ? "Load more"
-                            : "No more notifications"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleViewAllNotifications();
-                      }}
-                    >
-                      View all
-                    </Button>
-                  </div>
-                </>
-              )}
+              {!notificationsLoading &&
+                !notificationsError &&
+                notificationCount > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="flex items-center justify-between gap-2 px-1 py-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={!canLoadMore || isFetchingNextPage}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          fetchNextPage();
+                        }}
+                      >
+                        {isFetchingNextPage
+                          ? "Loading…"
+                          : atCap
+                            ? "View all for more"
+                            : hasNextPage
+                              ? "Load more"
+                              : "No more notifications"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleViewAllNotifications();
+                        }}
+                      >
+                        View all
+                      </Button>
+                    </div>
+                  </>
+                )}
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -351,7 +368,7 @@ export function Header() {
           variant="outline"
           size="icon"
           className="h-9 w-9"
-          onClick={handleLogout}
+          onClick={() => setSignOutOpen(true)}
           disabled={isLoggingOut}
           aria-label="Sign out"
           title="Sign out"
@@ -359,6 +376,31 @@ export function Header() {
           <LogOut className="size-4" />
         </Button>
       </div>
+      <AlertDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign out of Clausio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will need to sign in again before accessing your contract
+              workspace.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoggingOut}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isLoggingOut}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleLogout();
+              }}
+            >
+              {isLoggingOut ? "Signing out..." : "Yes, sign out"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   );
 }

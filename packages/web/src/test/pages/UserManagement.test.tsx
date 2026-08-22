@@ -38,6 +38,18 @@ const members: TeamMember[] = [
   },
 ];
 
+const disabledMember: TeamMember = {
+  source: "user",
+  id: "user-2",
+  name: "Jordan Lee",
+  email: "jordan@clausio.test",
+  role: "INTERNAL",
+  status: "disabled",
+  permissionKeys: ["contracts.read"],
+  createdAt: "2026-05-04T09:30:00Z",
+  lastActiveAt: "2026-07-02T16:45:00Z",
+};
+
 beforeEach(() => {
   mockUseTeamMembers.mockReturnValue({
     members,
@@ -171,6 +183,69 @@ describe("UserManagement revoke invitation", () => {
     await user.click(screen.getByRole("button", { name: /revoke invite/i }));
 
     expect(mockMutate).toHaveBeenCalledWith("invite-1");
+  });
+});
+
+describe("UserManagement user access confirmations", () => {
+  beforeEach(() => {
+    mockMutate.mockClear();
+    mockUseAuth.mockReturnValue({
+      user: { id: "owner-1", email: "owner@clausio.test", role: "OWNER" },
+    });
+  });
+
+  it("asks for confirmation before disabling a user", async () => {
+    const user = userEvent.setup();
+
+    render(<UserManagement />);
+
+    await user.click(
+      screen.getByRole("button", { name: /actions for alex whitfield/i }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: /disable access/i }),
+    );
+
+    expect(await screen.findByText("Disable user access?")).toBeInTheDocument();
+    expect(mockMutate).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /disable access/i }));
+
+    expect(mockMutate).toHaveBeenCalledWith({
+      userId: "user-1",
+      status: "SUSPENDED",
+    });
+  });
+
+  it("asks for confirmation before reactivating a user", async () => {
+    const user = userEvent.setup();
+
+    mockUseTeamMembers.mockReturnValue({
+      members: [disabledMember],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<UserManagement />);
+
+    await user.click(
+      screen.getByRole("button", { name: /actions for jordan lee/i }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: /reactivate/i }),
+    );
+
+    expect(
+      await screen.findByText("Reactivate user access?"),
+    ).toBeInTheDocument();
+    expect(mockMutate).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /reactivate user/i }));
+
+    expect(mockMutate).toHaveBeenCalledWith({
+      userId: "user-2",
+      status: "ACTIVE",
+    });
   });
 });
 

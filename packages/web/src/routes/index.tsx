@@ -1,5 +1,6 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { OnboardingRoute } from "./OnboardingRoute";
 import { PlatformProtectedRoute } from "./PlatformProtectedRoute";
 import { PlatformOrganizations } from "../pages/platform/PlatformOrganizations";
 import { AppLayout } from "../layouts/AppLayout";
@@ -29,6 +30,7 @@ import { OrganizationBrain } from "../pages/dashboard/OrganizationBrain";
 import LegalAssistantPage from "../pages/dashboard/LegalAssistant";
 import { InsightCategoryPage } from "@/pages/insights/InsightCategoryPage";
 import { PlatformAccessRequests } from "../pages/platform/PlatformAccessRequests";
+import { OrganizationOnboarding } from "../pages/onboarding/OrganizationOnboarding";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
 
 export function AppRoutes() {
@@ -51,6 +53,10 @@ export function AppRoutes() {
       <Route element={<PlatformProtectedRoute />}>
         <Route element={<PlatformLayout />}>
           <Route
+            path="/platform"
+            element={<Navigate to="/platform/organizations" replace />}
+          />
+          <Route
             path="/platform/organizations"
             element={<PlatformOrganizations />}
           />
@@ -63,6 +69,11 @@ export function AppRoutes() {
       {/* Public landing page */}
       <Route path="/" element={<Landing />} />
       <Route path="/request-access" element={<RequestAccess />} />
+
+      {/* Authenticated onboarding route */}
+      <Route element={<OnboardingRoute />}>
+        <Route path="/onboarding" element={<OrganizationOnboarding />} />
+      </Route>
 
       {/* Protected app routes */}
       <Route element={<ProtectedRoute />}>

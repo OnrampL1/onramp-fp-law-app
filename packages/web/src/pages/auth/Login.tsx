@@ -30,6 +30,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
+import { getAuthenticatedEntryPath } from "../../lib/auth-navigation";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email"),
@@ -82,15 +83,15 @@ export function Login() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      navigate("/dashboard", { replace: true });
+      navigate(getAuthenticatedEntryPath(user), { replace: true });
     }
   }, [isLoading, navigate, user]);
 
   const onSubmit = async (data: LoginFormData) => {
     try {
       setError(null);
-      await login(data.email, data.password);
-      navigate("/dashboard", { replace: true });
+      const authenticatedUser = await login(data.email, data.password);
+      navigate(getAuthenticatedEntryPath(authenticatedUser), { replace: true });
     } catch {
       setError("Invalid email or password");
     }

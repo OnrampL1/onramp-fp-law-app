@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+  Building2,
   ChevronsUpDown,
   FileText,
   LayoutDashboard,
@@ -107,7 +108,7 @@ export function Sidebar() {
               size="lg"
               className="data-open:bg-sidebar-accent"
             >
-              <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg bg-primary text-primary-foreground">
+              <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg border bg-muted">
                 {showLogo ? (
                   <img
                     src={logoUrl!}
@@ -116,7 +117,7 @@ export function Sidebar() {
                     onError={() => setLogoFailedToLoad(true)}
                   />
                 ) : (
-                  <Scale className="size-4" />
+                  <Building2 className="size-4 text-muted-foreground" />
                 )}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">

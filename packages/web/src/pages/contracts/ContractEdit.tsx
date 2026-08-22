@@ -9,7 +9,10 @@ import {
   FileText,
   Loader2,
   Pencil,
+  RotateCcw,
+  Save,
   X,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -255,9 +258,11 @@ export default function ContractEdit() {
           <Button
             type="button"
             variant="outline"
+            className="gap-2"
             disabled={updateMutation.isPending}
             onClick={handleCancelClick}
           >
+            <X className="size-4" />
             Cancel
           </Button>
           {canManageLegalState &&
@@ -265,6 +270,7 @@ export default function ContractEdit() {
               <Button
                 type="button"
                 variant="outline"
+                className="gap-2"
                 disabled={setLegalState.isPending}
                 onClick={() =>
                   setLegalState.mutate({
@@ -273,31 +279,41 @@ export default function ContractEdit() {
                   })
                 }
               >
+                {setLegalState.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="size-4" />
+                )}
                 {setLegalState.isPending ? "Reactivating…" : "Reactivate"}
               </Button>
             ) : (
               <Button
                 type="button"
-                variant="outline"
+                variant="destructive"
+                className="gap-2"
                 disabled={setLegalState.isPending}
                 onClick={() => setTerminateDialogOpen(true)}
               >
+                {setLegalState.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <XCircle className="size-4" />
+                )}
                 Terminate
               </Button>
             ))}
           <Button
             type="button"
+            className="gap-2"
             disabled={updateMutation.isPending}
             onClick={handleSave}
           >
             {updateMutation.isPending ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Saving…
-              </>
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              "Save Changes"
+              <Save className="size-4" />
             )}
+            {updateMutation.isPending ? "Saving…" : "Save Changes"}
           </Button>
         </div>
       </div>

@@ -9,15 +9,11 @@ import {
   hashToken,
   type AuthUser,
 } from "@starter-kit/shared";
-import { Prisma, type User } from "@prisma/client";
+import { Prisma, type OrganizationStatus, type User } from "@prisma/client";
 import { createError } from "../middleware/error-handler";
 import { auditService } from "./audit.service";
 
 const prisma = getPrismaClient();
-
-function organizationAllowsMemberAccess(status: string): boolean {
-  return status === "ACTIVE";
-}
 
 interface LoginInput {
   email: string;
@@ -40,13 +36,44 @@ interface RequestContext {
   userAgent?: string;
 }
 
-function toPublicUser(user: User): AuthUser {
+interface OrganizationAccessSnapshot {
+  status: OrganizationStatus;
+  ownerUserId?: string | null;
+}
+
+function isOnboardingRequiredForUser(
+  user: Pick<User, "id" | "role">,
+  organization: OrganizationAccessSnapshot,
+): boolean {
+  return (
+    organization.status === "OWNER_ASSIGNED" &&
+    user.role === "OWNER" &&
+    organization.ownerUserId === user.id
+  );
+}
+
+function organizationAllowsAuthenticatedSession(
+  user: Pick<User, "id" | "role">,
+  organization: OrganizationAccessSnapshot,
+): boolean {
+  return (
+    organization.status === "ACTIVE" ||
+    isOnboardingRequiredForUser(user, organization)
+  );
+}
+
+function toPublicUser(
+  user: User,
+  organization: OrganizationAccessSnapshot,
+): AuthUser {
   return {
     id: user.id,
     organizationId: user.organizationId,
     email: user.email,
     fullName: user.fullName,
     role: user.role,
+    organizationStatus: organization.status,
+    onboardingRequired: isOnboardingRequiredForUser(user, organization),
   };
 }
 
@@ -69,6 +96,7 @@ export class AuthService {
         organization: {
           select: {
             status: true,
+            ownerUserId: true,
           },
         },
       },
@@ -77,7 +105,7 @@ export class AuthService {
     if (!invitation) {
       throw createError("Invalid invitation", 400);
     }
-    if (!organizationAllowsMemberAccess(invitation.organization.status)) {
+    if (invitation.organization.status !== "ACTIVE") {
       throw createError("Organization is not active", 403);
     }
     if (invitation.status === "ACCEPTED") {
@@ -152,7 +180,7 @@ export class AuthService {
       role: user.role,
     });
 
-    return { user: toPublicUser(user), ...tokens };
+    return { user: toPublicUser(user, invitation.organization), ...tokens };
   }
 
   async login(input: LoginInput) {
@@ -162,6 +190,7 @@ export class AuthService {
         organization: {
           select: {
             status: true,
+            ownerUserId: true,
           },
         },
       },
@@ -177,7 +206,7 @@ export class AuthService {
     if (user.status !== "ACTIVE") {
       throw createError("This account is not active", 401);
     }
-    if (!organizationAllowsMemberAccess(user.organization.status)) {
+    if (!organizationAllowsAuthenticatedSession(user, user.organization)) {
       throw createError("Organization is not active", 403);
     }
 
@@ -192,7 +221,7 @@ export class AuthService {
       role: user.role,
     });
 
-    return { user: toPublicUser(user), ...tokens };
+    return { user: toPublicUser(user, user.organization), ...tokens };
   }
 
   async refresh(rawRefreshToken: string) {
@@ -213,6 +242,7 @@ export class AuthService {
         organization: {
           select: {
             status: true,
+            ownerUserId: true,
           },
         },
       },
@@ -220,7 +250,7 @@ export class AuthService {
     if (!user || user.status !== "ACTIVE") {
       throw createError("Invalid or expired refresh token", 401);
     }
-    if (!organizationAllowsMemberAccess(user.organization.status)) {
+    if (!organizationAllowsAuthenticatedSession(user, user.organization)) {
       throw createError("Organization is not active", 403);
     }
 
@@ -277,6 +307,7 @@ export class AuthService {
         organization: {
           select: {
             status: true,
+            ownerUserId: true,
           },
         },
       },
@@ -284,11 +315,11 @@ export class AuthService {
 
     if (!user) throw createError("User not found", 404);
 
-    if (!organizationAllowsMemberAccess(user.organization.status)) {
+    if (!organizationAllowsAuthenticatedSession(user, user.organization)) {
       throw createError("Organization is not active", 403);
     }
 
-    return toPublicUser(user);
+    return toPublicUser(user, user.organization);
   }
 }
 

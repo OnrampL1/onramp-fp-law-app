@@ -27,9 +27,25 @@ vi.mock("../../hooks/useAuth", () => ({
 
 import { Login } from "../../pages/auth/Login";
 
+const activeUser = {
+  id: "user-1",
+  organizationId: "org-1",
+  email: "owner@example.com",
+  fullName: "Owner User",
+  role: "OWNER",
+  organizationStatus: "ACTIVE",
+  onboardingRequired: false,
+};
+
+const onboardingUser = {
+  ...activeUser,
+  organizationStatus: "OWNER_ASSIGNED",
+  onboardingRequired: true,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.login.mockResolvedValue(undefined);
+  mocks.login.mockResolvedValue(activeUser);
 });
 
 function mockAuth(overrides = {}) {
@@ -65,13 +81,7 @@ describe("Login", () => {
 
   it("redirects authenticated users away from login", async () => {
     mockAuth({
-      user: {
-        id: "user-1",
-        organizationId: "org-1",
-        email: "owner@example.com",
-        fullName: "Owner User",
-        role: "OWNER",
-      },
+      user: activeUser,
       isLoading: false,
     });
 
@@ -86,6 +96,21 @@ describe("Login", () => {
     expect(
       screen.queryByRole("button", { name: /sign in/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("redirects authenticated users who need onboarding to onboarding", async () => {
+    mockAuth({
+      user: onboardingUser,
+      isLoading: false,
+    });
+
+    renderLogin();
+
+    await waitFor(() => {
+      expect(mocks.navigate).toHaveBeenCalledWith("/onboarding", {
+        replace: true,
+      });
+    });
   });
 
   it("renders the login form for unauthenticated users", () => {
@@ -119,6 +144,32 @@ describe("Login", () => {
     });
 
     expect(mocks.navigate).toHaveBeenCalledWith("/dashboard", {
+      replace: true,
+    });
+  });
+
+  it("logs in and redirects onboarding-required users to onboarding", async () => {
+    const user = userEvent.setup();
+    mocks.login.mockResolvedValueOnce(onboardingUser);
+    mockAuth();
+
+    renderLogin();
+
+    await user.type(
+      screen.getByLabelText(/email address/i),
+      "owner@example.com",
+    );
+    await user.type(screen.getByLabelText(/^password$/i), "Password123!");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mocks.login).toHaveBeenCalledWith(
+        "owner@example.com",
+        "Password123!",
+      );
+    });
+
+    expect(mocks.navigate).toHaveBeenCalledWith("/onboarding", {
       replace: true,
     });
   });

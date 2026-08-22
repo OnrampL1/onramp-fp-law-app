@@ -216,6 +216,7 @@ async function getRiskOverview(
       (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
     ),
     timeline: buildTimeline(risk),
+    model: analysis.modelVersion,
   };
 }
 

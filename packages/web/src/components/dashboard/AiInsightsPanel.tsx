@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useInsightsSummary } from "@/hooks/useInsights";
 import type { RiskCategory } from "@/types/insights";
 
@@ -25,30 +26,35 @@ const CATEGORY_LINKS: {
   label: string;
   icon: LucideIcon;
   href: string;
+  iconClassName: string;
 }[] = [
   {
     category: "AUTO_RENEWAL",
     label: "Auto-renewal",
     icon: CalendarClock,
     href: "/insights/auto-renewal",
+    iconClassName: "bg-red-50 text-red-600",
   },
   {
     category: "LIABILITY",
     label: "Liability",
     icon: ShieldAlert,
     href: "/insights/liability",
+    iconClassName: "bg-red-50 text-red-600",
   },
   {
     category: "NON_COMPETE",
     label: "Non-compete",
     icon: Ban,
     href: "/insights/non-compete",
+    iconClassName: "bg-accent text-accent-foreground",
   },
   {
     category: "IP_ASSIGNMENT",
     label: "IP assignment",
     icon: Copyright,
     href: "/insights/ip-assignment",
+    iconClassName: "bg-accent text-accent-foreground",
   },
 ];
 
@@ -85,7 +91,8 @@ export function AiInsightsPanel() {
           </div>
         ) : (
           <div className="space-y-2">
-            {CATEGORY_LINKS.map(({ category, label, icon: Icon, href }) => {
+            {CATEGORY_LINKS.map(
+              ({ category, label, icon: Icon, href, iconClassName }) => {
               const count = countFor(category);
               return (
                 <button
@@ -94,7 +101,12 @@ export function AiInsightsPanel() {
                   onClick={() => navigate(href)}
                   className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/40"
                 >
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                  <div
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                      iconClassName,
+                    )}
+                  >
                     <Icon className="size-4" />
                   </div>
                   <div className="min-w-0 flex-1">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BrainCircuit,
   Download,
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -108,6 +109,7 @@ export function OrganizationBrain() {
   const [deleteTarget, setDeleteTarget] =
     useState<OrganizationBrainItem | null>(null);
   const [downloadItemId, setDownloadItemId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const listParams = useMemo(
     () => ({
@@ -247,27 +249,27 @@ export function OrganizationBrain() {
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleCreateSubmit}>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  type="button"
-                  variant={createMode === "upload" ? "default" : "outline"}
-                  className="gap-2"
-                  onClick={() => setCreateMode("upload")}
-                >
-                  <Upload className="size-4" aria-hidden="true" />
-                  Upload file
-                </Button>
-
-                <Button
-                  type="button"
-                  variant={createMode === "paste" ? "default" : "outline"}
-                  className="gap-2"
-                  onClick={() => setCreateMode("paste")}
-                >
-                  <Plus className="size-4" aria-hidden="true" />
-                  Paste text
-                </Button>
-              </div>
+              <Tabs
+                value={createMode}
+                onValueChange={(value) => setCreateMode(value as CreateMode)}
+              >
+                <TabsList className="h-9 w-fit">
+                  <TabsTrigger
+                    value="upload"
+                    className="gap-2 data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
+                  >
+                    <Upload className="size-4" aria-hidden="true" />
+                    Upload file
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="paste"
+                    className="gap-2 data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
+                  >
+                    <Plus className="size-4" aria-hidden="true" />
+                    Paste text
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
               <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
                 <div className="space-y-2">
@@ -291,7 +293,13 @@ export function OrganizationBrain() {
                     }
                   >
                     <SelectTrigger id="organization-brain-type">
-                      <SelectValue />
+                      <SelectValue>
+                        {(value) =>
+                          organizationBrainItemTypeLabels[
+                            value as OrganizationBrainItemType
+                          ]
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {itemTypes.map((type) => (
@@ -307,15 +315,31 @@ export function OrganizationBrain() {
               {createMode === "upload" ? (
                 <div className="space-y-2">
                   <Label htmlFor="organization-brain-file">File</Label>
-                  <Input
+                  <input
+                    ref={fileInputRef}
                     id="organization-brain-file"
                     type="file"
                     accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                     required
+                    className="sr-only"
                     onChange={(event) =>
                       setFile(event.target.files?.[0] ?? null)
                     }
                   />
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="size-4" aria-hidden="true" />
+                      Choose file
+                    </Button>
+                    <span className="truncate text-sm text-muted-foreground">
+                      {file ? file.name : "No file chosen"}
+                    </span>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Supported formats: PDF, DOCX, and TXT. Maximum size: 10 MB.
                   </p>
@@ -361,53 +385,61 @@ export function OrganizationBrain() {
         </Card>
       )}
 
-      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-sm">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="pl-9"
-            placeholder="Search organization brain"
-            aria-label="Search organization brain"
-          />
-        </div>
+      <Card>
+        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-sm">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="pl-9"
+              placeholder="Search organization brain"
+              aria-label="Search organization brain"
+            />
+          </div>
 
-        <Select
-          value={typeFilter}
-          onValueChange={(value) => setTypeFilter(value as TypeFilter)}
-        >
-          <SelectTrigger
-            className="w-full sm:w-52"
-            aria-label="Filter organization brain items by type"
+          <Select
+            value={typeFilter}
+            onValueChange={(value) => setTypeFilter(value as TypeFilter)}
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            {itemTypes.map((type) => (
-              <SelectItem key={type} value={type}>
-                {organizationBrainItemTypeLabels[type]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+            <SelectTrigger
+              className="w-full sm:w-52"
+              aria-label="Filter organization brain items by type"
+            >
+              <SelectValue>
+                {(value) =>
+                  value === "all"
+                    ? "All Types"
+                    : organizationBrainItemTypeLabels[
+                        value as OrganizationBrainItemType
+                      ]
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {itemTypes.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {organizationBrainItemTypeLabels[type]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      {itemsQuery.isLoading ? (
-        <div className="flex justify-center py-16">
-          <LoadingSpinner />
-        </div>
-      ) : itemsQuery.isError ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          Couldn't load organization brain items. Try refreshing the page.
-        </div>
-      ) : (
-        <Card>
+        {itemsQuery.isLoading ? (
+          <div className="flex justify-center py-16">
+            <LoadingSpinner />
+          </div>
+        ) : itemsQuery.isError ? (
+          <div className="p-4 text-sm text-destructive">
+            Couldn't load organization brain items. Try refreshing the page.
+          </div>
+        ) : (
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -515,8 +547,8 @@ export function OrganizationBrain() {
               </table>
             </div>
           </CardContent>
-        </Card>
-      )}
+        )}
+      </Card>
 
       {pagination && pagination.totalPages > 1 && (
         <div className="flex items-center justify-between">
