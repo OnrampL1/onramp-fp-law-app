@@ -61,25 +61,25 @@ export function ContractInsights({
       >
         <div className="border-b border-border p-3">
           <TabsList className="w-full">
-            <TabsTrigger value="summary" className="flex-1 gap-1.5">
-              <Sparkles className="size-4" />
-              <span className="hidden sm:inline">Summary</span>
+            <TabsTrigger value="summary" className="min-w-0 flex-1 gap-1.5 overflow-hidden">
+              <Sparkles className="size-4 shrink-0" />
+              <span className="hidden truncate sm:inline">Summary</span>
             </TabsTrigger>
-            <TabsTrigger value="risk" className="flex-1 gap-1.5">
-              <ShieldAlert className="size-4" />
-              Risk
+            <TabsTrigger value="risk" className="min-w-0 flex-1 gap-1.5 overflow-hidden">
+              <ShieldAlert className="size-4 shrink-0" />
+              <span className="truncate">Risk</span>
               {riskCount !== undefined && (
                 <Badge
                   variant="secondary"
-                  className="ml-0.5 h-5 px-1.5 text-[11px]"
+                  className="ml-0.5 h-5 shrink-0 px-1.5 text-[11px]"
                 >
                   {riskCount}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="notes" className="flex-1 gap-1.5">
-              <MessageSquare className="size-4" />
-              Notes
+            <TabsTrigger value="notes" className="min-w-0 flex-1 gap-1.5 overflow-hidden">
+              <MessageSquare className="size-4 shrink-0" />
+              <span className="truncate">Notes</span>
             </TabsTrigger>
           </TabsList>
         </div>
