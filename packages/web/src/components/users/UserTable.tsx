@@ -14,7 +14,6 @@ import {
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -90,7 +89,7 @@ export function UserTable({
   }
 
   return (
-    <Card className="overflow-hidden">
+    <>
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -279,6 +278,6 @@ export function UserTable({
           </p>
         </div>
       )}
-    </Card>
+    </>
   );
 }

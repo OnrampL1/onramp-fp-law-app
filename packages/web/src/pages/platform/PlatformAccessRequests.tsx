@@ -109,9 +109,18 @@ function requesterName(request: PlatformAccessRequest) {
 }
 
 const STATUS_BADGE_STYLES: Record<PlatformAccessRequestStatus, string> = {
-  PENDING: "border-amber-200 bg-amber-50 text-amber-700",
-  APPROVED: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  DECLINED: "border-red-200 bg-red-50 text-red-700",
+  PENDING:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+  APPROVED:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
+  DECLINED:
+    "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
+};
+
+const STATUS_DOT_STYLES: Record<PlatformAccessRequestStatus, string> = {
+  PENDING: "bg-amber-500",
+  APPROVED: "bg-emerald-500",
+  DECLINED: "bg-red-500",
 };
 
 function getStats(requests: PlatformAccessRequest[]) {
@@ -398,10 +407,17 @@ export function PlatformAccessRequests() {
                     <Badge
                       variant="outline"
                       className={cn(
-                        "rounded-full",
+                        "gap-1.5 rounded-full",
                         STATUS_BADGE_STYLES[request.status],
                       )}
                     >
+                      <span
+                        className={cn(
+                          "size-1.5 rounded-full",
+                          STATUS_DOT_STYLES[request.status],
+                        )}
+                        aria-hidden
+                      />
                       {STATUS_LABELS[request.status]}
                     </Badge>
                   </TableCell>

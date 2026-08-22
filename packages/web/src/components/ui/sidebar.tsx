@@ -496,22 +496,34 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
-function SidebarMenuButton({
-  render,
-  isActive = false,
-  variant = "default",
-  size = "default",
-  tooltip,
-  className,
-  ...props
-}: useRender.ComponentProps<"button"> &
-  React.ComponentProps<"button"> & {
-    isActive?: boolean
-    tooltip?: string | React.ComponentProps<typeof TooltipContent>
-  } & VariantProps<typeof sidebarMenuButtonVariants>) {
+// Must be React.forwardRef: base-ui primitives that render SidebarMenuButton
+// via `render={<SidebarMenuButton ... />}` (e.g. DropdownMenuTrigger) attach
+// a ref to register the DOM node as the floating-ui anchor. Without
+// forwardRef, React silently drops that ref on a plain function component,
+// so the trigger never opens — same failure mode Button.tsx documents.
+const SidebarMenuButton = React.forwardRef<
+  HTMLButtonElement,
+  useRender.ComponentProps<"button"> &
+    React.ComponentProps<"button"> & {
+      isActive?: boolean
+      tooltip?: string | React.ComponentProps<typeof TooltipContent>
+    } & VariantProps<typeof sidebarMenuButtonVariants>
+>(function SidebarMenuButton(
+  {
+    render,
+    isActive = false,
+    variant = "default",
+    size = "default",
+    tooltip,
+    className,
+    ...props
+  },
+  ref
+) {
   const { isMobile, state } = useSidebar()
   const comp = useRender({
     defaultTagName: "button",
+    ref,
     props: mergeProps<"button">(
       {
         className: cn(sidebarMenuButtonVariants({ variant, size }), className),
@@ -548,7 +560,7 @@ function SidebarMenuButton({
       />
     </Tooltip>
   )
-}
+})
 
 function SidebarMenuAction({
   className,

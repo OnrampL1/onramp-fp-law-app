@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2,
   ChevronsUpDown,
   FileText,
   LayoutDashboard,
+  LogOut,
   PenLine,
   Scale,
   ScrollText,
   Settings,
   ShieldCheck,
   Upload,
+  UserRound,
   Users,
   BrainCircuit,
 } from "lucide-react";
@@ -27,9 +29,30 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizationSettings } from "@/hooks/useSettings";
-import { isAdminRole } from "@/lib/permissions";
+import {
+  isAdminRole,
+  roleLabels,
+  type BackendUserRole,
+} from "@/lib/permissions";
 
 const workspaceNav = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -79,13 +102,29 @@ function getInitials(name?: string) {
 
 export function Sidebar() {
   const { pathname } = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const { data: organizationSettings } = useOrganizationSettings();
   const [logoFailedToLoad, setLogoFailedToLoad] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const userName = user?.fullName ?? "Alex Whitfield";
+  const roleLabel = user
+    ? (roleLabels[user.role as BackendUserRole] ?? "Team member")
+    : "Team member";
   const visibleAdminNav = adminNav.filter(
     (item) => !item.requiresAdmin || isAdminRole(user?.role),
   );
+
+  async function handleLogout() {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+      navigate("/login", { replace: true });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
 
   const organizationName = organizationSettings?.organization.name ?? "Clausio";
   const logoUrl = organizationSettings?.settings.logoUrl;
@@ -175,24 +214,53 @@ export function Sidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" tooltip={userName}>
-              <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-xs font-medium p-2">
-                {getInitials(userName)}
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{userName}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  Administrator
-                </span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4" />
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton size="lg">
+                    <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-xs font-medium p-2">
+                      {getInitials(userName)}
+                    </div>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">{userName}</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {roleLabel}
+                      </span>
+                    </div>
+                    <ChevronsUpDown className="ml-auto size-4" />
+                  </SidebarMenuButton>
+                }
+              />
+              <DropdownMenuContent side="top" align="start" className="w-56">
+                <DropdownMenuItem
+                  render={
+                    <Link to="/settings?section=profile">
+                      <UserRound />
+                      Profile
+                    </Link>
+                  }
+                />
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setSignOutOpen(true)}
+                >
+                  <LogOut />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Signed in as Administrator">
-              <ShieldCheck />
-              <span>Signed in as Administrator</span>
-            </SidebarMenuButton>
+            <div
+              title={`Signed in as ${roleLabel}`}
+              className="flex h-8 items-center gap-2 rounded-md px-2 text-sm group-data-[collapsible=icon]:justify-center"
+            >
+              <ShieldCheck className="size-4 shrink-0" />
+              <span className="truncate group-data-[collapsible=icon]:hidden">
+                Signed in as {roleLabel}
+              </span>
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
         <div className="flex items-center justify-center gap-1 px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground/70 group-data-[collapsible=icon]:hidden">
@@ -201,6 +269,32 @@ export function Sidebar() {
         </div>
       </SidebarFooter>
       <SidebarRail />
+
+      <AlertDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign out of Clausio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will need to sign in again before accessing your contract
+              workspace.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoggingOut}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isLoggingOut}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleLogout();
+              }}
+            >
+              {isLoggingOut ? "Signing out..." : "Yes, sign out"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarRoot>
   );
 }

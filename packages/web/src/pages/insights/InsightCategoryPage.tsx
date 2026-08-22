@@ -13,14 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/badges";
+import { BusinessStatusBadge, StatusBadge } from "@/components/ui/badges";
 import { AlertCircle, FileText } from "lucide-react";
-import {
-  BUSINESS_STATUS_LABELS,
-  LEGAL_STATE_LABELS,
-} from "@/components/dashboard/RecentContractsTable";
+import { LEGAL_STATE_LABELS } from "@/components/dashboard/RecentContractsTable";
 import { useInsightCategoryContracts } from "@/hooks/useInsights";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 import type { RiskCategory } from "@/types/insights";
@@ -138,9 +134,7 @@ export function InsightCategoryPage({
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-medium">
-                        {BUSINESS_STATUS_LABELS[contract.businessStatus]}
-                      </Badge>
+                      <BusinessStatusBadge status={contract.businessStatus} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(contract.expirationDate)}
