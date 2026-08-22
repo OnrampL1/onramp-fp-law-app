@@ -10,9 +10,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  ChevronDown,
   ChevronRight,
   Pencil,
-  ChevronDown,
   Link2,
   Download,
   Clock,
@@ -23,6 +28,8 @@ import {
   Search,
   MoreHorizontal,
   Loader2,
+  RotateCcw,
+  XCircle,
 } from "lucide-react";
 import { ContractMetadata } from "@/components/contracts/ContractMetaData";
 import { ContractContentViewer } from "@/components/contracts/ContractContentViewer";
@@ -129,10 +136,14 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {/* Action buttons — Download / Witness Link remain non-functional
-    placeholders until those features are built. Edit Contract,
-    Contract Investigator, and Analyze Contract are wired to real
-    pages/endpoints. */}
+        {/* Action buttons — Edit is the primary CTA (filled). AI Tools stays
+    a labeled dropdown since it fans out into 3 distinct actions. Terminate
+    stays a standalone, labeled, colored button rather than hidden in a
+    menu — a legal-status change deserves visibility, not a guess from an
+    icon. Only "More" (genuinely secondary utility actions) is icon-only,
+    the one place that convention is actually earned. Download / Witness
+    Link remain non-functional placeholders until those features are built.
+    */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -170,6 +181,13 @@ export default function ContractDetailPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2"
+                  onClick={() => navigate(`/contracts/${id}/analysis`)}
+                >
+                  <Sparkles className="size-4 text-muted-foreground" />
+                  View AI Analysis
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-2"
                   onClick={() => navigate(`/contracts/${id}/investigator`)}
                 >
                   <Search className="size-4 text-muted-foreground" />
@@ -180,7 +198,7 @@ export default function ContractDetailPage() {
           </DropdownMenu>
 
           <Button
-            variant="outline"
+            variant="default"
             className="gap-2"
             onClick={() => navigate(`/contracts/${id}/edit`)}
           >
@@ -188,46 +206,61 @@ export default function ContractDetailPage() {
             Edit Contract
           </Button>
 
-          <div className="flex items-center gap-2">
-            {canManageLegalState &&
-              (isTerminated ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={setLegalState.isPending}
-                  onClick={() =>
-                    setLegalState.mutate({
-                      action: "reactivate",
-                      version: contract.version,
-                    })
-                  }
-                >
-                  {setLegalState.isPending ? "Reactivating…" : "Reactivate"}
-                </Button>
-              ) : (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={setLegalState.isPending}
-                  onClick={() => setTerminateDialogOpen(true)}
-                >
-                  Terminate
-                </Button>
-              ))}
-          </div>
+          {canManageLegalState &&
+            (isTerminated ? (
+              <Button
+                variant="outline"
+                className="gap-2"
+                disabled={setLegalState.isPending}
+                onClick={() =>
+                  setLegalState.mutate({
+                    action: "reactivate",
+                    version: contract.version,
+                  })
+                }
+              >
+                {setLegalState.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="size-4" />
+                )}
+                {setLegalState.isPending ? "Reactivating…" : "Reactivate"}
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                className="gap-2"
+                disabled={setLegalState.isPending}
+                onClick={() => setTerminateDialogOpen(true)}
+              >
+                {setLegalState.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <XCircle className="size-4" />
+                )}
+                Terminate
+              </Button>
+            ))}
 
           <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label="More actions"
-                />
-              }
-            >
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label="More actions"
+                      />
+                    }
+                  />
+                }
+              >
+                <MoreHorizontal className="size-4" />
+              </TooltipTrigger>
+              <TooltipContent>More Actions</TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuGroup>
                 <DropdownMenuItem className="gap-2">

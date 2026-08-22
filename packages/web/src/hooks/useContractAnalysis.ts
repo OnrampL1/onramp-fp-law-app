@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ContractDetailResponse } from "../types/contracts";
 import {
+  fetchAnalysisHistory,
   fetchRiskOverview,
   fetchSummaryOverview,
   triggerContractAnalysis,
@@ -68,6 +69,17 @@ export function useTriggerContractAnalysis(contractId: string | undefined) {
       queryClient.invalidateQueries({
         queryKey: ["contract", contractId, "timeline"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["contract", contractId, "analysis-history"],
+      });
     },
+  });
+}
+
+export function useAnalysisHistory(contractId: string | undefined) {
+  return useQuery({
+    queryKey: ["contract", contractId, "analysis-history"],
+    queryFn: () => fetchAnalysisHistory(contractId as string),
+    enabled: Boolean(contractId),
   });
 }

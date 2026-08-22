@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { isAxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Card,
   CardContent,
@@ -9,7 +9,6 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -18,82 +17,146 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { RiskBadge, SeverityBadge } from "@/components/ui/badges";
+import { SeverityBadge } from "@/components/ui/badges";
 import { KpiCards, type KpiCardItem } from "@/components/dashboard/KPICard";
+import { useContractDetail } from "@/hooks/useContractDetail";
 import {
-  contractDetails,
-  contractAnalysisById,
-  type AnalysisStatus,
-  type RiskLevel,
-} from "@/lib/data";
-import { cn } from "@/lib/utils";
+  useAnalysisHistory,
+  useRiskOverview,
+  useSummaryOverview,
+  useTriggerContractAnalysis,
+} from "@/hooks/useContractAnalysis";
+import type {
+  AIAnalysisListItemDto,
+  RiskOverviewDto,
+} from "@/types/ai-analysis";
+import type { Severity } from "@/lib/data";
+import { cn, formatDate, formatRelativeTime, formatSummaryParagraphs } from "@/lib/utils";
 import {
   ArrowLeft,
+  Ban,
+  CalendarClock,
   ChevronRight,
-  ScrollText,
-  ListChecks,
+  Copyright,
   CreditCard,
   DoorOpen,
-  ShieldAlert,
   FileText,
-  Lightbulb,
-  History,
-  Quote,
-  Sparkles,
-  ShieldCheck,
   Gauge,
-  Timer,
+  History,
+  ListChecks,
+  Loader2,
+  Lock,
+  AlertCircle,
+  CheckCircle2,
   Clock,
+  RefreshCw,
+  ScrollText,
+  Scale,
+  ShieldAlert,
+  Sparkles,
+  Quote,
+  XCircle,
+  HelpCircle,
 } from "lucide-react";
 
-// Temporary: mock detail/analysis data only exists for a handful of contract
-// ids; unknown ids fall back to the default contract below.
-// When the backend is ready, replace this with an API call:
-//   const { data } = useQuery(['contract-analysis', id], () => api.getContractAnalysis(id));
-const DEFAULT_CONTRACT_ID = "CTR-10470";
+const SEVERITY_LABELS: Record<
+  RiskOverviewDto["redFlags"][number]["severity"],
+  Severity
+> = {
+  LOW: "Low",
+  MEDIUM: "Medium",
+  HIGH: "High",
+  CRITICAL: "Critical",
+};
 
-function useContractAnalysisData(id: string | undefined) {
-  const key = id && contractDetails[id] ? id : DEFAULT_CONTRACT_ID;
-  const analysisKey = contractAnalysisById[key] ? key : DEFAULT_CONTRACT_ID;
-  return {
-    contract: contractDetails[key],
-    analysis: contractAnalysisById[analysisKey],
-  };
+const CATEGORY_LABELS: Record<string, string> = {
+  LIABILITY: "Liability",
+  INDEMNIFICATION: "Indemnification",
+  AUTO_RENEWAL: "Auto-Renewal",
+  TERMINATION: "Termination",
+  PAYMENT: "Payment",
+  CONFIDENTIALITY: "Confidentiality",
+  NON_COMPETE: "Non-Compete",
+  IP_ASSIGNMENT: "IP Assignment",
+  OTHER: "Other",
+};
+
+function categoryLabel(category: string): string {
+  return CATEGORY_LABELS[category] ?? category;
 }
 
-const statusStyles: Record<AnalysisStatus, string> = {
-  Complete: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  Analyzing: "bg-amber-50 text-amber-700 border-amber-200",
-  Outdated: "bg-muted text-muted-foreground border-border",
-  Queued: "bg-muted text-muted-foreground border-border",
+const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  LIABILITY: ShieldAlert,
+  INDEMNIFICATION: Scale,
+  AUTO_RENEWAL: RefreshCw,
+  TERMINATION: DoorOpen,
+  PAYMENT: CreditCard,
+  CONFIDENTIALITY: Lock,
+  NON_COMPETE: Ban,
+  IP_ASSIGNMENT: Copyright,
+  OTHER: HelpCircle,
 };
 
-const riskMatrixAccent: Record<RiskLevel, string> = {
-  Critical: "border-red-200 bg-red-50",
-  High: "border-orange-200 bg-orange-50",
-  Medium: "border-amber-200 bg-amber-50",
-  Low: "border-emerald-200 bg-emerald-50",
+function categoryIcon(category: string) {
+  return CATEGORY_ICONS[category] ?? HelpCircle;
+}
+
+function severityDotColor(score: number) {
+  if (score >= 80) return "bg-red-500";
+  if (score >= 60) return "bg-orange-500";
+  if (score >= 40) return "bg-amber-500";
+  return "bg-emerald-500";
+}
+
+const RISK_MATRIX_ACCENT: Record<Severity, string> = {
+  Critical: "border-red-200 bg-red-50 text-red-700",
+  High: "border-orange-200 bg-orange-50 text-orange-700",
+  Medium: "border-amber-200 bg-amber-50 text-amber-700",
+  Low: "border-emerald-200 bg-emerald-50 text-emerald-700",
 };
 
-const riskMatrixDot: Record<RiskLevel, string> = {
+const RISK_MATRIX_DOT: Record<Severity, string> = {
   Critical: "bg-red-500",
   High: "bg-orange-500",
   Medium: "bg-amber-500",
   Low: "bg-emerald-500",
 };
 
-const priorityStyles: Record<string, string> = {
-  Urgent: "bg-red-50 text-red-700 border-red-200",
-  Recommended: "bg-amber-50 text-amber-700 border-amber-200",
-  Optional: "bg-muted text-muted-foreground border-border",
+const PROCESSING_STATUS_BADGE: Record<
+  string,
+  { label: string; className: string; icon: React.ComponentType<{ className?: string }> }
+> = {
+  AI_COMPLETED: {
+    label: "Complete",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    icon: CheckCircle2,
+  },
+  AI_PENDING: {
+    label: "Analyzing",
+    className: "bg-amber-50 text-amber-700 border-amber-200",
+    icon: Clock,
+  },
+  AI_FAILED: {
+    label: "Latest Run Failed",
+    className: "bg-red-50 text-red-700 border-red-200",
+    icon: XCircle,
+  },
 };
 
-function categoryBarColor(score: number) {
-  if (score >= 80) return "bg-red-500";
-  if (score >= 60) return "bg-orange-500";
-  if (score >= 40) return "bg-amber-500";
-  return "bg-emerald-500";
-}
+const ANALYSIS_STATUS_BADGE: Record<
+  AIAnalysisListItemDto["status"],
+  string
+> = {
+  COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  PENDING: "bg-amber-50 text-amber-700 border-amber-200",
+  FAILED: "bg-red-50 text-red-700 border-red-200",
+};
+
+const ANALYSIS_TYPE_LABELS: Record<AIAnalysisListItemDto["type"], string> = {
+  SUMMARY: "Summary",
+  RISK: "Risk Analysis",
+  CLAUSE_QUERY: "Clause Query",
+};
 
 function SectionHeading({
   icon: Icon,
@@ -121,114 +184,264 @@ function SectionHeading({
   );
 }
 
+function RiskFlagCard({ flag }: { flag: RiskOverviewDto["redFlags"][number] }) {
+  return (
+    <Card>
+      <CardContent className="space-y-2 pt-6">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-foreground">
+            {categoryLabel(flag.category)}
+          </span>
+          <SeverityBadge severity={SEVERITY_LABELS[flag.severity]} />
+        </div>
+        <p className="text-sm text-muted-foreground text-pretty">
+          {flag.description}
+        </p>
+        <div className="flex gap-2 rounded-md border-l-2 border-border bg-muted/40 p-2 text-xs italic text-muted-foreground">
+          <Quote className="size-3.5 shrink-0 opacity-60" />
+          <span className="text-pretty">{flag.sourceText}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ContractAnalysisPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { contract: c, analysis: a } = useContractAnalysisData(id);
+  const { data: contract, isLoading, isError } = useContractDetail(id);
+  const riskOverview = useRiskOverview(id, contract?.processingStatus);
+  const summaryOverview = useSummaryOverview(id, contract?.processingStatus);
+  const analysisHistory = useAnalysisHistory(id);
+  const triggerAnalysis = useTriggerContractAnalysis(id);
 
-  const renewalScore =
-    a.riskByCategory.find((cat) => cat.category === "Renewal")?.score ?? 0;
-  const renewalRisk: RiskLevel =
-    renewalScore >= 70 ? "High" : renewalScore >= 40 ? "Medium" : "Low";
+  if (isLoading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center gap-3 text-sm text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" />
+        Loading contract…
+      </div>
+    );
+  }
+
+  if (isError || !contract || !id) {
+    return (
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">Contract not found</p>
+        <Link to="/contracts" className="text-primary hover:underline">
+          Back to Contracts
+        </Link>
+      </div>
+    );
+  }
+
+  const breadcrumb = (
+    <nav
+      className="flex items-center gap-1.5 text-sm text-muted-foreground"
+      aria-label="Breadcrumb"
+    >
+      <Link to="/dashboard" className="transition-colors hover:text-foreground">
+        Dashboard
+      </Link>
+      <ChevronRight className="size-3.5" />
+      <Link to="/contracts" className="transition-colors hover:text-foreground">
+        Contracts
+      </Link>
+      <ChevronRight className="size-3.5" />
+      <Link
+        to={`/contracts/${contract.id}`}
+        className="truncate transition-colors hover:text-foreground"
+      >
+        {contract.title}
+      </Link>
+      <ChevronRight className="size-3.5" />
+      <span className="truncate font-medium text-foreground">AI Analysis</span>
+    </nav>
+  );
+
+  const statusBadge = PROCESSING_STATUS_BADGE[contract.processingStatus];
+
+  const header = (
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-3">
+          <Sparkles className="size-5 text-foreground" />
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
+            AI Analysis
+          </h1>
+          {statusBadge && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "gap-1.5 font-medium rounded-full",
+                statusBadge.className,
+              )}
+            >
+              <statusBadge.icon className="size-3" />
+              {statusBadge.label}
+            </Badge>
+          )}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <FileText className="size-3.5" />
+            {contract.title}
+          </span>
+        </div>
+      </div>
+      <Button
+        variant="outline"
+        className="gap-2"
+        onClick={() => navigate(`/contracts/${contract.id}`)}
+      >
+        <ArrowLeft className="size-4" />
+        Back to Contract
+      </Button>
+    </div>
+  );
+
+  // No completed risk analysis exists yet for this contract — almost every
+  // section on this page derives from it, so this is the page-level empty
+  // state rather than something handled section-by-section.
+  if (riskOverview.isError) {
+    const notFound =
+      isAxiosError(riskOverview.error) &&
+      riskOverview.error.response?.status === 404;
+
+    const canTrigger =
+      contract.processingStatus !== "PENDING_EXTRACTION" &&
+      contract.processingStatus !== "EXTRACTION_FAILED" &&
+      contract.processingStatus !== "AI_PENDING";
+
+    return (
+      <div className="space-y-6">
+        {breadcrumb}
+        {header}
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+            {notFound ? (
+              <>
+                <ShieldAlert className="size-6 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">
+                  No AI analysis yet for this contract
+                </p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Run analysis to generate a risk score, findings, and a
+                  summary for this contract.
+                </p>
+                <Button
+                  className="mt-2 gap-2"
+                  disabled={!canTrigger || triggerAnalysis.isPending}
+                  onClick={() => triggerAnalysis.mutate()}
+                >
+                  <Sparkles className="size-4" />
+                  {triggerAnalysis.isPending ? "Queuing…" : "Run Analysis"}
+                </Button>
+                {triggerAnalysis.isError && (
+                  <p className="text-sm text-destructive">
+                    {isAxiosError(triggerAnalysis.error) &&
+                    triggerAnalysis.error.response?.status === 409
+                      ? "This contract hasn't finished text extraction yet."
+                      : "Couldn't queue analysis. Please try again."}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <AlertCircle className="size-6 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">
+                  Couldn't load AI analysis
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Reload the page and try again.
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (riskOverview.isLoading || !riskOverview.data) {
+    return (
+      <div className="space-y-6">
+        {breadcrumb}
+        {header}
+        <div className="flex h-[40vh] items-center justify-center gap-3 text-sm text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" />
+          Loading AI analysis…
+        </div>
+      </div>
+    );
+  }
+
+  const risk = riskOverview.data;
+
+  const criticalCount = risk.redFlags.filter(
+    (f) => f.severity === "CRITICAL",
+  ).length;
 
   const kpis: KpiCardItem[] = [
     {
       icon: <Gauge className="size-5" />,
-      value: a.riskScore,
-      label: "Risk Score",
-      sublabel: `${a.riskScoreDelta > 0 ? "+" : ""}${a.riskScoreDelta} vs last run`,
+      value: risk.healthScore,
+      label: "Health Score",
+      sublabel: "100 = lowest risk",
     },
     {
-      icon: <ShieldCheck className="size-5" />,
-      value: `${a.confidence}%`,
-      label: "AI Confidence",
-      sublabel: a.model,
+      icon: <Sparkles className="size-5" />,
+      value: risk.model ?? "—",
+      label: "AI Model",
+      sublabel: "Model used for this run",
     },
     {
       icon: <FileText className="size-5" />,
-      value: a.findings.length,
+      value: risk.redFlags.length,
       label: "Findings",
-      sublabel: `${a.riskMatrix.find((r) => r.level === "Critical")?.count ?? 0} critical`,
+      sublabel: `${criticalCount} critical`,
     },
     {
-      icon: <Timer className="size-5" />,
-      value: a.processingTime,
-      label: "Processing Time",
-      sublabel: `Last run ${a.lastRun}`,
+      icon: <CalendarClock className="size-5" />,
+      value: formatRelativeTime(risk.createdAt),
+      label: "Last Analyzed",
+      sublabel: formatDate(risk.createdAt),
     },
   ];
 
+  const severityCounts: Record<Severity, number> = {
+    Critical: 0,
+    High: 0,
+    Medium: 0,
+    Low: 0,
+  };
+  for (const flag of risk.redFlags) {
+    severityCounts[SEVERITY_LABELS[flag.severity]] += 1;
+  }
+
+  const categoryCounts = new Map<string, number>();
+  for (const flag of risk.redFlags) {
+    categoryCounts.set(flag.category, (categoryCounts.get(flag.category) ?? 0) + 1);
+  }
+  const maxCategoryCount = Math.max(1, ...categoryCounts.values());
+
+  const paymentFlags = risk.redFlags.filter((f) => f.category === "PAYMENT");
+  const terminationFlags = risk.redFlags.filter(
+    (f) => f.category === "TERMINATION" || f.category === "AUTO_RENEWAL",
+  );
+
+  const obligations = risk.timeline.filter((e) => e.kind === "OBLIGATION");
+  const keyDates = risk.timeline.filter((e) => e.kind === "KEY_DATE");
+
+  const summaryLoading = summaryOverview.isLoading;
+  const summaryText = summaryOverview.data?.text ?? null;
+  const summaryFallback = !summaryText && !summaryLoading ? risk.summary : null;
+
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <nav
-        className="flex items-center gap-1.5 text-sm text-muted-foreground"
-        aria-label="Breadcrumb"
-      >
-        <Link
-          to="/dashboard"
-          className="transition-colors hover:text-foreground"
-        >
-          Dashboard
-        </Link>
-        <ChevronRight className="size-3.5" />
-        <Link
-          to="/contracts"
-          className="transition-colors hover:text-foreground"
-        >
-          Contracts
-        </Link>
-        <ChevronRight className="size-3.5" />
-        <Link
-          to={`/contracts/${c.id}`}
-          className="truncate transition-colors hover:text-foreground"
-        >
-          {c.name}
-        </Link>
-        <ChevronRight className="size-3.5" />
-        <span className="truncate font-medium text-foreground">
-          AI Analysis
-        </span>
-      </nav>
+      {breadcrumb}
+      {header}
 
-      {/* Page header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <Sparkles className="size-5 text-foreground" />
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
-              AI Analysis
-            </h1>
-            <Badge
-              variant="outline"
-              className={cn("font-medium rounded-full", statusStyles[a.status])}
-            >
-              {a.status}
-            </Badge>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <FileText className="size-3.5" />
-              {c.name} · {c.id}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Clock className="size-3.5" />
-              Last run {a.lastRun}
-            </span>
-          </div>
-        </div>
-
-        <Button
-          variant="outline"
-          className="gap-2"
-          onClick={() => navigate(`/contracts/${c.id}`)}
-        >
-          <ArrowLeft className="size-4" />
-          Back to Contract
-        </Button>
-      </div>
-
-      {/* Stat tiles */}
       <KpiCards items={kpis} />
 
       {/* Executive Summary */}
@@ -239,149 +452,82 @@ export default function ContractAnalysisPage() {
           description="AI-generated overview of the agreement and its principal risk posture."
         />
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
-              {a.executiveSummary}
-            </p>
+          <CardContent className="space-y-3 pt-6">
+            {summaryLoading ? (
+              <p className="text-sm text-muted-foreground">Loading summary…</p>
+            ) : summaryText ? (
+              formatSummaryParagraphs(summaryText).map((paragraph, i) => (
+                <p
+                  key={i}
+                  className="text-sm leading-relaxed text-muted-foreground text-pretty"
+                >
+                  {paragraph}
+                </p>
+              ))
+            ) : (
+              <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
+                {summaryFallback}
+              </p>
+            )}
           </CardContent>
         </Card>
       </section>
 
       {/* Key Obligations */}
-      <section className="space-y-4">
-        <SectionHeading
-          icon={ListChecks}
-          title="Key Obligations"
-          description="Material commitments extracted for each party with their cadence."
-        />
-        <div className="grid gap-3 md:grid-cols-2">
-          {a.keyObligations.map((o, i) => (
-            <Card key={i}>
-              <CardContent className="space-y-2 pt-6">
-                <Badge
-                  variant="outline"
-                  className="text-xs rounded-full items-center"
+      {obligations.length > 0 && (
+        <section className="space-y-4">
+          <SectionHeading
+            icon={ListChecks}
+            title="Key Obligations"
+            description="Material commitments extracted for each party."
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            {obligations.map((o, i) => (
+              <Card key={i}>
+                <CardContent className="space-y-2 pt-6">
+                  {o.party && (
+                    <Badge variant="outline" className="text-xs rounded-full">
+                      {o.party}
+                    </Badge>
+                  )}
+                  <p className="text-sm font-medium text-foreground text-pretty">
+                    {o.label}
+                  </p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {formatDate(o.date)}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Key Dates */}
+      {keyDates.length > 0 && (
+        <section className="space-y-4">
+          <SectionHeading
+            icon={CalendarClock}
+            title="Key Dates"
+            description="Important dates identified in the agreement."
+          />
+          <Card>
+            <CardContent className="divide-y divide-border pt-2">
+              {keyDates.map((d, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-4 py-3 text-sm"
                 >
-                  {o.party}
-                </Badge>
-                <p className="text-sm font-medium text-foreground text-pretty">
-                  {o.obligation}
-                </p>
-                <p className="text-xs font-medium text-muted-foreground">
-                  {o.deadline}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* Payment + Termination */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          <SectionHeading
-            icon={CreditCard}
-            title="Payment Analysis"
-            description="Invoicing terms, penalties, and escalation provisions."
-          />
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              <div className="grid grid-cols-2 gap-3">
-                {a.paymentAnalysis.metrics.map((m) => (
-                  <div
-                    key={m.label}
-                    className="rounded-lg border border-border bg-muted/40 p-3"
-                  >
-                    <p className="text-xs text-muted-foreground">{m.label}</p>
-                    <p className="text-sm font-semibold text-foreground">
-                      {m.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <Separator />
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Terms</span>
-                  <span className="font-medium text-foreground text-right">
-                    {a.paymentAnalysis.terms}
+                  <span className="text-foreground">{d.label}</span>
+                  <span className="font-medium text-muted-foreground">
+                    {formatDate(d.date)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Schedule</span>
-                  <span className="font-medium text-foreground text-right">
-                    {a.paymentAnalysis.schedule}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Penalties</span>
-                  <span className="font-medium text-foreground text-right">
-                    {a.paymentAnalysis.penalties}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Escalation</span>
-                  <span className="font-medium text-foreground text-right">
-                    {a.paymentAnalysis.escalation}
-                  </span>
-                </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
-        </div>
-
-        <div className="space-y-4">
-          <SectionHeading
-            icon={DoorOpen}
-            title="Termination Analysis"
-            description="Term length, renewal mechanics, and exit provisions."
-          />
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-foreground">
-                  Renewal Risk
-                </span>
-                <RiskBadge risk={renewalRisk} />
-              </div>
-              <Separator />
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">For cause</span>
-                  <span className="font-medium text-foreground text-right">
-                    {a.terminationAnalysis.forCause}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">For convenience</span>
-                  <span className="font-medium text-foreground text-right">
-                    {a.terminationAnalysis.forConvenience}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Auto-renewal</span>
-                  <span className="font-medium text-foreground text-right">
-                    {a.terminationAnalysis.autoRenewal}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Notice period</span>
-                  <span className="font-medium text-foreground text-right">
-                    {a.terminationAnalysis.noticePeriod}
-                  </span>
-                </div>
-              </div>
-              <Separator />
-              <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-accent/60 p-3">
-                <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
-                <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
-                  {a.terminationAnalysis.flag}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Risk Assessment */}
       <section className="space-y-4">
@@ -391,148 +537,152 @@ export default function ContractAnalysisPage() {
           description="Severity matrix and category distribution across the agreement."
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {a.riskMatrix.map((r) => (
-            <Card
-              key={r.level}
-              className={cn("border", riskMatrixAccent[r.level])}
-            >
+          {(["Critical", "High", "Medium", "Low"] as Severity[]).map((level) => (
+            <Card key={level} className={cn("border", RISK_MATRIX_ACCENT[level])}>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span
-                      className={cn(
-                        "size-2.5 rounded-full",
-                        riskMatrixDot[r.level],
-                      )}
+                      className={cn("size-2.5 rounded-full", RISK_MATRIX_DOT[level])}
                       aria-hidden
                     />
-                    <span className="text-sm font-semibold text-gray-600">
-                      {r.level}
-                    </span>
+                    <span className="text-sm font-semibold">{level}</span>
                   </div>
-                  <span className="text-sm font-semibold tracking-tight text-gray-600">
-                    {r.count}
+                  <span className="text-sm font-semibold tracking-tight">
+                    {severityCounts[level]}
                   </span>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Risk by Clause Category
-            </CardTitle>
-            <CardDescription>
-              Distribution of findings grouped by contractual domain.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {a.riskByCategory.map((cat) => (
-              <div key={cat.category} className="flex items-center gap-3">
-                <span className="w-28 shrink-0 text-sm text-muted-foreground">
-                  {cat.category}
-                </span>
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn(
-                      "h-full rounded-full",
-                      categoryBarColor(cat.score),
-                    )}
-                    style={{ width: `${cat.score}%` }}
-                  />
-                </div>
-                <span className="w-8 shrink-0 text-right text-sm font-medium tabular-nums text-foreground">
-                  {cat.score}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        {categoryCounts.size > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">
+                Risk by Clause Category
+              </CardTitle>
+              <CardDescription>
+                Distribution of findings grouped by contractual domain.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[...categoryCounts.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .map(([category, count]) => {
+                  const Icon = categoryIcon(category);
+                  return (
+                    <div key={category} className="flex items-center gap-3">
+                      <span className="flex w-36 shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
+                        <Icon className="size-3.5 shrink-0" />
+                        {categoryLabel(category)}
+                      </span>
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            severityDotColor((count / maxCategoryCount) * 100),
+                          )}
+                          style={{ width: `${(count / maxCategoryCount) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-6 shrink-0 text-right text-sm font-medium tabular-nums text-foreground">
+                        {count}
+                      </span>
+                    </div>
+                  );
+                })}
+            </CardContent>
+          </Card>
+        )}
       </section>
+
+      {/* Payment Risks */}
+      {paymentFlags.length > 0 && (
+        <section className="space-y-4">
+          <SectionHeading
+            icon={CreditCard}
+            title="Payment Risks"
+            description="Findings related to invoicing terms, penalties, and escalation."
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            {paymentFlags.map((flag, i) => (
+              <RiskFlagCard key={i} flag={flag} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Termination & Renewal Risks */}
+      {terminationFlags.length > 0 && (
+        <section className="space-y-4">
+          <SectionHeading
+            icon={DoorOpen}
+            title="Termination & Renewal Risks"
+            description="Findings related to term length, renewal mechanics, and exit provisions."
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            {terminationFlags.map((flag, i) => (
+              <RiskFlagCard key={i} flag={flag} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Risk Findings */}
       <section className="space-y-4">
         <SectionHeading
           icon={FileText}
           title="Risk Findings"
-          description="Detailed findings with the originating clause excerpt and AI explanation."
+          description="All findings with the originating clause excerpt."
         />
-        <Card className="overflow-hidden">
-          <Table className="table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[18%]">Risk Type</TableHead>
-                <TableHead className="w-[110px]">Severity</TableHead>
-                <TableHead className="w-[34%]">Clause Excerpt</TableHead>
-                <TableHead>Explanation</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {a.findings.map((f, i) => (
-                <TableRow key={i} className="align-top">
-                  <TableCell className="whitespace-normal">
-                    <p className="font-medium text-foreground text-pretty">
-                      {f.type}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{f.section}</p>
-                  </TableCell>
-                  <TableCell>
-                    <SeverityBadge severity={f.severity} />
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <div className="flex gap-2 rounded-md border-l-2 border-border bg-muted/40 p-2 text-xs italic text-muted-foreground">
-                      <Quote className="size-3.5 shrink-0 opacity-60" />
-                      <span className="text-pretty">{f.excerpt}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="whitespace-normal text-sm text-muted-foreground text-pretty">
-                    {f.explanation}
-                  </TableCell>
+        {risk.redFlags.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              No risk flags were identified in this contract.
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[18%]">Category</TableHead>
+                  <TableHead className="w-[110px]">Severity</TableHead>
+                  <TableHead className="w-[34%]">Clause Excerpt</TableHead>
+                  <TableHead>Explanation</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      </section>
-
-      {/* Recommendations */}
-      <section className="space-y-4">
-        <SectionHeading
-          icon={Lightbulb}
-          title="Recommendations"
-          description="Prioritized actions to remediate findings before counter-signature."
-        />
-        <Card>
-          <CardContent className="divide-y divide-border pt-2">
-            {a.recommendations.map((rec, i) => (
-              <div key={i} className="flex items-start gap-4 py-4">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-foreground">
-                  {i + 1}
-                </span>
-                <div className="flex-1 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">
-                      {rec.title}
-                    </p>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "font-medium rounded-full",
-                        priorityStyles[rec.priority],
-                      )}
-                    >
-                      {rec.priority}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground text-pretty">
-                    {rec.detail}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              </TableHeader>
+              <TableBody>
+                {risk.redFlags.map((f, i) => {
+                  const Icon = categoryIcon(f.category);
+                  return (
+                  <TableRow key={i} className="align-top">
+                    <TableCell className="whitespace-normal font-medium text-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                        {categoryLabel(f.category)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <SeverityBadge severity={SEVERITY_LABELS[f.severity]} />
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <div className="flex gap-2 rounded-md border-l-2 border-border bg-muted/40 p-2 text-xs italic text-muted-foreground">
+                        <Quote className="size-3.5 shrink-0 opacity-60" />
+                        <span className="text-pretty">{f.sourceText}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-normal text-sm text-muted-foreground text-pretty">
+                      {f.description}
+                    </TableCell>
+                  </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
       </section>
 
       {/* Analysis History */}
@@ -540,67 +690,65 @@ export default function ContractAnalysisPage() {
         <SectionHeading
           icon={History}
           title="Analysis History"
-          description="Prior AI runs with their resulting risk score over time."
+          description="Prior AI runs for this contract."
         />
         <Card className="overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Run</TableHead>
-                <TableHead>Trigger</TableHead>
-                <TableHead>Triggered By</TableHead>
-                <TableHead>Risk Score</TableHead>
-                <TableHead className="text-right">Findings</TableHead>
-                <TableHead className="text-right">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {a.history.map((run) => (
-                <TableRow key={run.version}>
-                  <TableCell>
-                    <p className="font-medium text-foreground">{run.version}</p>
-                    <p className="text-xs text-muted-foreground">{run.date}</p>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {run.trigger}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar size="sm">
-                        <AvatarFallback className="text-[10px] font-semibold">
-                          {run.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-muted-foreground">{run.actor}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium tabular-nums text-foreground">
-                    {run.riskScore}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {run.findings}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {run.status === "Complete" ? (
+          {analysisHistory.isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Loading history…
+            </div>
+          ) : !analysisHistory.data || analysisHistory.data.items.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              No analysis runs recorded yet.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Model</TableHead>
+                  <TableHead className="text-right">Tokens</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {analysisHistory.data.items.map((run) => (
+                  <TableRow key={run.id}>
+                    <TableCell>
+                      <p className="font-medium text-foreground">
+                        {formatDate(run.createdAt)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatRelativeTime(run.createdAt)}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {ANALYSIS_TYPE_LABELS[run.type]}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {run.modelVersion ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {run.tokensUsed ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
                       <Badge
                         variant="outline"
-                        className="border-emerald-200 bg-emerald-50 text-emerald-700 rounded-full"
-                      >
-                        Current
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="secondary"
-                        className="text-muted-foreground rounded-full"
+                        className={cn(
+                          "font-medium rounded-full",
+                          ANALYSIS_STATUS_BADGE[run.status],
+                        )}
                       >
                         {run.status}
                       </Badge>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Card>
       </section>
     </div>

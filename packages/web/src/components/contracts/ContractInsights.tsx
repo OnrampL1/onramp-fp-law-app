@@ -59,25 +59,34 @@ export function ContractInsights({
         defaultValue="summary"
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <div className="border-b border-border p-3">
-          <TabsList className="w-full">
-            <TabsTrigger value="summary" className="flex-1 gap-1.5">
+        <div className="border-b border-border px-2 py-2.5">
+          <TabsList className="h-9 w-full">
+            <TabsTrigger
+              value="summary"
+              className="flex-1 gap-1.5 data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
+            >
               <Sparkles className="size-4" />
               <span className="hidden sm:inline">Summary</span>
             </TabsTrigger>
-            <TabsTrigger value="risk" className="flex-1 gap-1.5">
+            <TabsTrigger
+              value="risk"
+              className="flex-1 gap-1.5 data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
+            >
               <ShieldAlert className="size-4" />
               Risk
               {riskCount !== undefined && (
                 <Badge
-                  variant="secondary"
+                  variant={riskCount > 0 ? "destructive" : "secondary"}
                   className="ml-0.5 h-5 px-1.5 text-[11px]"
                 >
                   {riskCount}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="notes" className="flex-1 gap-1.5">
+            <TabsTrigger
+              value="notes"
+              className="flex-1 gap-1.5 data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
+            >
               <MessageSquare className="size-4" />
               Notes
             </TabsTrigger>
@@ -86,7 +95,7 @@ export function ContractInsights({
 
         <TabsContent
           value="summary"
-          className="min-h-0 flex-1 overflow-y-auto p-4"
+          className="animate-in fade-in-0 min-h-0 flex-1 overflow-y-auto p-4 duration-200"
         >
           <AiSummary
             contractId={contractId}
@@ -95,11 +104,14 @@ export function ContractInsights({
         </TabsContent>
         <TabsContent
           value="risk"
-          className="min-h-0 flex-1 overflow-y-auto p-4"
+          className="animate-in fade-in-0 min-h-0 flex-1 overflow-y-auto p-4 duration-200"
         >
           <RiskAnalysis overview={riskOverview} />
         </TabsContent>
-        <TabsContent value="notes" className="flex min-h-0 flex-1 flex-col p-0">
+        <TabsContent
+          value="notes"
+          className="animate-in fade-in-0 flex min-h-0 flex-1 flex-col p-0 duration-200"
+        >
           <InternalNotes contractId={contractId} />
         </TabsContent>
       </Tabs>
@@ -381,32 +393,44 @@ function InternalNotes({ contractId }: { contractId: string }) {
         )}
       </div>
 
-      <div className="border-t border-border p-3">
-        <div className="flex items-end gap-2">
-          <Avatar className="size-7">
+      <div className="group border-t border-border p-3">
+        <div className="flex items-center gap-2">
+          <Avatar className="size-8 shrink-0">
             <AvatarFallback className="bg-primary text-[10px] font-semibold text-primary-foreground">
               {initialsFor(user?.fullName)}
             </AvatarFallback>
           </Avatar>
-          <div className="relative flex-1">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Add an internal note…"
-              rows={1}
-              className="min-h-9 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 pr-10 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            />
-            <Button
-              size="icon"
-              className="absolute bottom-1.5 right-1.5 size-6"
-              disabled={!draft.trim() || createNote.isPending}
-              aria-label="Send note"
-              onClick={handleSend}
-            >
-              <Send className="size-3.5" />
-            </Button>
-          </div>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onInput={(e) => {
+              const el = e.currentTarget;
+              el.style.height = "auto";
+              el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="Add an internal note…"
+            rows={1}
+            className="max-h-32 min-h-9 flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          />
+          <Button
+            size="sm"
+            className="shrink-0"
+            disabled={!draft.trim() || createNote.isPending}
+            aria-label="Send note"
+            onClick={handleSend}
+          >
+            <Send className="size-4" />
+          </Button>
         </div>
+        <p className="mt-1.5 pl-10 text-[10px] text-muted-foreground ">
+          Enter to send · Shift+Enter for a new line
+        </p>
       </div>
     </div>
   );

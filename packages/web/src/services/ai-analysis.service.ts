@@ -1,5 +1,9 @@
 import { apiClient } from "@/lib/api-client";
-import type { RiskOverviewDto, SummaryOverviewDto } from "@/types/ai-analysis";
+import type {
+  AIAnalysisListResult,
+  RiskOverviewDto,
+  SummaryOverviewDto,
+} from "@/types/ai-analysis";
 
 interface ApiEnvelope<T> {
   data: T;
@@ -27,4 +31,15 @@ export async function triggerContractAnalysis(
   contractId: string,
 ): Promise<void> {
   await apiClient.post(`/contracts/${contractId}/analyses`);
+}
+
+export async function fetchAnalysisHistory(
+  contractId: string,
+  pageSize = 10,
+): Promise<AIAnalysisListResult> {
+  const response = await apiClient.get<ApiEnvelope<AIAnalysisListResult>>(
+    `/contracts/${contractId}/analyses`,
+    { params: { page: 1, pageSize } },
+  );
+  return response.data.data;
 }
