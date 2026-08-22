@@ -34,11 +34,26 @@ function buildApp() {
     res.json({ data: req.user });
   });
 
+  app.post("/api/auth/change-password", authenticate, (req, res) => {
+    res.json({ data: req.user });
+  });
+
   app.get("/api/onboarding/organization", authenticate, (req, res) => {
     res.json({ data: req.user });
   });
 
   app.get("/api/settings/organization", authenticate, (req, res) => {
+    res.json({ data: req.user });
+  });
+
+  app.post("/api/settings/organization/logo", authenticate, (req, res) => {
+    res.json({ data: req.user });
+  });
+
+  // A route deliberately absent from the onboarding-safe allowlist, used to
+  // confirm the owner is still blocked from the rest of the app while
+  // onboarding is required.
+  app.get("/api/contracts", authenticate, (req, res) => {
     res.json({ data: req.user });
   });
 
@@ -121,11 +136,55 @@ describe("authenticate onboarding organization state", () => {
     });
 
     const res = await request(buildApp())
-      .get("/api/settings/organization")
+      .get("/api/contracts")
       .set("Cookie", cookieFor("owner-1", "org-1", "OWNER"));
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe("Organization onboarding is required");
+  });
+
+  it("allows the assigned owner of an OWNER_ASSIGNED organization to change their password", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "owner-1",
+      organizationId: "org-1",
+      role: "OWNER",
+      status: "ACTIVE",
+      organization: {
+        status: "OWNER_ASSIGNED",
+        ownerUserId: "owner-1",
+      },
+    });
+
+    const res = await request(buildApp())
+      .post("/api/auth/change-password")
+      .set("Cookie", cookieFor("owner-1", "org-1", "OWNER"));
+
+    expect(res.status).toBe(200);
+  });
+
+  it("allows the assigned owner of an OWNER_ASSIGNED organization to reach organization settings and upload a logo", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "owner-1",
+      organizationId: "org-1",
+      role: "OWNER",
+      status: "ACTIVE",
+      organization: {
+        status: "OWNER_ASSIGNED",
+        ownerUserId: "owner-1",
+      },
+    });
+
+    const cookie = cookieFor("owner-1", "org-1", "OWNER");
+
+    const settingsRes = await request(buildApp())
+      .get("/api/settings/organization")
+      .set("Cookie", cookie);
+    expect(settingsRes.status).toBe(200);
+
+    const logoRes = await request(buildApp())
+      .post("/api/settings/organization/logo")
+      .set("Cookie", cookie);
+    expect(logoRes.status).toBe(200);
   });
 
   it("does not allow non-owners into OWNER_ASSIGNED organizations", async () => {

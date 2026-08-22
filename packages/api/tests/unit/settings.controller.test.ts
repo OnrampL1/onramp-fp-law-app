@@ -92,10 +92,11 @@ describe("GET /api/settings/organization", () => {
       .set("Cookie", cookieFor("INTERNAL"));
 
     expect(res.status).toBe(200);
-    expect(mockSettingsService.getOrganizationSettings).toHaveBeenCalledWith(
-      "user-1",
-      "org-1",
-    );
+    expect(mockSettingsService.getOrganizationSettings).toHaveBeenCalledWith({
+      userId: "user-1",
+      organizationId: "org-1",
+      role: "INTERNAL",
+    });
     expect(res.body.data.organization.id).toBe("org-1");
   });
 
@@ -125,10 +126,11 @@ describe("GET /api/settings/organization", () => {
       .set("Cookie", cookieFor("ADMIN"));
 
     expect(res.status).toBe(200);
-    expect(mockSettingsService.getOrganizationSettings).toHaveBeenCalledWith(
-      "user-1",
-      "org-1",
-    );
+    expect(mockSettingsService.getOrganizationSettings).toHaveBeenCalledWith({
+      userId: "user-1",
+      organizationId: "org-1",
+      role: "ADMIN",
+    });
   });
 });
 

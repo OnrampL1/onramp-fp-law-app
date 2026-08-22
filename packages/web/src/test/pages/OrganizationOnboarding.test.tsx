@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   useCompleteOrganizationOnboarding: vi.fn(),
   mutateAsync: vi.fn(),
   refreshProfile: vi.fn(),
+  useOrganizationSettings: vi.fn(),
+  useUploadOrganizationLogo: vi.fn(),
+  useDeleteOrganizationLogo: vi.fn(),
 }));
 
 vi.mock("react-router-dom", () => ({
@@ -22,6 +25,12 @@ vi.mock("../../hooks/useAuth", () => ({
 vi.mock("../../hooks/useOnboarding", () => ({
   useOrganizationOnboarding: mocks.useOrganizationOnboarding,
   useCompleteOrganizationOnboarding: mocks.useCompleteOrganizationOnboarding,
+}));
+
+vi.mock("../../hooks/useSettings", () => ({
+  useOrganizationSettings: mocks.useOrganizationSettings,
+  useUploadOrganizationLogo: mocks.useUploadOrganizationLogo,
+  useDeleteOrganizationLogo: mocks.useDeleteOrganizationLogo,
 }));
 
 import { OrganizationOnboarding } from "../../pages/onboarding/OrganizationOnboarding";
@@ -104,6 +113,41 @@ beforeEach(() => {
     mutateAsync: mocks.mutateAsync,
     isPending: false,
   });
+
+  mocks.useOrganizationSettings.mockReturnValue({
+    data: {
+      organization: {
+        id: "org-1",
+        name: "Acme Legal",
+        slug: "acme-legal",
+        status: "OWNER_ASSIGNED",
+      },
+      settings: {
+        timezone: "UTC",
+        language: "en",
+        logoUrl: null,
+        logoUrlExpiresInSeconds: null,
+        notificationPreferences: null,
+        branding: null,
+      },
+      permissions: {
+        canManageSettings: true,
+        canRenameOrganization: true,
+      },
+    },
+    isLoading: false,
+    isError: false,
+  });
+
+  mocks.useUploadOrganizationLogo.mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  });
+
+  mocks.useDeleteOrganizationLogo.mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  });
 });
 
 describe("OrganizationOnboarding", () => {
@@ -130,8 +174,6 @@ describe("OrganizationOnboarding", () => {
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         name: "Acme Legal Ops",
-        timezone: "UTC",
-        language: "en",
         notificationPreferences: {
           contractUpdates: true,
           riskAlerts: true,
