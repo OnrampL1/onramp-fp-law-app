@@ -27,8 +27,6 @@ function baseContract(): WitnessPortalContract {
     processingStatus: "EXTRACTION_COMPLETED",
     processingError: null,
     extractedText: "Full contract text here.",
-    fileUrl: "https://s3.example.com/signed-url",
-    fileUrlExpiresInSeconds: 900,
   };
 }
 

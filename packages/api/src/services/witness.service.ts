@@ -4,16 +4,11 @@ import {
   generateRawToken,
   signWitnessSessionToken,
   emailQueue,
-  getPresignedUrl,
+  getFileStream,
 } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
 import { WITNESS_CONTRACT_SELECT } from "../repositories/selects/contract.select";
 import { auditService } from "./audit.service";
-
-// Short-lived — this URL is handed to an unauthenticated external party,
-// so it should only be usable for roughly as long as the page that
-// requested it is actually open, not indefinitely.
-const WITNESS_FILE_URL_EXPIRES_IN_SECONDS = 15 * 60;
 
 // createWitnessLinkSchema's own default for expiresInHours — reused here
 // because a resend has no per-request expiry input of its own (unlike
@@ -486,11 +481,6 @@ export class WitnessService {
       throw createError("Contract not found", 404);
     }
 
-    const fileUrl = await getPresignedUrl(
-      contract.fileKey,
-      WITNESS_FILE_URL_EXPIRES_IN_SECONDS,
-    );
-
     return {
       id: contract.id,
       title: contract.title,
@@ -503,8 +493,33 @@ export class WitnessService {
       processingStatus: contract.processingStatus,
       processingError: contract.processingError,
       extractedText: contract.extractedText,
-      fileUrl,
-      fileUrlExpiresInSeconds: WITNESS_FILE_URL_EXPIRES_IN_SECONDS,
+    };
+  }
+
+  // Streams the file's bytes through this process rather than handing the
+  // witness portal a presigned URL — MinIO has no public hostname (by
+  // design, see Clausio_Deployment_Architecture.md), so a presigned URL
+  // given straight to the browser DNS-fails there. contractId always comes
+  // from the witness session (see witnessSessionMiddleware), never a
+  // client-supplied param.
+  async getWitnessScopedContractFile(contractId: string) {
+    const contract = await prisma.contract.findFirst({
+      where: { id: contractId, deletedAt: null },
+      select: { fileKey: true },
+    });
+
+    if (!contract) {
+      throw createError("Contract not found", 404);
+    }
+
+    const { body, contentType, contentLength } = await getFileStream(
+      contract.fileKey,
+    );
+
+    return {
+      body,
+      contentType: contentType ?? "application/octet-stream",
+      contentLength,
     };
   }
 

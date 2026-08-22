@@ -98,6 +98,37 @@ export const witnessController = {
     }
   },
 
+  async getContractFile(
+    req: WitnessAuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const file = await witnessService.getWitnessScopedContractFile(
+        req.witnessSession.contractId,
+      );
+
+      res.setHeader("Content-Type", file.contentType);
+      if (file.contentLength !== undefined) {
+        res.setHeader("Content-Length", file.contentLength);
+      }
+
+      file.body.on("error", (streamErr) => {
+        // Mirrors contract.controller.ts's getFile — headers may already be
+        // sent by the time S3 errors mid-stream, and errorHandler always
+        // calls res.status().json(), which throws once headers are sent.
+        if (res.headersSent) {
+          res.destroy(streamErr);
+          return;
+        }
+        next(streamErr);
+      });
+      file.body.pipe(res);
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async revoke(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const witnessToken = await witnessService.revokeWitnessLink(

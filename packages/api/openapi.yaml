@@ -1304,16 +1304,6 @@ components:
         extractedText:
           type: string
           nullable: true
-        fileUrl:
-          type: string
-          description: >
-            Short-lived presigned S3 URL for the contract file, generated
-            server-side via the same getPresignedUrl() mechanism internal
-            users use — scoped to a much shorter TTL since it's handed to an
-            unauthenticated external party.
-        fileUrlExpiresInSeconds:
-          type: integer
-          example: 900
 
 # ─── Paths ─────────────────────────────────────────────────────────────────────
 paths:
@@ -3648,6 +3638,39 @@ paths:
                 properties:
                   data:
                     $ref: "#/components/schemas/WitnessScopedContract"
+        "401":
+          description: Missing, invalid, expired, or revoked witness session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /witness/contract/file:
+    get:
+      tags: [Users]
+      summary: Download the source file of the contract scoped to the current witness session
+      operationId: getWitnessScopedContractFile
+      description: >
+        Streams the file's bytes through the API rather than redirecting to a
+        presigned S3 URL — MinIO has no public hostname, so a presigned URL
+        handed straight to the browser would fail to resolve. Same session
+        scoping as GET /witness/contract: no contract id in the path.
+      security:
+        - witnessSessionAuth: []
+      responses:
+        "200":
+          description: Binary file stream
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
         "401":
           description: Missing, invalid, expired, or revoked witness session
           content:

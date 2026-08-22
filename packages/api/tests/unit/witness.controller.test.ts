@@ -23,6 +23,7 @@ jest.mock("../../src/services/witness.service", () => ({
     createWitnessLink: jest.fn(),
     redeemWitnessLink: jest.fn(),
     getWitnessScopedContract: jest.fn(),
+    getWitnessScopedContractFile: jest.fn(),
     revokeWitnessLink: jest.fn(),
     resendWitnessLink: jest.fn(),
   },
@@ -496,8 +497,6 @@ describe("GET /api/witness/contract", () => {
       processingStatus: "EXTRACTION_COMPLETED",
       processingError: null,
       extractedText: "Full contract text...",
-      fileUrl: "https://s3.example.com/signed-url",
-      fileUrlExpiresInSeconds: 900,
     } as never);
 
     const res = await request(app)
@@ -509,7 +508,6 @@ describe("GET /api/witness/contract", () => {
       "contract-1",
     );
     expect(res.body.data.title).toBe("Master Services Agreement");
-    expect(res.body.data.fileUrl).toBe("https://s3.example.com/signed-url");
     expect(res.body.data.processingStatus).toBe("EXTRACTION_COMPLETED");
   });
 
@@ -530,8 +528,6 @@ describe("GET /api/witness/contract", () => {
       effectiveDate: null,
       expirationDate: null,
       extractedText: "Full contract text...",
-      fileUrl: "https://s3.example.com/signed-url",
-      fileUrlExpiresInSeconds: 900,
     } as never);
 
     const res = await request(app)
@@ -543,6 +539,37 @@ describe("GET /api/witness/contract", () => {
     expect(res.body.data).not.toHaveProperty("organizationId");
     expect(res.body.data).not.toHaveProperty("uploadedByUserId");
     expect(res.body.data).not.toHaveProperty("fileKey");
+  });
+});
+
+// ─── GET /api/witness/contract/file ────────────────────────────────────────
+
+describe("GET /api/witness/contract/file", () => {
+  it("returns 401 with no session", async () => {
+    const res = await request(app).get("/api/witness/contract/file");
+    expect(res.status).toBe(401);
+    expect(mockWitnessService.getWitnessScopedContractFile).not.toHaveBeenCalled();
+  });
+
+  it("streams the file scoped to the session's contractId", async () => {
+    const cookie = validWitnessSessionCookie();
+    const { Readable } = require("node:stream");
+    mockWitnessService.getWitnessScopedContractFile.mockResolvedValue({
+      body: Readable.from([Buffer.from("file bytes")]),
+      contentType: "application/pdf",
+      contentLength: 10,
+    } as never);
+
+    const res = await request(app)
+      .get("/api/witness/contract/file")
+      .set("Cookie", cookie);
+
+    expect(res.status).toBe(200);
+    expect(mockWitnessService.getWitnessScopedContractFile).toHaveBeenCalledWith(
+      "contract-1",
+    );
+    expect(res.headers["content-type"]).toBe("application/pdf");
+    expect(Buffer.from(res.body).toString()).toBe("file bytes");
   });
 });
 
