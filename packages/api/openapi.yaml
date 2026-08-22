@@ -768,16 +768,6 @@ components:
     OrganizationBrainItemDetail:
       allOf:
         - $ref: "#/components/schemas/OrganizationBrainItem"
-        - type: object
-          properties:
-            downloadUrl:
-              type: string
-              format: uri
-              description: Short-lived presigned download URL.
-              example: https://storage.example.com/signed-url
-            downloadUrlExpiresInSeconds:
-              type: integer
-              example: 900
 
     OrganizationBrainListResult:
       type: object
@@ -2052,8 +2042,8 @@ paths:
       summary: Get an organization brain item
       operationId: getOrganizationBrainItem
       description: >
-        Returns organization-scoped item metadata plus a short-lived presigned
-        download URL.
+        Returns organization-scoped item metadata. To download the file
+        itself, use GET /organization-brain/{id}/file.
       security:
         - cookieAuth: []
       parameters:
@@ -2119,6 +2109,51 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Item not found in this organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+
+  /organization-brain/{id}/file:
+    get:
+      tags: [Organization Brain]
+      summary: Download an organization brain item's source file
+      operationId: getOrganizationBrainItemFile
+      description: >
+        Streams the file's bytes through the API rather than redirecting to a
+        presigned S3 URL — MinIO has no public hostname, so a presigned URL
+        handed straight to the browser would fail to resolve.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Binary file stream
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema:

@@ -49,6 +49,12 @@ router.get(
   organizationBrainController.getById,
 );
 
+router.get(
+  "/:id/file",
+  validate(organizationBrainItemIdParamSchema, "params"),
+  organizationBrainController.getFile,
+);
+
 router.delete(
   "/:id",
   authorize(...ADMIN_ROLES),

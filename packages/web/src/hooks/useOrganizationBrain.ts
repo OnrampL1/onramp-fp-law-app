@@ -4,7 +4,6 @@ import {
   createOrganizationBrainPaste,
   createOrganizationBrainUpload,
   deleteOrganizationBrainItem,
-  fetchOrganizationBrainItem,
   fetchOrganizationBrainItems,
 } from "@/services/organization-brain.service";
 import type {
@@ -19,14 +18,6 @@ export function useOrganizationBrainItems(params: OrganizationBrainListParams) {
   return useQuery({
     queryKey: [...organizationBrainItemsKey, params],
     queryFn: () => fetchOrganizationBrainItems(params),
-  });
-}
-
-export function useOrganizationBrainItem(itemId: string | null) {
-  return useQuery({
-    queryKey: [...organizationBrainItemsKey, "detail", itemId],
-    queryFn: () => fetchOrganizationBrainItem(itemId!),
-    enabled: Boolean(itemId),
   });
 }
 

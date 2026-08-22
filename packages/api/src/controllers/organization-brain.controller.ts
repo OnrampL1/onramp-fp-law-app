@@ -1,5 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import { organizationBrainService } from "../services/organization-brain.service";
+import {
+  organizationBrainService,
+  createAttachmentContentDisposition,
+} from "../services/organization-brain.service";
 import {
   createOrganizationBrainUploadSchema,
   type ListOrganizationBrainItemsQuery,
@@ -114,6 +117,44 @@ async function getById(
   }
 }
 
+async function getFile(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as unknown as OrganizationBrainItemIdParam;
+
+    const file = await organizationBrainService.getFileStreamById(
+      id,
+      req.user!.orgId,
+    );
+
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      createAttachmentContentDisposition(file.fileName),
+    );
+    if (file.contentLength !== undefined) {
+      res.setHeader("Content-Length", file.contentLength);
+    }
+
+    file.body.on("error", (streamErr) => {
+      // Mirrors contract.controller.ts's getFile — headers may already be
+      // sent by the time S3 errors mid-stream, and errorHandler always
+      // calls res.status().json(), which throws once headers are sent.
+      if (res.headersSent) {
+        res.destroy(streamErr);
+        return;
+      }
+      next(streamErr);
+    });
+    file.body.pipe(res);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function deleteById(
   req: Request,
   res: Response,
@@ -139,5 +180,6 @@ export const organizationBrainController = {
   createFromPaste,
   list,
   getById,
+  getFile,
   deleteById,
 };
