@@ -106,10 +106,10 @@ export default function ContractDetailPage() {
       </nav>
 
       {/* Page header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight text-foreground">
               {contract.title}
             </h1>
           </div>
@@ -129,11 +129,15 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {/* Action buttons — Download / Witness Link remain non-functional
-    placeholders until those features are built. Edit Contract,
-    Contract Investigator, and Analyze Contract are wired to real
-    pages/endpoints. */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Action buttons — Edit is the primary CTA (filled). AI Tools stays
+    a labeled dropdown since it fans out into 3 distinct actions. Terminate
+    stays a standalone, labeled, colored button rather than hidden in a
+    menu — a legal-status change deserves visibility, not a guess from an
+    icon. Only "More" (genuinely secondary utility actions) is icon-only,
+    the one place that convention is actually earned. Download / Witness
+    Link remain non-functional placeholders until those features are built.
+    */}
+        <div className="flex shrink-0 flex-nowrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
