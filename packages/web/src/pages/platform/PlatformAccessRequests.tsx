@@ -44,6 +44,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { cn } from "../../lib/utils";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { usePlatformAuth } from "../../hooks/usePlatformAuth";
 import {
@@ -107,11 +108,20 @@ function requesterName(request: PlatformAccessRequest) {
   return `${request.contactFirstName} ${request.contactLastName}`;
 }
 
-function statusVariant(status: PlatformAccessRequestStatus) {
-  if (status === "APPROVED") return "default";
-  if (status === "DECLINED") return "destructive";
-  return "secondary";
-}
+const STATUS_BADGE_STYLES: Record<PlatformAccessRequestStatus, string> = {
+  PENDING:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+  APPROVED:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
+  DECLINED:
+    "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
+};
+
+const STATUS_DOT_STYLES: Record<PlatformAccessRequestStatus, string> = {
+  PENDING: "bg-amber-500",
+  APPROVED: "bg-emerald-500",
+  DECLINED: "bg-red-500",
+};
 
 function getStats(requests: PlatformAccessRequest[]) {
   return {
@@ -151,8 +161,6 @@ export function PlatformAccessRequests() {
   const [approvalForm, setApprovalForm] = useState({
     name: "",
     slug: "",
-    timezone: "UTC",
-    language: "en",
   });
   const [declineReason, setDeclineReason] = useState("");
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -191,8 +199,6 @@ export function PlatformAccessRequests() {
     setApprovalForm({
       name: selectedAccessRequest.organizationName,
       slug: slugFromName(selectedAccessRequest.organizationName),
-      timezone: "UTC",
-      language: "en",
     });
     setDeclineReason(selectedAccessRequest.declineReason ?? "");
     setReviewError(null);
@@ -275,7 +281,7 @@ export function PlatformAccessRequests() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock3 className="size-4 text-muted-foreground" />
+            <Clock3 className="size-4 text-amber-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{stats.pending}</div>
@@ -286,7 +292,7 @@ export function PlatformAccessRequests() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Approved</CardTitle>
-            <CheckCircle2 className="size-4 text-muted-foreground" />
+            <CheckCircle2 className="size-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{stats.approved}</div>
@@ -297,7 +303,7 @@ export function PlatformAccessRequests() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Declined</CardTitle>
-            <XCircle className="size-4 text-muted-foreground" />
+            <XCircle className="size-4 text-red-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{stats.declined}</div>
@@ -306,37 +312,43 @@ export function PlatformAccessRequests() {
         </Card>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-lg border bg-card p-4 md:flex-row md:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search requester, email, or organization"
-            className="pl-9"
-          />
+      <section className="overflow-x-auto rounded-lg border bg-card">
+        <div className="flex flex-col gap-3 border-b p-4 md:flex-row md:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search requester, email, or organization"
+              className="pl-9"
+            />
+          </div>
+
+          <Select
+            value={status}
+            onValueChange={(value) =>
+              setStatus(value as PlatformAccessRequestStatus | "ALL")
+            }
+          >
+            <SelectTrigger className="w-full md:w-56">
+              <SelectValue placeholder="Status">
+                {(value) =>
+                  value === "ALL"
+                    ? "All statuses"
+                    : STATUS_LABELS[value as PlatformAccessRequestStatus]
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option === "ALL" ? "All statuses" : STATUS_LABELS[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <Select
-          value={status}
-          onValueChange={(value) =>
-            setStatus(value as PlatformAccessRequestStatus | "ALL")
-          }
-        >
-          <SelectTrigger className="w-full md:w-56">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option === "ALL" ? "All statuses" : STATUS_LABELS[option]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </section>
-
-      <section className="overflow-x-auto rounded-lg border bg-card">
         {isLoading ? (
           <div className="flex min-h-64 items-center justify-center">
             <LoadingSpinner />
@@ -392,7 +404,20 @@ export function PlatformAccessRequests() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant(request.status)}>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "gap-1.5 rounded-full",
+                        STATUS_BADGE_STYLES[request.status],
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "size-1.5 rounded-full",
+                          STATUS_DOT_STYLES[request.status],
+                        )}
+                        aria-hidden
+                      />
                       {STATUS_LABELS[request.status]}
                     </Badge>
                   </TableCell>
@@ -565,40 +590,6 @@ export function PlatformAccessRequests() {
                           disabled={!canReviewRequests || isReviewPending}
                           required
                         />
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="grid gap-2">
-                          <Label htmlFor="approval-timezone">Timezone</Label>
-                          <Input
-                            id="approval-timezone"
-                            value={approvalForm.timezone}
-                            onChange={(event) =>
-                              setApprovalForm((current) => ({
-                                ...current,
-                                timezone: event.target.value,
-                              }))
-                            }
-                            disabled={!canReviewRequests || isReviewPending}
-                            required
-                          />
-                        </div>
-
-                        <div className="grid gap-2">
-                          <Label htmlFor="approval-language">Language</Label>
-                          <Input
-                            id="approval-language"
-                            value={approvalForm.language}
-                            onChange={(event) =>
-                              setApprovalForm((current) => ({
-                                ...current,
-                                language: event.target.value,
-                              }))
-                            }
-                            disabled={!canReviewRequests || isReviewPending}
-                            required
-                          />
-                        </div>
                       </div>
 
                       <Button

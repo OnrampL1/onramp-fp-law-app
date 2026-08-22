@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useChangePassword } from "@/hooks/useSettings";
+import { UserRoleBadge } from "@/components/users/UserBadges";
 
 const passwordSchema = z
   .object({
@@ -230,9 +230,7 @@ export function ProfileSettings() {
             </p>
           </div>
 
-          <Badge variant="secondary" className="capitalize">
-            {user.role}
-          </Badge>
+          <UserRoleBadge role={user.role} />
         </CardContent>
       </Card>
     </div>

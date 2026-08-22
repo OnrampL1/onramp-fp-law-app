@@ -74,6 +74,7 @@ function toPublicUser(
     role: user.role,
     organizationStatus: organization.status,
     onboardingRequired: isOnboardingRequiredForUser(user, organization),
+    mustChangePassword: user.mustChangePassword,
   };
 }
 
@@ -289,7 +290,7 @@ export class AuthService {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash },
+      data: { passwordHash, mustChangePassword: false },
     });
   }
 

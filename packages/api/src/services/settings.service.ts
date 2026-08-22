@@ -25,6 +25,23 @@ interface SettingsActor {
   role: "OWNER" | "ADMIN" | "INTERNAL";
 }
 
+// The assigned owner needs to reach organization settings (specifically, the
+// logo upload) while still mid-onboarding — same allowance already granted
+// by onboarding.service.ts's isAssignedOwner/onboardingRequired and by the
+// authenticate middleware's isOnboardingSafeRequest allowlist for this
+// route. Everyone else still needs the organization fully ACTIVE.
+function organizationAllowsSettingsAccess(
+  organization: { status: string; ownerUserId: string | null },
+  actor: SettingsActor,
+): boolean {
+  return (
+    organization.status === "ACTIVE" ||
+    (organization.status === "OWNER_ASSIGNED" &&
+      actor.role === "OWNER" &&
+      organization.ownerUserId === actor.userId)
+  );
+}
+
 interface RequestContext {
   ipAddress?: string;
   userAgent?: string;
@@ -217,17 +234,17 @@ function pickChangedValues(
 }
 
 export class SettingsService {
-  async getOrganizationSettings(userId: string, organizationId: string) {
+  async getOrganizationSettings(actor: SettingsActor) {
     const organization = await findOrganizationWithSettings(
-      organizationId,
-      userId,
+      actor.organizationId,
+      actor.userId,
     );
 
     if (!organization) {
       throw createError("Organization settings not found", 404);
     }
 
-    if (organization.status !== "ACTIVE") {
+    if (!organizationAllowsSettingsAccess(organization, actor)) {
       throw createError("Organization is not active", 403);
     }
 
@@ -261,7 +278,7 @@ export class SettingsService {
       throw createError("Organization settings not found", 404);
     }
 
-    if (organization.status !== "ACTIVE") {
+    if (!organizationAllowsSettingsAccess(organization, actor)) {
       throw createError("Organization is not active", 403);
     }
 
@@ -367,7 +384,7 @@ export class SettingsService {
       throw createError("Organization settings not found", 404);
     }
 
-    if (organization.status !== "ACTIVE") {
+    if (!organizationAllowsSettingsAccess(organization, actor)) {
       throw createError("Organization is not active", 403);
     }
 
@@ -455,7 +472,7 @@ export class SettingsService {
       throw createError("Organization settings not found", 404);
     }
 
-    if (organization.status !== "ACTIVE") {
+    if (!organizationAllowsSettingsAccess(organization, actor)) {
       throw createError("Organization is not active", 403);
     }
 

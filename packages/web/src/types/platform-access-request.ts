@@ -63,8 +63,6 @@ export interface ListPlatformAccessRequestsResponse {
 export interface ApprovePlatformAccessRequestPayload {
   name: string;
   slug: string;
-  timezone: string;
-  language: string;
 }
 
 export interface DeclinePlatformAccessRequestPayload {

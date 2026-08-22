@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import { AlertCircle, MailCheck, Mail } from "lucide-react";
 import { WitnessStatusBadge } from "./WitnessStatusBadge";
 import { WitnessLinksPagination } from "./WitnessLinksPagination";
@@ -179,8 +180,19 @@ function InvitationRow({ invitation: inv, onClick }: RowProps) {
       onKeyDown={(e) => e.key === "Enter" && onClick()}
       className="cursor-pointer transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
-      <td className="px-4 py-3">
-        <p className="font-medium text-foreground">{inv.contractTitle}</p>
+      <td className="max-w-[240px] px-4 py-3">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <p className="truncate font-medium text-foreground">
+                {inv.contractTitle}
+              </p>
+            }
+          />
+          <TooltipContent side="top" align="start">
+            {inv.contractTitle}
+          </TooltipContent>
+        </Tooltip>
         <p className="font-mono text-[10px] text-muted-foreground">{inv.contractId.slice(0, 8)}…</p>
       </td>
       <td className="px-4 py-3">

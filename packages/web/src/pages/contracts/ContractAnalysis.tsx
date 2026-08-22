@@ -128,17 +128,20 @@ const PROCESSING_STATUS_BADGE: Record<
 > = {
   AI_COMPLETED: {
     label: "Complete",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
     icon: CheckCircle2,
   },
   AI_PENDING: {
     label: "Analyzing",
-    className: "bg-amber-50 text-amber-700 border-amber-200",
+    className:
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
     icon: Clock,
   },
   AI_FAILED: {
     label: "Latest Run Failed",
-    className: "bg-red-50 text-red-700 border-red-200",
+    className:
+      "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-900",
     icon: XCircle,
   },
 };
@@ -147,9 +150,18 @@ const ANALYSIS_STATUS_BADGE: Record<
   AIAnalysisListItemDto["status"],
   string
 > = {
-  COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  PENDING: "bg-amber-50 text-amber-700 border-amber-200",
-  FAILED: "bg-red-50 text-red-700 border-red-200",
+  COMPLETED:
+    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+  PENDING:
+    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+  FAILED:
+    "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-900",
+};
+
+const ANALYSIS_STATUS_DOT: Record<AIAnalysisListItemDto["status"], string> = {
+  COMPLETED: "bg-emerald-500",
+  PENDING: "bg-amber-500",
+  FAILED: "bg-red-500",
 };
 
 const ANALYSIS_TYPE_LABELS: Record<AIAnalysisListItemDto["type"], string> = {
@@ -737,10 +749,17 @@ export default function ContractAnalysisPage() {
                       <Badge
                         variant="outline"
                         className={cn(
-                          "font-medium rounded-full",
+                          "gap-1.5 font-medium rounded-full",
                           ANALYSIS_STATUS_BADGE[run.status],
                         )}
                       >
+                        <span
+                          className={cn(
+                            "size-1.5 rounded-full",
+                            ANALYSIS_STATUS_DOT[run.status],
+                          )}
+                          aria-hidden
+                        />
                         {run.status}
                       </Badge>
                     </TableCell>

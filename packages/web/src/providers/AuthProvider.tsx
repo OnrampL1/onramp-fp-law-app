@@ -21,6 +21,7 @@ interface AuthUser {
     | "SUSPENDED"
     | "ARCHIVED";
   onboardingRequired: boolean;
+  mustChangePassword: boolean;
 }
 
 interface AuthContextValue {

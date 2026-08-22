@@ -79,10 +79,11 @@ describe("SettingsService.getOrganizationSettings", () => {
       members: [{ role: "ADMIN" }],
     });
 
-    const result = await settingsService.getOrganizationSettings(
-      "user-1",
-      "org-1",
-    );
+    const result = await settingsService.getOrganizationSettings({
+      userId: "user-1",
+      organizationId: "org-1",
+      role: "ADMIN",
+    });
 
     expect(mockPrisma.organization.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -142,10 +143,11 @@ describe("SettingsService.getOrganizationSettings", () => {
       members: [{ role: "INTERNAL" }],
     });
 
-    const result = await settingsService.getOrganizationSettings(
-      "user-1",
-      "org-1",
-    );
+    const result = await settingsService.getOrganizationSettings({
+      userId: "user-1",
+      organizationId: "org-1",
+      role: "INTERNAL",
+    });
 
     expect(mockGetPresignedUrl).not.toHaveBeenCalled();
     expect(result.settings).toEqual({
@@ -170,10 +172,11 @@ describe("SettingsService.getOrganizationSettings", () => {
       members: [{ role: "OWNER" }],
     });
 
-    const result = await settingsService.getOrganizationSettings(
-      "owner-1",
-      "org-1",
-    );
+    const result = await settingsService.getOrganizationSettings({
+      userId: "owner-1",
+      organizationId: "org-1",
+      role: "OWNER",
+    });
 
     expect(result.permissions.canManageSettings).toBe(true);
     expect(result.permissions.canRenameOrganization).toBe(true);
@@ -183,7 +186,11 @@ describe("SettingsService.getOrganizationSettings", () => {
     mockPrisma.organization.findFirst.mockResolvedValue(null);
 
     await expect(
-      settingsService.getOrganizationSettings("user-1", "org-1"),
+      settingsService.getOrganizationSettings({
+        userId: "user-1",
+        organizationId: "org-1",
+        role: "ADMIN",
+      }),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
@@ -198,7 +205,51 @@ describe("SettingsService.getOrganizationSettings", () => {
     });
 
     await expect(
-      settingsService.getOrganizationSettings("user-1", "org-1"),
+      settingsService.getOrganizationSettings({
+        userId: "user-1",
+        organizationId: "org-1",
+        role: "ADMIN",
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("allows the assigned owner to read settings while OWNER_ASSIGNED", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue({
+      id: "org-1",
+      name: "Acme Legal",
+      slug: "acme-legal",
+      status: "OWNER_ASSIGNED",
+      ownerUserId: "owner-1",
+      settings: null,
+      members: [{ role: "OWNER" }],
+    });
+
+    const result = await settingsService.getOrganizationSettings({
+      userId: "owner-1",
+      organizationId: "org-1",
+      role: "OWNER",
+    });
+
+    expect(result.organization.status).toBe("OWNER_ASSIGNED");
+  });
+
+  it("throws 403 for a non-owner while the organization is OWNER_ASSIGNED", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue({
+      id: "org-1",
+      name: "Acme Legal",
+      slug: "acme-legal",
+      status: "OWNER_ASSIGNED",
+      ownerUserId: "owner-1",
+      settings: null,
+      members: [{ role: "ADMIN" }],
+    });
+
+    await expect(
+      settingsService.getOrganizationSettings({
+        userId: "admin-1",
+        organizationId: "org-1",
+        role: "ADMIN",
+      }),
     ).rejects.toMatchObject({ statusCode: 403 });
   });
 });

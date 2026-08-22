@@ -42,6 +42,7 @@ export function Dashboard() {
       value: formatCount(contracts?.total, isLoading),
       label: "Total Contracts",
       sublabel: "Organization portfolio",
+      iconClassName: "bg-slate-50 text-slate-600 dark:bg-slate-950 dark:text-slate-300",
     },
     {
       icon: <FileCheck2 className="size-5" />,
@@ -51,12 +52,14 @@ export function Dashboard() {
         contracts && contracts.total > 0
           ? `${((contracts.legalStateCounts.ACTIVE / contracts.total) * 100).toFixed(1)}% of portfolio`
           : "Legal state: active",
+      iconClassName: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
     },
     {
       icon: <CalendarClock className="size-5" />,
       value: formatCount(contracts?.expiringSoonCount, isLoading),
       label: "Expiring Soon",
       sublabel: "Within 30 days",
+      iconClassName: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
     },
     {
       icon: <ClipboardList className="size-5" />,
@@ -66,6 +69,7 @@ export function Dashboard() {
       ),
       label: "Under Review",
       sublabel: "Business workflow status",
+      iconClassName: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
     },
   ];
 
