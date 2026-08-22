@@ -92,6 +92,26 @@ describe("buildSynthesisMessages", () => {
     expect(userContent).toContain("what does article 654 say?");
   });
 
+  it("reveals the specific reason for a notIndexed failure instead of the generic 'was unavailable' phrasing", () => {
+    const aggregated = contextOf({
+      failedTools: [
+        {
+          tool: "askContractQuestion",
+          error: "This contract has not been indexed for Clause Investigator yet",
+          notIndexed: true,
+        },
+      ],
+    });
+
+    const messages = buildSynthesisMessages("SYSTEM", [], "what are the payment terms?", aggregated);
+    const userContent = messages[messages.length - 1].content;
+
+    expect(userContent).toContain(
+      "- askContractQuestion: This contract has not been indexed for Clause Investigator yet",
+    );
+    expect(userContent).not.toContain("askContractQuestion was unavailable");
+  });
+
   it("states plainly that no evidence was gathered when the aggregated context is empty", () => {
     const messages = buildSynthesisMessages("SYSTEM", [], "hello", contextOf());
     expect(messages[messages.length - 1].content).toContain(

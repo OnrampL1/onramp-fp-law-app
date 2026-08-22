@@ -66,7 +66,14 @@ function formatUnavailableTools(
   if (failedTools.length === 0) {
     return "";
   }
-  const rows = failedTools.map((f) => `- ${f.tool} was unavailable`).join("\n");
+  // notIndexed is the one failure reason worth revealing verbatim (already
+  // a plain, specific sentence - see NoIndexedContentError's message) so
+  // synthesis rule 12 can state it plainly instead of guessing at a generic
+  // decline. Every other failure keeps the generic phrasing - this is a
+  // narrow special case, not a change to how failures are reported overall.
+  const rows = failedTools
+    .map((f) => (f.notIndexed ? `- ${f.tool}: ${f.error}` : `- ${f.tool} was unavailable`))
+    .join("\n");
   return `The following capabilities were attempted but did not return a usable result:\n\n${rows}`;
 }
 

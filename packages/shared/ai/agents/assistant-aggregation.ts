@@ -28,6 +28,12 @@ export interface AssistantEvidenceUnit {
 export interface AssistantFailedTool {
   tool: ToolName;
   error: string;
+  // Carried through from ToolExecutionOutcome.notIndexed (executor.ts) -
+  // true only when this specific failure was NoIndexedContentError, so
+  // formatUnavailableTools() in assistant-synthesizer.ts can reveal the
+  // precise reason instead of a generic "was unavailable" for this one
+  // distinguishable case.
+  notIndexed?: boolean;
 }
 
 // A tool that ran successfully and correctly produced nothing - not a
@@ -209,6 +215,7 @@ export function aggregateToolResults(
       failedTools.push({
         tool: outcome.tool,
         error: outcome.error ?? "Tool execution failed",
+        notIndexed: outcome.notIndexed,
       });
       continue;
     }

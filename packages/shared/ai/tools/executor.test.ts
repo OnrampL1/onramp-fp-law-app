@@ -1,5 +1,6 @@
 import { executePlan, PlanTooLargeError } from "./executor";
 import { ASSISTANT_MAX_PLAN_STEPS } from "./definitions";
+import { NoIndexedContentError } from "../retrieval/investigator";
 import type { AssistantPlanV1 } from "../schemas/assistant-plan/v1";
 import type { ToolImplementations, ToolResult } from "./types";
 
@@ -147,6 +148,36 @@ describe("executePlan", () => {
         tool: "askContractQuestion",
         ok: false,
         error: "upstream service unavailable",
+      },
+    ]);
+  });
+
+  it("tags a NoIndexedContentError failure with notIndexed, distinct from a generic failure", async () => {
+    const implementations: ToolImplementations = {
+      askContractQuestion: jest.fn(async () => {
+        throw new NoIndexedContentError(
+          "This contract has not been indexed for Clause Investigator yet",
+        );
+      }),
+    };
+
+    const outcomes = await executePlan(
+      planOf([
+        {
+          tool: "askContractQuestion",
+          arguments: { contractId: CONTRACT_ID, question: "q" },
+        },
+      ]),
+      implementations,
+      CONTEXT,
+    );
+
+    expect(outcomes).toEqual([
+      {
+        tool: "askContractQuestion",
+        ok: false,
+        error: "This contract has not been indexed for Clause Investigator yet",
+        notIndexed: true,
       },
     ]);
   });

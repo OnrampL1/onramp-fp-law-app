@@ -11,7 +11,7 @@ const ACTIVE_PROMPT_VERSIONS: Record<string, string> = {
   risk: "v3",
   metadata: "v1",
   "assistant-planner": "v1",
-  "assistant-synthesis": "v1",
+  "assistant-synthesis": "v2",
 };
 
 const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {

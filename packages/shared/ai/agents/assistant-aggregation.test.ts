@@ -206,6 +206,27 @@ describe("aggregateToolResults", () => {
     expect(result.hasEvidence).toBe(false);
   });
 
+  it("carries notIndexed through to failedTools when the outcome was tagged by the executor", () => {
+    const outcomes: ToolExecutionOutcome[] = [
+      {
+        tool: "askContractQuestion",
+        ok: false,
+        error: "This contract has not been indexed for Clause Investigator yet",
+        notIndexed: true,
+      },
+    ];
+
+    const result = aggregateToolResults(outcomes);
+
+    expect(result.failedTools).toEqual([
+      {
+        tool: "askContractQuestion",
+        error: "This contract has not been indexed for Clause Investigator yet",
+        notIndexed: true,
+      },
+    ]);
+  });
+
   it("collapses a source cited more than once by the same tool call into one evidence unit", () => {
     // A real, observed case: a single-chunk document where the inner
     // answerOrganizationBrainQuestion() call cites the same chunkId
