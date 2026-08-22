@@ -406,7 +406,10 @@ async function updateContractContent(
     actor.organizationId,
   );
 
-  const existing = await contractRepository.findById(id, user.organizationId);
+  const existing = await contractRepository.findContentById(
+    id,
+    user.organizationId,
+  );
 
   if (!existing) {
     throw createError("Contract not found", 404);
@@ -438,7 +441,10 @@ async function updateContractContent(
       // The full text isn't stored in the audit snapshot — it can be
       // hundreds of KB, and every existing audit entry snapshots short
       // structured fields, not free-form blobs. Length is enough signal
-      // that something changed and roughly how much.
+      // that something changed and roughly how much — captured on both
+      // sides so the entry actually shows a before/after, not just an
+      // after.
+      oldValue: { length: existing.extractedText?.length ?? 0 },
       newValue: { length: input.extractedText.length },
       ipAddress: requestContext.ipAddress,
       userAgent: requestContext.userAgent,
