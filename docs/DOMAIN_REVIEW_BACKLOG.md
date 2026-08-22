@@ -301,6 +301,53 @@ what we noticed.
   (`POST /contracts`) are unaffected — their `fileKey`s correspond to files
   that were actually `PutObject`'d.
 
+### Chunking/Embedding Pipeline Has No Persisted or UI-Visible Status — Indexing Failures Are Invisible Outside Worker Logs
+
+- Identified: During a Legal Assistant diagnostic investigation (2026-08-22)
+  into why a question naming a specific contract by title returned a vague
+  "not provided in the gathered evidence" answer instead of a specific one.
+- Classification: Real, structural gap in what's observable about the
+  contract-chunking/embedding pipeline — not a bug in the pipeline's own
+  logic. That logic was code-reviewed end-to-end and found correctly wired:
+  `extraction.job.ts` fires `embeddingsQueue.add()` and
+  `enqueueContractAnalysis()` independently and unconditionally on
+  extraction success, `embeddings.job.ts` correctly chunks/embeds/persists,
+  the embeddings worker is registered and listening
+  (`packages/workers/src/queues/index.ts`), and retrieval
+  (`searchContractChunks`) is correctly contract- and organization-scoped.
+- Status: Open. Not fixed — deliberately deferred, see Notes.
+- Root cause: `contracts.processingStatus`/`processingError`
+  (`PENDING_EXTRACTION → EXTRACTION_COMPLETED/FAILED → AI_PENDING/COMPLETED/FAILED`,
+  `schema.prisma`) tracks extraction and AI Analysis only. There is no
+  equivalent column for the separate chunking/embedding pipeline
+  (`packages/workers/src/jobs/embeddings.job.ts`, which populates
+  `ContractChunk`). If that job fails after exhausting its 3 retries — a
+  transient embedding-provider error, a malformed extraction, a Redis
+  hiccup — the only trace is a `console.error` line from the worker's
+  `on("failed", ...)` handler. Nothing is written to Postgres, and nothing
+  surfaces on the contract detail page. So "AI Analysis shows complete" for
+  a contract is never evidence that it's also indexed for Clause
+  Investigator/Legal Assistant — the two pipelines fire independently off
+  the same extraction success and can silently diverge.
+- Notes: Fixing this properly is a schema decision, not a quick patch — it
+  needs either new `ContractProcessingStatus` enum values (an
+  indexing-specific state) or a new column tracking chunk/embedding
+  pipeline status separately from `processingStatus`, plus a migration and
+  a UI surface on the contract detail page. Deliberately not added here
+  without that decision being made explicitly. This is also the direct
+  reason Legal Assistant/Clause Investigator "not indexed" failures are
+  currently hard to diagnose in production: there is no way to distinguish
+  "chunking never ran," "chunking failed," and "chunking succeeded but
+  genuinely found nothing relevant" without direct access to worker logs or
+  the Redis-backed BullMQ queue state. A related, narrower fix was made
+  separately — the Assistant's synthesis step now surfaces the *existing*
+  `NoIndexedContentError` signal in its answer instead of discarding it as
+  a generic tool failure (`assistant-synthesis/v2.md`,
+  `packages/shared/ai/tools/executor.ts`'s `notIndexed` outcome tag) — but
+  that only helps once an `askContractQuestion` call is actually attempted
+  against an unindexed contract; it does nothing to make an
+  entirely-failed chunking job visible before that point.
+
 ## Resolved Items
 
 ### Labour Law Flat-View Parser — "Preliminary Provisions" Articles Left with a Null Heading Path
