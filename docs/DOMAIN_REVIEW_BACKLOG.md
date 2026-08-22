@@ -261,6 +261,46 @@ what we noticed.
   reseed" step for local dev. Neither attempted here — belongs to whoever
   owns this area.
 
+### Contract Download 404s (`NoSuchKey`) on All Seeded Contracts — Seed Data Bug, Not Application Logic
+
+- Identified: While testing the Contract Details "Download" button
+  (2026-08-21) — clicking Download on seeded contract
+  `00000000-0000-4000-8000-000000000001` returned a presigned URL that 404s
+  with S3 `NoSuchKey` for key `contracts/.../meridian-health-dpa.pdf` in
+  bucket `clausio-contracts`. Not caused by, or related to, the download
+  feature itself — the presigned-URL endpoint (`GET /:id/download`) and
+  `getPresignedUrl()` are working correctly; they're just signing a request
+  against an object that was never uploaded.
+- Classification: Real, reproducible bug in `packages/shared/prisma/seed.ts`,
+  not an application bug in the download endpoint. Presigning an S3 URL
+  succeeds unconditionally — it never checks the object exists — so the
+  request only fails once S3 actually tries to serve the key.
+- Status: Open. Not fixed — out of scope for the download feature.
+- Root cause: `seed.ts`'s per-contract loop (~line 793) creates every
+  `Contract` row via `prisma.contract.create()` directly, setting
+  `fileKey: \`contracts/${ORG_ID}/${c.slug}.pdf\`` (line 807) without ever
+  calling the real upload path (`contractService.uploadContract` →
+  `uploadFile()` in `packages/shared/storage/client.ts`, which is what
+  actually `PutObject`s a file into S3 during a normal upload). No
+  `uploadFile`/`S3Client`/`PutObjectCommand` call exists anywhere in
+  `seed.ts` — confirmed by grep. So every seeded contract's `fileKey`
+  references an S3 object that was never created.
+  All 11 seeded contracts are affected — the `fileKey` assignment at line
+  807 runs unconditionally for every entry in the `CONTRACTS` array:
+  `ridgeline-voss`, `acme-robotics-msa`, `blackwood-supply-agreement`,
+  `solstice-consulting-agreement`, `harrow-finch-lease`,
+  `meridian-health-dpa`, `northstar-logistics-termination`,
+  `pinehollow-licensing-agreement`, `vantage-capital-loan-agreement`,
+  `coral-bay-vendor-agreement`, `ironclad-security-services`. Downloading
+  any of them will 404/`NoSuchKey` until this is addressed.
+- Notes: Fixing needs either real fixture files actually uploaded into the
+  bucket during seeding (`seed.ts` calling `uploadFile()` with real file
+  buffers per contract) or reworking `seed.ts` to point `fileKey` at
+  pre-existing fixture objects known to exist in the bucket. Neither
+  attempted here. Contracts uploaded through the real app flow
+  (`POST /contracts`) are unaffected — their `fileKey`s correspond to files
+  that were actually `PutObject`'d.
+
 ## Resolved Items
 
 ### Labour Law Flat-View Parser — "Preliminary Provisions" Articles Left with a Null Heading Path

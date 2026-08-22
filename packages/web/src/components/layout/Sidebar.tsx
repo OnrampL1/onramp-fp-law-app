@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizationSettings } from "@/hooks/useSettings";
-import { isAdminRole } from "@/lib/permissions";
+import { isAdminRole, roleLabels, type BackendUserRole } from "@/lib/permissions";
 
 const workspaceNav = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -62,6 +62,13 @@ const adminNav = [
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
+function getRoleLabel(role?: string) {
+  if (role && role in roleLabels) {
+    return roleLabels[role as BackendUserRole];
+  }
+  return role ?? "Team member";
+}
+
 function getInitials(name?: string) {
   if (!name) {
     return "AW";
@@ -82,6 +89,7 @@ export function Sidebar() {
   const { data: organizationSettings } = useOrganizationSettings();
   const [logoFailedToLoad, setLogoFailedToLoad] = useState(false);
   const userName = user?.fullName ?? "Alex Whitfield";
+  const userRoleLabel = getRoleLabel(user?.role);
   const visibleAdminNav = adminNav.filter(
     (item) => !item.requiresAdmin || isAdminRole(user?.role),
   );
@@ -181,16 +189,16 @@ export function Sidebar() {
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{userName}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  Administrator
+                  {userRoleLabel}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Signed in as Administrator">
+            <SidebarMenuButton tooltip={`Signed in as ${userRoleLabel}`}>
               <ShieldCheck />
-              <span>Signed in as Administrator</span>
+              <span>Signed in as {userRoleLabel}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
