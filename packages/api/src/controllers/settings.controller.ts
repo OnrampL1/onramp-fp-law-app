@@ -8,10 +8,11 @@ export const settingsController = {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const settings = await settingsService.getOrganizationSettings(
-        req.user!.userId,
-        req.user!.orgId,
-      );
+      const settings = await settingsService.getOrganizationSettings({
+        userId: req.user!.userId,
+        organizationId: req.user!.orgId,
+        role: req.user!.role,
+      });
 
       res.json({ data: settings });
     } catch (err) {

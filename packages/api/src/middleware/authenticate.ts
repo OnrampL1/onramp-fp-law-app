@@ -47,6 +47,12 @@ function isOnboardingSafeRequest(req: Request): boolean {
   return (
     (req.method === "GET" && routePath === "/api/auth/me") ||
     (req.method === "POST" && routePath === "/api/auth/logout") ||
+    (req.method === "POST" && routePath === "/api/auth/change-password") ||
+    (req.method === "GET" && routePath === "/api/settings/organization") ||
+    (req.method === "POST" &&
+      routePath === "/api/settings/organization/logo") ||
+    (req.method === "DELETE" &&
+      routePath === "/api/settings/organization/logo") ||
     routePath.startsWith("/api/onboarding")
   );
 }

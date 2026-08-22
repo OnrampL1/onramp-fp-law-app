@@ -36,6 +36,11 @@ function buildInvitationIntro(
   return `${invitedBy} join ${org}, ${CLAUSIO_BLURB}.`;
 }
 
+function buildOwnerAssignedIntro(organizationName: string | undefined): string {
+  const org = organizationName ?? "your organization";
+  return `An organization has been created for you on Clausio as the owner of ${org}.`;
+}
+
 function buildWitnessIntro(
   issuerName: string | undefined,
   organizationName: string | undefined,
@@ -47,9 +52,9 @@ function buildWitnessIntro(
   return `${invitedBy} to act as an independent witness for "${contractTitle}" via ${org}.`;
 }
 
-// Two templates now — this codebase still has no template engine/registry,
+// Three templates now — this codebase still has no template engine/registry,
 // just a switch. Add another case here (and a matching call site) if a
-// third is ever needed before that's worth introducing.
+// fourth is ever needed before that's worth introducing.
 function renderTemplate(
   template: string,
   variables: Record<string, string> = {},
@@ -93,6 +98,54 @@ function renderTemplate(
             </p>
             <p style="color:#666;font-size:13px;">
               This invitation will expire in 7 days. If you weren't expecting this invitation, you can safely ignore this email.
+            </p>
+            <p style="margin-top: 32px;">Welcome to Clausio.</p>
+          </div>
+        `,
+      };
+    }
+    case "owner-assigned": {
+      const greeting = variables.fullName
+        ? `Hello ${variables.fullName},`
+        : "Hello,";
+      const loginUrl = variables.loginUrl ?? "";
+      const intro = buildOwnerAssignedIntro(variables.organizationName);
+
+      return {
+        text: [
+          greeting,
+          "",
+          intro,
+          "",
+          "Sign in with the temporary credentials below to get started:",
+          `Email: ${variables.email ?? ""}`,
+          `Temporary password: ${variables.temporaryPassword ?? ""}`,
+          "",
+          loginUrl,
+          "",
+          "You'll be asked to set a new password, then complete your organization's onboarding profile.",
+          "",
+          "Welcome to Clausio.",
+        ].join("\n"),
+        html: `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+            <p style="font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: #6b7280; margin-bottom: 24px;">
+              Clausio
+            </p>
+            <p>${greeting}</p>
+            <p>${intro}</p>
+            <p>Sign in with the temporary credentials below to get started:</p>
+            <p style="margin: 20px 0; padding: 16px; background: #f4f4f5; border-radius: 6px; font-size: 14px;">
+              Email: <strong>${variables.email ?? ""}</strong><br />
+              Temporary password: <strong>${variables.temporaryPassword ?? ""}</strong>
+            </p>
+            <p style="margin: 28px 0;">
+              <a href="${loginUrl}" style="display:inline-block;padding:12px 24px;background:#1E3A5F;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+                Sign In
+              </a>
+            </p>
+            <p style="color:#666;font-size:13px;">
+              You'll be asked to set a new password, then complete your organization's onboarding profile.
             </p>
             <p style="margin-top: 32px;">Welcome to Clausio.</p>
           </div>

@@ -17,6 +17,10 @@ export function OnboardingRoute() {
     return <Navigate to="/login" replace />;
   }
 
+  if (user.mustChangePassword) {
+    return <Navigate to="/force-password-change" replace />;
+  }
+
   if (!user.onboardingRequired) {
     return <Navigate to="/dashboard" replace />;
   }

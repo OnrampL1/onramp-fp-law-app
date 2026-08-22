@@ -1,5 +1,5 @@
 import { Prisma, type OrganizationStatus } from "@prisma/client";
-import { getPrismaClient, hashPassword } from "@starter-kit/shared";
+import { getPrismaClient, hashPassword, emailQueue } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
 import type {
   AssignPlatformOrganizationOwnerInput,
@@ -10,6 +10,7 @@ import type {
 import { auditService } from "./audit.service";
 
 const prisma = getPrismaClient();
+const APP_URL = process.env.APP_URL ?? "http://localhost:5173";
 
 interface Pagination {
   page: number;
@@ -345,6 +346,7 @@ export class PlatformOrganizationService {
             fullName: input.fullName,
             role: "OWNER",
             status: "ACTIVE",
+            mustChangePassword: true,
           },
         });
 
@@ -397,6 +399,19 @@ export class PlatformOrganizationService {
         });
 
         return updated;
+      });
+
+      await emailQueue.add("owner-assigned", {
+        to: input.email,
+        subject: "You've been added as an owner on Clausio",
+        template: "owner-assigned",
+        variables: {
+          fullName: input.fullName,
+          organizationName: organization.name,
+          email: input.email,
+          temporaryPassword: input.password,
+          loginUrl: `${APP_URL}/login`,
+        },
       });
 
       return {

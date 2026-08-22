@@ -26,8 +26,9 @@ export const completeOrganizationOnboardingSchema = z
       .string()
       .trim()
       .min(1)
-      .refine(isValidTimeZone, "Timezone must be a valid IANA timezone"),
-    language: z.enum(supportedLanguages),
+      .refine(isValidTimeZone, "Timezone must be a valid IANA timezone")
+      .optional(),
+    language: z.enum(supportedLanguages).optional(),
     notificationPreferences: onboardingNotificationPreferencesSchema.optional(),
   })
   .strict();

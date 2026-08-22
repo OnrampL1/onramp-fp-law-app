@@ -46,6 +46,7 @@ export interface AuthUser {
   role: UserRole;
   organizationStatus: OrganizationStatus;
   onboardingRequired: boolean;
+  mustChangePassword: boolean;
 }
 
 export interface PlatformAuthUser {

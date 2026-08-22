@@ -123,13 +123,13 @@ function pickSettingsAuditValues(
   }
 
   const currentTimezone = organization.settings?.timezone ?? "UTC";
-  if (currentTimezone !== input.timezone) {
+  if (input.timezone !== undefined && currentTimezone !== input.timezone) {
     oldValue.timezone = currentTimezone;
     newValue.timezone = input.timezone;
   }
 
   const currentLanguage = organization.settings?.language ?? "en";
-  if (currentLanguage !== input.language) {
+  if (input.language !== undefined && currentLanguage !== input.language) {
     oldValue.language = currentLanguage;
     newValue.language = input.language;
   }
@@ -198,15 +198,15 @@ export class OnboardingService {
       await tx.organizationSettings.upsert({
         where: { organizationId: current.id },
         update: {
-          timezone: input.timezone,
-          language: input.language,
+          ...(input.timezone !== undefined && { timezone: input.timezone }),
+          ...(input.language !== undefined && { language: input.language }),
           notificationPreferences:
             input.notificationPreferences ?? Prisma.JsonNull,
         },
         create: {
           organizationId: current.id,
-          timezone: input.timezone,
-          language: input.language,
+          ...(input.timezone !== undefined && { timezone: input.timezone }),
+          ...(input.language !== undefined && { language: input.language }),
           notificationPreferences:
             input.notificationPreferences ?? Prisma.JsonNull,
         },

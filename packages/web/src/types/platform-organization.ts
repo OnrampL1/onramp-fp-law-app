@@ -56,8 +56,6 @@ export interface ListPlatformOrganizationsResponse {
 export interface CreatePlatformOrganizationPayload {
   name: string;
   slug: string;
-  timezone: string;
-  language: string;
 }
 
 export interface AssignPlatformOrganizationOwnerPayload {
