@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, ShieldAlert } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
 import { AuditLogFilters } from "../components/audit-log/AuditLogFilters";
 import {
   AuditLogTable,
@@ -198,7 +199,7 @@ export function AuditLogPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card">
+      <Card className="overflow-hidden p-0">
         <AuditLogFilters
           actorUserId={filters.actorUserId}
           action={filters.action}
@@ -215,18 +216,18 @@ export function AuditLogPage() {
           onDateToChange={filters.setDateTo}
           onReset={filters.resetFilters}
         />
-      </div>
 
-      <AuditLogTable
-        entries={entries}
-        isLoading={isLoading}
-        isError={isError}
-        onRetry={() => refetch()}
-        usersById={usersById}
-        contractsById={contractsById}
-        pagination={pagination}
-        onPageChange={filters.setPage}
-      />
+        <AuditLogTable
+          entries={entries}
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={() => refetch()}
+          usersById={usersById}
+          contractsById={contractsById}
+          pagination={pagination}
+          onPageChange={filters.setPage}
+        />
+      </Card>
 
       <p className="text-center text-xs text-muted-foreground">
         Retention: {RETENTION_YEARS} years

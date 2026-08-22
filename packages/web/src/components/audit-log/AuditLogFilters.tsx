@@ -82,7 +82,7 @@ export function AuditLogFilters({
             value={actorUserId}
             onValueChange={(v) => v !== null && onActorUserIdChange(v)}
           >
-            <SelectTrigger size="sm" className="min-w-[10rem]" aria-label="Actor">
+            <SelectTrigger size="sm" className="w-44" aria-label="Actor">
               <SelectValue placeholder="All actors">
                 {(val) =>
                   val === "all"
@@ -110,7 +110,7 @@ export function AuditLogFilters({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="min-w-[12rem] justify-between font-normal"
+                  className="w-44 justify-between font-normal"
                   aria-label="Action"
                 />
               }
@@ -156,7 +156,7 @@ export function AuditLogFilters({
             value={contractId}
             onValueChange={(v) => v !== null && onContractIdChange(v)}
           >
-            <SelectTrigger size="sm" className="min-w-[10rem]" aria-label="Contract">
+            <SelectTrigger size="sm" className="w-44" aria-label="Contract">
               <SelectValue placeholder="All contracts">
                 {(val) =>
                   val === "all"

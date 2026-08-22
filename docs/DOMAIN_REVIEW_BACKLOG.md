@@ -214,6 +214,8 @@ what we noticed.
     quotes a cross-reference. Logged, not fixed — same "don't chase to
     zero in Phase 6" reasoning applies.
 
+## Resolved Items
+
 ### AI Analysis Overview Endpoints 500 on Seeded Contracts — Seed Data Bug, Not Application Logic
 
 - Identified: Incidentally, while browser-testing the global search feature
@@ -221,87 +223,73 @@ what we noticed.
   Agreement" (contract `00000000-0000-4000-8000-000000000301`) landed on
   Contract Details with "Couldn't load the AI summary" and a 500 from both
   `GET /contracts/:id/risk-overview` and `GET /contracts/:id/summary-overview`.
-  Not caused by, or related to, the search feature — search only navigated
-  there; this is pre-existing AI Analysis behavior. Root-caused directly
-  against the real dev DB, not guessed at.
 - Classification: Real, reproducible bug in `packages/shared/prisma/seed.ts`,
-  not an `ai-analysis.service.ts` logic bug — the service's 500s here are
-  arguably correct defensive behavior (refusing to serve a stored analysis
-  result that doesn't match its recorded schema) reacting to bad seed data.
-  Owner: wahabtlais (AI Analysis / seed data area).
-- Status: Open. Not fixed — out of scope for the search feature.
-- Root cause, confirmed by querying the dev DB directly
-  (`prisma.aIAnalysis.findMany` for this contract): both its `SUMMARY` and
-  `RISK` rows have `status: "COMPLETED"` but `schemaVersion: null` and
-  `result: null`. Two contributing bugs in `seed.ts`, both around line 800:
-  1. `AnalysisSeed` (the seed file's own interface, ~line 328) and the
-     `prisma.aIAnalysis.upsert(...)` `create` block never set
-     `schemaVersion` at all — so `getRiskOverview`'s
-     `if (!analysis.schemaVersion) throw createError(..., 500)` guard
-     (`ai-analysis.service.ts` line 189) will 500 for **every** seeded RISK
-     analysis on a fresh database, not just this one contract. This is
-     systemic, not contract-specific.
-  2. The upsert's `update: {}` (line 802) is a no-op on conflict — for a
-     contract ID that already exists in the target database from an earlier
-     seed-script revision, re-running `npm run db:seed` never refreshes
-     `result`/`modelVersion`/etc. to match what `seed.ts`'s source currently
-     defines. This contract's source code (`seed.ts` ~line 405) *does*
-     define a real `result: { text: "..." }` payload for both analyses, but
-     the DB has `result: null` — meaning this row predates that payload and
-     has silently drifted ever since, invisible to anyone just reading
-     `seed.ts`.
-  Both bugs likely affect the other seeded contracts with `aiAnalyses`
-  entries too (at least the ones referenced at `seed.ts` lines 596 and 743)
-  — not independently verified per-contract, only this one was traced end
-  to end.
-- Notes: Fixing likely needs both a `schemaVersion` value added to the seed
-  data/create call (so it actually matches whatever
-  `getRiskSchemaForVersion` expects) and either a real `update` clause on
-  the upsert (so re-seeding heals drifted rows) or a documented "wipe and
-  reseed" step for local dev. Neither attempted here — belongs to whoever
-  owns this area.
+  not an `ai-analysis.service.ts` logic bug.
+- Status: **Resolved.**
+- Root cause (as originally logged): every seeded RISK analysis had
+  `schemaVersion: null` (never set by the seed's `AIAnalysis.create` call) —
+  `getRiskOverview`'s `if (!analysis.schemaVersion) throw createError(...,
+  500)` guard fires for all of them, not just this one contract. Separately,
+  the seeded `result` payloads for RISK analyses were unstructured free text
+  (`{ text: "..." }`), not the structured `{ overallScore, summary, flags,
+  obligations, keyDates }` shape `riskSchemaV3` (the version the real
+  pipeline writes — confirmed via `markAnalysisCompleted` in
+  `packages/workers`) actually requires — so even adding `schemaVersion`
+  alone would have swapped the 500 for a different one (schema mismatch).
+- Fix: `AnalysisSeed` gained `promptVersion`/`schemaVersion`/`riskFlags`
+  fields. The three seeded RISK analyses (`acme-robotics-msa`,
+  `harrow-finch-lease`, `vantage-capital-loan-agreement`) had their `result`
+  rewritten to real `riskSchemaV3`-shaped objects (derived from the same
+  underlying findings the old free text described, not invented from
+  scratch), `schemaVersion: "v3"` set, and matching `RiskFlag` rows added —
+  `markAnalysisCompleted` always writes both `AIAnalysis.result` and
+  `RiskFlag` together for a real analysis, so a seed that only wrote the
+  former left `RiskFlag` silently empty, which would have broken any
+  feature reading it directly (dashboard insight categories, `/insights/*`
+  pages) even after the 500 itself was fixed.
+- Verification: not just typechecked — run live against the real local dev
+  database. Deleted the three stale `AIAnalysis` rows, re-ran `npm run
+  db:seed` (idempotent by ID, so this was the only way to force the fixed
+  code path to actually execute against already-seeded data), then parsed
+  all three recreated rows' stored `result` through the real `riskSchemaV3`
+  Zod schema directly (not assumed): `success: true` on all three. `RiskFlag`
+  rows confirmed created with the correct `severity`/`category` enum values.
 
 ### Contract Download 404s (`NoSuchKey`) on All Seeded Contracts — Seed Data Bug, Not Application Logic
 
 - Identified: While testing the Contract Details "Download" button
-  (2026-08-21) — clicking Download on seeded contract
-  `00000000-0000-4000-8000-000000000001` returned a presigned URL that 404s
-  with S3 `NoSuchKey` for key `contracts/.../meridian-health-dpa.pdf` in
-  bucket `clausio-contracts`. Not caused by, or related to, the download
-  feature itself — the presigned-URL endpoint (`GET /:id/download`) and
-  `getPresignedUrl()` are working correctly; they're just signing a request
-  against an object that was never uploaded.
-- Classification: Real, reproducible bug in `packages/shared/prisma/seed.ts`,
-  not an application bug in the download endpoint. Presigning an S3 URL
-  succeeds unconditionally — it never checks the object exists — so the
-  request only fails once S3 actually tries to serve the key.
-- Status: Open. Not fixed — out of scope for the download feature.
-- Root cause: `seed.ts`'s per-contract loop (~line 793) creates every
-  `Contract` row via `prisma.contract.create()` directly, setting
-  `fileKey: \`contracts/${ORG_ID}/${c.slug}.pdf\`` (line 807) without ever
-  calling the real upload path (`contractService.uploadContract` →
-  `uploadFile()` in `packages/shared/storage/client.ts`, which is what
-  actually `PutObject`s a file into S3 during a normal upload). No
-  `uploadFile`/`S3Client`/`PutObjectCommand` call exists anywhere in
-  `seed.ts` — confirmed by grep. So every seeded contract's `fileKey`
-  references an S3 object that was never created.
-  All 11 seeded contracts are affected — the `fileKey` assignment at line
-  807 runs unconditionally for every entry in the `CONTRACTS` array:
-  `ridgeline-voss`, `acme-robotics-msa`, `blackwood-supply-agreement`,
-  `solstice-consulting-agreement`, `harrow-finch-lease`,
-  `meridian-health-dpa`, `northstar-logistics-termination`,
-  `pinehollow-licensing-agreement`, `vantage-capital-loan-agreement`,
-  `coral-bay-vendor-agreement`, `ironclad-security-services`. Downloading
-  any of them will 404/`NoSuchKey` until this is addressed.
-- Notes: Fixing needs either real fixture files actually uploaded into the
-  bucket during seeding (`seed.ts` calling `uploadFile()` with real file
-  buffers per contract) or reworking `seed.ts` to point `fileKey` at
-  pre-existing fixture objects known to exist in the bucket. Neither
-  attempted here. Contracts uploaded through the real app flow
-  (`POST /contracts`) are unaffected — their `fileKey`s correspond to files
-  that were actually `PutObject`'d.
-
-## Resolved Items
+  (2026-08-21) — clicking Download on a seeded contract returned a presigned
+  URL that 404s with S3 `NoSuchKey`.
+- Classification: Real, reproducible bug in `packages/shared/prisma/seed.ts`.
+- Status: **Resolved**, for the "object never existed" failure mode
+  specifically. **Not the same bug** as, and does not overlap with, a
+  separate presigned-URL DNS-resolution issue (signed against the internal
+  `S3_ENDPOINT` Docker hostname, unreachable from a real browser in
+  production) that a teammate fixed in a different, not-yet-merged PR by
+  streaming file bytes through the API instead of redirecting to MinIO
+  directly. Both fixes are independently necessary and don't conflict —
+  streaming through the API still needs a real object to stream; this entry
+  is what makes sure one exists for every seeded contract.
+- Root cause: `seed.ts` created every `Contract` row with a `fileKey`
+  pointing at an S3 object that was never `PutObject`'d — no `uploadFile`
+  call existed anywhere in the seed script. Affected all 10 seeded
+  contracts (the backlog's original count of "11" included the
+  Organization's own `slug` field by mistake — `ridgeline-voss` is not a
+  contract).
+- Fix: added `buildDemoPdfBuffer()` — builds a small, genuinely valid
+  single-page PDF with real, computed (not hand-typed) xref byte offsets,
+  labeled with the contract's own title/counterparty so each seeded
+  contract's download is visibly distinct rather than identical filler.
+  Called via `uploadFile()` right after `prisma.contract.create()` for
+  every new seed run. `fileChecksum` is now computed from the actual
+  uploaded bytes instead of a fake placeholder derived from the slug.
+- Verification: run live, not assumed. For the 10 contracts already seeded
+  in the local dev database (whose `Contract` rows already existed, so the
+  fixed create-time upload path would never fire for them again), uploaded
+  real files directly to their existing `fileKey`s and recomputed
+  `fileChecksum` to match. Round-tripped one back via a real S3
+  `GetObject` (`downloadFile()`): 718 real bytes, valid `%PDF-1.4` header
+  and `%%EOF` trailer, contract title text present in the extracted bytes.
 
 ### Labour Law Flat-View Parser — "Preliminary Provisions" Articles Left with a Null Heading Path
 
@@ -684,16 +672,12 @@ what we noticed.
 - Identified: Persisted per-user Notifications backend, while typechecking
   `packages/workers` for the new sweep job (2026-08-20).
 - Classification: Environment/install drift, not caused by this feature.
-- Status: Open, not fixed.
-- Notes: `packages/workers/package.json` declares `"pdfjs-dist": "^6.2.108"`,
-  but it's absent from `node_modules` entirely (not just missing types) in
-  this checkout. `npx tsc --project tsconfig.build.json` and `npm run build`
-  both fail on `src/lib/text-extraction.ts` with `Cannot find module
-  'pdfjs-dist/...'`. Because `packages/workers/src/queues/index.ts` wires up
-  every job (including extraction) into one `createWorkers()` call, this
-  would also break booting the entire worker fleet at runtime, not just the
-  extraction path specifically — worth an `npm install` / lockfile check
-  before anyone next needs a full `npm run dev`/`build` in `packages/workers`.
+- Status: **Resolved** — was checkout-specific install drift, not a code
+  bug; a subsequent `npm install` picked it up. Re-verified (2026-08-22) in
+  the current checkout: `pdfjs-dist` is present in `node_modules` and
+  `npx tsc --project tsconfig.build.json` passes clean for
+  `packages/workers`. Logged here rather than deleted so the "worth an
+  `npm install` check" advice stays visible if it ever drifts again.
 
 ### `DropdownMenuTrigger`'s `Button` Ref Isn't Forwarded — Breaks Floating-UI Anchor Positioning (at least in headless Chromium)
 
@@ -805,18 +789,32 @@ what we noticed.
   not `ADMIN` (2026-08-20).
 - Classification: Pre-existing, unrelated UI bug — not introduced by, or
   specific to, the notifications feature. Found incidentally.
-- Status: Open, not fixed.
-- Notes: `components/layout/Sidebar.tsx:184` and `:193` render the literal
-  string `"Administrator"` under the signed-in user's name and in the
-  tooltip/label ("Signed in as Administrator"), unconditionally — not
-  derived from `user.role` at all. Confirmed live: Priya Nair (seeded as
-  `INTERNAL`, per `seed.ts`'s "Internal (Legal)" comment) is shown as
-  "Administrator" in the sidebar despite her org-settings permission check
-  (`isAdminRole`, used correctly elsewhere e.g. `adminNav` filtering on
-  line 86 of the same file) correctly returning `false` for her — visible
-  as the Workspace notifications toggles rendering disabled/dimmed for her
-  even though the sidebar claims she's an Administrator. Cosmetic only
-  (doesn't affect actual permission enforcement, which reads `user.role`
-  correctly elsewhere), but misleading. Fix would be a small, contained
-  change: derive the displayed label from `user.role` (e.g. via a
-  role-label map) instead of the hardcoded string.
+- Status: **Resolved**, fixed twice, independently, in parallel — see notes.
+- Notes: `components/layout/Sidebar.tsx` rendered the literal string
+  `"Administrator"` under the signed-in user's name and in the "Signed in
+  as Administrator" row, unconditionally — not derived from `user.role` at
+  all. Confirmed live: Priya Nair (seeded `INTERNAL`) showed as
+  "Administrator" despite `isAdminRole` correctly returning `false` for her
+  elsewhere in the same file. Two independent fixes landed for the same
+  underlying bug: a teammate's `getRoleLabel()` helper reached `main` via
+  `develop` first; a separate, more complete pass (same session, unaware of
+  the first at the time) additionally removed the hover effect from the
+  "Signed in as" row — it was a `SidebarMenuButton` despite doing nothing on
+  click — replacing it with a plain non-interactive element, and turned the
+  username row into a working dropdown (Profile / Sign out) instead of a
+  dead `ChevronsUpDown` icon that never opened anything. Merging the two
+  branches surfaced the resulting conflict directly on the role-label line;
+  resolved in favor of the more complete version, and the now-orphaned
+  `getRoleLabel()` helper was deleted (it was left unused after the merge,
+  which failed CI lint — caught and fixed same-day).
+- Second bug found in the process: wiring the dropdown initially didn't
+  open on click. Root cause — `SidebarMenuButton` (`components/ui/
+  sidebar.tsx`) was a plain function component, not `React.forwardRef`.
+  `DropdownMenuTrigger`'s `render={<SidebarMenuButton />}` needs a ref to
+  the real DOM node to register the floating-ui anchor; without
+  `forwardRef`, React silently drops it, so the trigger had nothing to
+  anchor to. This is the exact same failure mode already documented in this
+  file's `Button.tsx` entry above (`DropdownMenuTrigger`'s Button Ref Isn't
+  Forwarded), just never applied to `SidebarMenuButton`. Fixed the same way:
+  wrapped in `React.forwardRef`, threading the ref into `useRender`'s
+  dedicated `ref` parameter.

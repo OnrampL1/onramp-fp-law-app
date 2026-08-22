@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, RiskCategory, RiskSeverity } from "@prisma/client";
 // Relative, not "@starter-kit/shared": this file is compiled as part of
 // shared's own build (see tsconfig.build.json) and runs from dist/ at
 // runtime, never via raw tsx — a self-referencing package import can't
@@ -7,6 +7,7 @@ import type { Prisma } from "@prisma/client";
 // this same build produces it.
 import { getPrismaClient } from "../db/config/prisma-client.config";
 import { hashPassword } from "../auth/password";
+import { uploadFile } from "../storage/client";
 
 const prisma = getPrismaClient();
 
@@ -41,16 +42,65 @@ const INVITATION_PENDING_ID = "00000000-0000-4000-8000-000000000204";
 const INVITATION_EXPIRED_ID = "00000000-0000-4000-8000-000000000205";
 const INVITATION_REVOKED_ID = "00000000-0000-4000-8000-000000000206";
 
-function fakeChecksum(seed: string): string {
-  return crypto.createHash("sha256").update(seed).digest("hex");
-}
-
 function tokenHash(seed: string): string {
   return crypto.createHash("sha256").update(seed).digest("hex");
 }
 
 function daysFromNow(days: number): Date {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
+function isoDate(days: number): string {
+  return daysFromNow(days).toISOString().slice(0, 10);
+}
+
+// Builds a small, genuinely valid single-page PDF (real xref table, real
+// byte offsets — computed here, not hand-typed) so each seeded contract's
+// fileKey points at a real S3 object instead of one that was only ever
+// referenced, never uploaded (see DOMAIN_REVIEW_BACKLOG.md's "Contract
+// Download 404s" entry — every seeded contract 404'd on Download because
+// the seed never called uploadFile at all).
+function buildDemoPdfBuffer(title: string, counterparty: string): Buffer {
+  const escapePdfText = (value: string) => value.replace(/[()\\]/g, "\\$&");
+
+  const contentLines = [
+    "BT",
+    "/F1 18 Tf",
+    "72 700 Td",
+    `(${escapePdfText(title)}) Tj`,
+    "0 -28 Td",
+    "/F1 11 Tf",
+    `(Counterparty: ${escapePdfText(counterparty)}) Tj`,
+    "0 -20 Td",
+    "(Seed demo document - no real contract content.) Tj",
+    "ET",
+  ];
+  const content = contentLines.join("\n");
+  const contentByteLength = Buffer.byteLength(content, "latin1");
+
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${contentByteLength} >>\nstream\n${content}\nendstream`,
+  ];
+
+  let pdf = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(pdf, "latin1"));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = Buffer.byteLength(pdf, "latin1");
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) {
+    pdf += `${offset.toString().padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return Buffer.from(pdf, "latin1");
 }
 
 const DISCLAIMER =
@@ -325,15 +375,33 @@ async function main(): Promise<void> {
     content: string;
     createdAt: Date;
   }
+  interface RiskFlagSeed {
+    id: string;
+    severity: RiskSeverity;
+    category: RiskCategory;
+    description: string;
+    sourceText: string;
+  }
   interface AnalysisSeed {
     id: string;
     type: "SUMMARY" | "RISK" | "CLAUSE_QUERY";
     status: "PENDING" | "COMPLETED" | "FAILED";
     promptUsed: string;
+    promptVersion?: string;
+    // Required for RISK analyses: getRiskOverview() 500s on a null
+    // schemaVersion (ai-analysis.service.ts) — see the "AI Analysis Overview
+    // Endpoints 500" entry in DOMAIN_REVIEW_BACKLOG.md.
+    schemaVersion?: string;
     result?: Prisma.InputJsonValue;
     modelVersion?: string;
     tokensUsed?: number;
     createdAt: Date;
+    // RiskFlag rows mirroring this analysis's result.flags — only meaningful
+    // for a completed RISK analysis. The real pipeline (markAnalysisCompleted
+    // in packages/workers) always writes both; a seed that only writes the
+    // AIAnalysis.result JSON silently breaks every feature reading RiskFlag
+    // directly (dashboard insight categories, /insights/* pages).
+    riskFlags?: RiskFlagSeed[];
   }
   interface WitnessSeed {
     id: string;
@@ -423,12 +491,71 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Scan this contract for auto-renewal, uncapped liability, indemnification, IP assignment, non-compete, and clawback risks.",
+          promptVersion: "v1",
+          schemaVersion: "v3",
           result: {
-            text: `Auto-renewal: Contract auto-renews annually unless either party gives 90 days' notice — MEDIUM severity, easy to miss. Liability: Capped at 12 months' fees paid — LOW severity. No unusual IP assignment or non-compete clauses detected.\n\n${DISCLAIMER}`,
+            overallScore: 28,
+            summary:
+              "Overall risk is low. Two flags identified: an easy-to-miss auto-renewal clause and a standard, mutual liability cap.",
+            flags: [
+              {
+                severity: "MEDIUM",
+                category: "AUTO_RENEWAL",
+                description:
+                  "Contract auto-renews annually unless either party gives 90 days' written notice before the current term ends.",
+                sourceText:
+                  "This Agreement shall automatically renew for successive one-year terms unless either party provides written notice of non-renewal at least ninety (90) days prior to the end of the then-current term.",
+              },
+              {
+                severity: "LOW",
+                category: "LIABILITY",
+                description:
+                  "Liability is capped at 12 months' fees paid, a standard and balanced limitation.",
+                sourceText:
+                  "In no event shall either party's aggregate liability exceed the fees paid under this Agreement in the twelve (12) months preceding the claim giving rise to such liability.",
+              },
+            ],
+            obligations: [
+              {
+                party: "Acme Robotics Inc.",
+                description:
+                  "Deliver hardware integration services per the attached statement of work, billed on a milestone basis.",
+                dueDate: null,
+              },
+              {
+                party: "Ridgeline & Voss LLP",
+                description: "Pay invoices net-30 from the invoice date.",
+                dueDate: null,
+              },
+            ],
+            keyDates: [
+              { label: "Auto-Renewal Notice Deadline", date: isoDate(330) },
+              { label: "Current Term Expiration", date: isoDate(420) },
+            ],
           },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 2210,
           createdAt: daysFromNow(-149),
+          riskFlags: [
+            {
+              id: "00000000-0000-4000-8000-000000000501",
+              severity: "MEDIUM",
+              category: "AUTO_RENEWAL",
+              description:
+                "Contract auto-renews annually unless either party gives 90 days' written notice before the current term ends.",
+              sourceText:
+                "This Agreement shall automatically renew for successive one-year terms unless either party provides written notice of non-renewal at least ninety (90) days prior to the end of the then-current term.",
+            },
+            {
+              id: "00000000-0000-4000-8000-000000000502",
+              severity: "LOW",
+              category: "LIABILITY",
+              description:
+                "Liability is capped at 12 months' fees paid, a standard and balanced limitation.",
+              sourceText:
+                "In no event shall either party's aggregate liability exceed the fees paid under this Agreement in the twelve (12) months preceding the claim giving rise to such liability.",
+            },
+          ],
         },
       ],
       witnessInvitations: [
@@ -525,12 +652,57 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Scan this contract for auto-renewal, uncapped liability, indemnification, IP assignment, non-compete, and clawback risks.",
+          promptVersion: "v1",
+          schemaVersion: "v3",
           result: {
-            text: `Auto-renewal: Lease renews for successive 12-month terms unless either party gives 120 days' written notice before expiration — HIGH severity, notice window already passed once before. No uncapped liability or unusual indemnification detected.\n\n${DISCLAIMER}`,
+            overallScore: 62,
+            summary:
+              "Elevated risk due to an auto-renewal clause whose notice window has already lapsed once. No other significant liability or indemnification concerns identified.",
+            flags: [
+              {
+                severity: "HIGH",
+                category: "AUTO_RENEWAL",
+                description:
+                  "Lease renews for successive 12-month terms unless either party gives 120 days' written notice before the current term expires; this notice window has already passed once before.",
+                sourceText:
+                  "This Lease shall automatically renew for successive twelve (12) month terms unless either party delivers written notice of termination at least one hundred twenty (120) days prior to the expiration of the then-current term.",
+              },
+            ],
+            obligations: [
+              {
+                party: "Harrow & Finch Properties",
+                description:
+                  "Provide the leased premises in good condition for the full lease term.",
+                dueDate: null,
+              },
+              {
+                party: "Ridgeline & Voss LLP",
+                description: "Pay monthly rent per the lease schedule.",
+                dueDate: null,
+              },
+            ],
+            keyDates: [
+              { label: "Lease Expiration", date: isoDate(-90) },
+              {
+                label: "Auto-Renewal Notice Deadline (Lapsed)",
+                date: isoDate(-210),
+              },
+            ],
           },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 1650,
           createdAt: daysFromNow(-95),
+          riskFlags: [
+            {
+              id: "00000000-0000-4000-8000-000000000503",
+              severity: "HIGH",
+              category: "AUTO_RENEWAL",
+              description:
+                "Lease renews for successive 12-month terms unless either party gives 120 days' written notice before the current term expires; this notice window has already passed once before.",
+              sourceText:
+                "This Lease shall automatically renew for successive twelve (12) month terms unless either party delivers written notice of termination at least one hundred twenty (120) days prior to the expiration of the then-current term.",
+            },
+          ],
         },
       ],
       witnessInvitations: [
@@ -675,12 +847,69 @@ async function main(): Promise<void> {
           status: "COMPLETED",
           promptUsed:
             "Scan this contract for auto-renewal, uncapped liability, indemnification, IP assignment, non-compete, and clawback risks.",
+          promptVersion: "v1",
+          schemaVersion: "v3",
           result: {
-            text: `Liability: No cap on indemnification obligations for breach of representations — HIGH severity. Clawback: Lender may demand early repayment on undefined "material adverse change" — MEDIUM severity, vague trigger language.\n\n${DISCLAIMER}`,
+            overallScore: 68,
+            summary:
+              "High risk profile driven by uncapped indemnification exposure and a vaguely-defined early-repayment trigger. Recommend escalation to outside counsel before signature.",
+            flags: [
+              {
+                severity: "HIGH",
+                category: "INDEMNIFICATION",
+                description:
+                  "No cap on indemnification obligations for breach of representations and warranties.",
+                sourceText:
+                  "Borrower shall indemnify and hold harmless the Lender from any and all losses, claims, and damages arising from any breach of the representations and warranties set forth herein, without limitation as to amount.",
+              },
+              {
+                severity: "MEDIUM",
+                category: "OTHER",
+                description:
+                  "Lender may demand early repayment upon an undefined 'material adverse change,' a vague trigger with no objective threshold.",
+                sourceText:
+                  "Upon the occurrence of a Material Adverse Change, as determined by Lender in its sole discretion, Lender may declare all outstanding obligations immediately due and payable.",
+              },
+            ],
+            obligations: [
+              {
+                party: "Vantage Capital Partners",
+                description:
+                  "Disburse the loan principal per the funding schedule.",
+                dueDate: null,
+              },
+              {
+                party: "Ridgeline & Voss LLP",
+                description:
+                  "Repay principal and interest per the amortization schedule, subject to acceleration on a material adverse change.",
+                dueDate: null,
+              },
+            ],
+            keyDates: [{ label: "Loan Maturity", date: isoDate(610) }],
           },
           modelVersion: "gpt-4o-2024-08-06",
           tokensUsed: 2480,
           createdAt: daysFromNow(-92),
+          riskFlags: [
+            {
+              id: "00000000-0000-4000-8000-000000000504",
+              severity: "HIGH",
+              category: "INDEMNIFICATION",
+              description:
+                "No cap on indemnification obligations for breach of representations and warranties.",
+              sourceText:
+                "Borrower shall indemnify and hold harmless the Lender from any and all losses, claims, and damages arising from any breach of the representations and warranties set forth herein, without limitation as to amount.",
+            },
+            {
+              id: "00000000-0000-4000-8000-000000000505",
+              severity: "MEDIUM",
+              category: "OTHER",
+              description:
+                "Lender may demand early repayment upon an undefined 'material adverse change,' a vague trigger with no objective threshold.",
+              sourceText:
+                "Upon the occurrence of a Material Adverse Change, as determined by Lender in its sole discretion, Lender may declare all outstanding obligations immediately due and payable.",
+            },
+          ],
         },
       ],
       witnessInvitations: [
@@ -790,6 +1019,16 @@ async function main(): Promise<void> {
     });
 
     if (!existingContract) {
+      const fileKey = `contracts/${ORG_ID}/${c.slug}.pdf`;
+      // A real file, actually PutObject'd to S3/MinIO — not just a fileKey
+      // string that references an object that was never uploaded (see
+      // DOMAIN_REVIEW_BACKLOG.md's "Contract Download 404s" entry: every
+      // seeded contract's Download button 404'd with NoSuchKey because this
+      // upload never happened). fileChecksum is computed from these actual
+      // bytes, not a fake placeholder, so it means the same thing here as it
+      // does for a contract uploaded through the real app flow.
+      const fileBuffer = buildDemoPdfBuffer(c.title, c.counterparty);
+
       await prisma.contract.create({
         data: {
           id: c.id,
@@ -804,8 +1043,11 @@ async function main(): Promise<void> {
           tags: c.tags,
           effectiveDate: c.effectiveDate,
           expirationDate: c.expirationDate,
-          fileKey: `contracts/${ORG_ID}/${c.slug}.pdf`,
-          fileChecksum: fakeChecksum(c.slug),
+          fileKey,
+          fileChecksum: crypto
+            .createHash("sha256")
+            .update(fileBuffer)
+            .digest("hex"),
           extractedText: c.extractedTextPresent
             ? `[Seed demo text] ${c.title} between Ridgeline & Voss LLP and ${c.counterparty}. Full extracted contract body would appear here in a real upload.`
             : null,
@@ -813,6 +1055,8 @@ async function main(): Promise<void> {
           createdAt: c.createdAt,
         },
       });
+
+      await uploadFile(fileKey, fileBuffer, "application/pdf");
     }
 
     for (const note of c.notes) {
@@ -840,12 +1084,37 @@ async function main(): Promise<void> {
           type: analysis.type,
           status: analysis.status,
           promptUsed: analysis.promptUsed,
+          promptVersion: analysis.promptVersion,
+          schemaVersion: analysis.schemaVersion,
           result: analysis.result,
           modelVersion: analysis.modelVersion,
           tokensUsed: analysis.tokensUsed,
           createdAt: analysis.createdAt,
         },
       });
+
+      // Mirrors markAnalysisCompleted's RiskFlag write (packages/workers) —
+      // a seed that only wrote AIAnalysis.result left RiskFlag empty for
+      // every seeded contract, silently breaking any feature that reads
+      // RiskFlag directly instead of re-parsing the JSON blob (dashboard
+      // insight categories, /insights/* pages).
+      for (const flag of analysis.riskFlags ?? []) {
+        await prisma.riskFlag.upsert({
+          where: { id: flag.id },
+          update: {},
+          create: {
+            id: flag.id,
+            organizationId: ORG_ID,
+            contractId: c.id,
+            analysisId: analysis.id,
+            severity: flag.severity,
+            category: flag.category,
+            description: flag.description,
+            sourceText: flag.sourceText,
+            createdAt: analysis.createdAt,
+          },
+        });
+      }
     }
 
     for (const witness of c.witnessInvitations) {
