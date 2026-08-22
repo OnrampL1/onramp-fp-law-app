@@ -8,6 +8,7 @@ import {
   isAdminRole,
   isOwnerRole,
   uploadFile,
+  type OrganizationNotificationPreferences,
 } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
 import {
@@ -283,6 +284,17 @@ export class SettingsService {
 
     const { oldValue, newValue } = pickChangedValues(organization, input);
 
+    // Merge with the existing value rather than replacing it outright — a
+    // partial payload (e.g. only `riskAlerts`) must not silently drop the
+    // other two keys, which would read back as "enabled" (see
+    // isOrgNotificationEnabled's `!== false` semantics) even though they
+    // were previously set to `false`.
+    const currentNotificationPreferences =
+      organization.settings?.notificationPreferences as
+        | OrganizationNotificationPreferences
+        | null
+        | undefined;
+
     const updated = await prisma.$transaction(async (tx) => {
       if (input.name !== undefined) {
         await tx.organization.update({
@@ -297,7 +309,10 @@ export class SettingsService {
           ...(input.timezone !== undefined && { timezone: input.timezone }),
           ...(input.language !== undefined && { language: input.language }),
           ...(input.notificationPreferences !== undefined && {
-            notificationPreferences: input.notificationPreferences,
+            notificationPreferences: {
+              ...currentNotificationPreferences,
+              ...input.notificationPreferences,
+            },
           }),
         },
         create: {

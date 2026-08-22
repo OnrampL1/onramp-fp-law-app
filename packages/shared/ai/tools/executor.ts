@@ -1,6 +1,7 @@
 import type { AssistantPlanStepV1, AssistantPlanV1 } from "../schemas/assistant-plan/v1";
 import { ASSISTANT_MAX_PLAN_STEPS, TOOL_DEFINITIONS } from "./definitions";
 import type { ToolExecutionContext, ToolImplementations, ToolResult } from "./types";
+import { NoIndexedContentError } from "../retrieval/investigator";
 
 // Thrown by executePlan itself (never returned per-step) - a plan this
 // oversized should not have passed planAssistantSteps()'s own schema
@@ -16,6 +17,13 @@ export interface ToolExecutionOutcome {
   ok: boolean;
   result?: ToolResult;
   error?: string;
+  // Set only when the failure was specifically NoIndexedContentError - the
+  // one failure reason worth distinguishing from every other per-step
+  // error, so synthesis can state it plainly (assistant-synthesis/v1.md's
+  // own rule already tells it to explain *why* a capability was
+  // unavailable when given a specific reason - it just was never given one
+  // for this case; see formatUnavailableTools() in assistant-synthesizer.ts).
+  notIndexed?: boolean;
 }
 
 // Plan-and-Execute, not ReAct (AI_ARCHITECTURE.md Section 7): every step in
@@ -83,6 +91,9 @@ async function executeStep(
     const result = await implementation(parsedArgs.data, context);
     return { tool: step.tool, ok: true, result };
   } catch (error) {
+    if (error instanceof NoIndexedContentError) {
+      return { tool: step.tool, ok: false, error: error.message, notIndexed: true };
+    }
     return {
       tool: step.tool,
       ok: false,

@@ -423,6 +423,64 @@ describe("SettingsService.updateOrganizationSettings", () => {
     expect(result.organization.name).toBe("New Name");
   });
 
+  it("merges a partial notificationPreferences update with the existing value instead of replacing it", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue({
+      id: "org-1",
+      name: "Old Name",
+      slug: "old-name",
+      status: "ACTIVE",
+      settings: {
+        timezone: "UTC",
+        language: "en",
+        logoStorageKey: null,
+        notificationPreferences: {
+          contractUpdates: false,
+          riskAlerts: false,
+          aiInsights: false,
+        },
+        branding: null,
+      },
+      members: [{ role: "OWNER" }],
+    });
+
+    mockPrisma.organization.findFirstOrThrow.mockResolvedValue({
+      id: "org-1",
+      name: "Old Name",
+      slug: "old-name",
+      status: "ACTIVE",
+      settings: {
+        timezone: "UTC",
+        language: "en",
+        logoStorageKey: null,
+        notificationPreferences: {
+          contractUpdates: false,
+          riskAlerts: true,
+          aiInsights: false,
+        },
+        branding: null,
+      },
+      members: [{ role: "OWNER" }],
+    });
+
+    await settingsService.updateOrganizationSettings(
+      actor,
+      { notificationPreferences: { riskAlerts: true } },
+      {},
+    );
+
+    expect(mockPrisma.organizationSettings.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          notificationPreferences: {
+            contractUpdates: false,
+            riskAlerts: true,
+            aiInsights: false,
+          },
+        }),
+      }),
+    );
+  });
+
   it("throws 404 when the active member organization cannot be found", async () => {
     mockPrisma.organization.findFirst.mockResolvedValue(null);
 

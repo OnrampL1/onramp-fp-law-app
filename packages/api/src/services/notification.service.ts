@@ -1,10 +1,5 @@
 import type { Prisma, NotificationType } from "@prisma/client";
-import {
-  isOrgNotificationEnabled,
-  isPersonalNotificationEnabled,
-  type OrganizationNotificationPreferences,
-  type UserNotificationPreferences,
-} from "@starter-kit/shared";
+import type { UserNotificationPreferences } from "@starter-kit/shared";
 import { notificationRepository } from "../repositories/notification.repository";
 import type {
   ListNotificationsQuery,
@@ -47,67 +42,6 @@ function toDto(row: {
     read: row.read,
     readAt: row.readAt?.toISOString() ?? null,
   };
-}
-
-interface CreateForEventInput {
-  organizationId: string;
-  contractId: string;
-  actorUserId?: string;
-}
-
-// The single hook AI_ANALYSIS_COMPLETED fires through — called from inside
-// ai-analysis.repository.ts's create() transaction, same invariant as
-// auditService.logEvent (write lands in the same transaction as the event
-// it documents, or not at all). PERSONAL-scope recipient is the contract's
-// uploader today; there's no reviewer/assignee concept in the domain model
-// yet, so "for you" can only ever mean "you uploaded this" — see
-// DOMAIN_REVIEW_BACKLOG.md.
-async function createForAnalysisCompleted(
-  tx: Prisma.TransactionClient,
-  input: CreateForEventInput,
-): Promise<void> {
-  const contract = await tx.contract.findUnique({
-    where: { id: input.contractId },
-    select: { title: true, uploadedByUserId: true },
-  });
-  if (!contract) return;
-
-  const orgSettings = await tx.organizationSettings.findUnique({
-    where: { organizationId: input.organizationId },
-    select: { notificationPreferences: true },
-  });
-  const orgPreferences =
-    orgSettings?.notificationPreferences as OrganizationNotificationPreferences | null;
-  if (!isOrgNotificationEnabled(orgPreferences, "AI_ANALYSIS_COMPLETED")) {
-    return;
-  }
-
-  const recipient = await tx.user.findUnique({
-    where: { id: contract.uploadedByUserId },
-    select: { status: true, notificationPreferences: true },
-  });
-  if (!recipient || recipient.status !== "ACTIVE") return;
-
-  const personalPreferences =
-    recipient.notificationPreferences as UserNotificationPreferences | null;
-  if (!isPersonalNotificationEnabled(personalPreferences, "AI_ANALYSIS_COMPLETED")) {
-    return;
-  }
-
-  await notificationRepository.create(tx, {
-    organizationId: input.organizationId,
-    userId: contract.uploadedByUserId,
-    actorUserId: input.actorUserId,
-    scope: "PERSONAL",
-    type: "AI_ANALYSIS_COMPLETED",
-    targetEntityType: "Contract",
-    targetEntityId: input.contractId,
-    contractId: input.contractId,
-    data: {
-      contractTitle: contract.title,
-      occurredAt: new Date().toISOString(),
-    },
-  });
 }
 
 async function listNotifications(
@@ -167,7 +101,6 @@ async function updatePersonalPreferences(
 }
 
 export const notificationService = {
-  createForAnalysisCompleted,
   listNotifications,
   markRead,
   markAllRead,

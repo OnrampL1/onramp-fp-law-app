@@ -1,11 +1,5 @@
-import {
-  Prisma,
-  type AIAnalysisType,
-  type AuditActorType,
-} from "@prisma/client";
+import { Prisma, type AIAnalysisType } from "@prisma/client";
 import { getPrismaClient } from "@starter-kit/shared";
-import { auditService } from "../services/audit.service";
-import { notificationService } from "../services/notification.service";
 import {
   AI_ANALYSIS_DETAIL_SELECT,
   AI_ANALYSIS_LIST_SELECT,
@@ -20,77 +14,6 @@ export type AIAnalysisListRow = Prisma.AIAnalysisGetPayload<{
 export type AIAnalysisDetailRow = Prisma.AIAnalysisGetPayload<{
   select: typeof AI_ANALYSIS_DETAIL_SELECT;
 }>;
-
-export type CreateAIAnalysisStatus = "COMPLETED" | "FAILED";
-
-export interface CreateAIAnalysisInput {
-  contractId: string;
-  createdByUserId: string;
-  type: AIAnalysisType;
-  status: CreateAIAnalysisStatus;
-  promptUsed: string;
-  promptVersion?: string;
-  schemaVersion?: string;
-  result?: Prisma.InputJsonValue;
-  modelVersion?: string;
-  tokensUsed?: number;
-}
-
-export interface AIAnalysisAuditEntry {
-  actorType: AuditActorType;
-  actorUserId?: string;
-  organizationId: string;
-  ipAddress?: string;
-  userAgent?: string;
-}
-
-const create = async (
-  input: CreateAIAnalysisInput,
-  audit: AIAnalysisAuditEntry,
-) => {
-  return prisma.$transaction(async (tx) => {
-    const analysis = await tx.aIAnalysis.create({
-      data: {
-        contractId: input.contractId,
-        createdByUserId: input.createdByUserId,
-        type: input.type,
-        status: input.status,
-        promptUsed: input.promptUsed,
-        promptVersion: input.promptVersion,
-        schemaVersion: input.schemaVersion,
-        result: input.result,
-        modelVersion: input.modelVersion,
-        tokensUsed: input.tokensUsed,
-      },
-    });
-
-    await auditService.logEvent(tx, {
-      organizationId: audit.organizationId,
-      actorType: audit.actorType,
-      actorUserId: audit.actorUserId,
-      action:
-        input.status === "COMPLETED"
-          ? "AI_ANALYSIS_COMPLETED"
-          : "AI_ANALYSIS_FAILED",
-      targetEntityType: "AIAnalysis",
-      targetEntityId: analysis.id,
-      contractId: input.contractId,
-      newValue: { type: input.type, status: input.status },
-      ipAddress: audit.ipAddress,
-      userAgent: audit.userAgent,
-    });
-
-    if (input.status === "COMPLETED") {
-      await notificationService.createForAnalysisCompleted(tx, {
-        organizationId: audit.organizationId,
-        contractId: input.contractId,
-        actorUserId: audit.actorUserId,
-      });
-    }
-
-    return analysis;
-  });
-};
 
 const findMany = async (
   contractId: string,
@@ -144,7 +67,6 @@ const findLatestByType = async (
 };
 
 export const aiAnalysisRepository = {
-  create,
   findMany,
   count,
   findById,
