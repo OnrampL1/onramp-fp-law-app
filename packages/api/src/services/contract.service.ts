@@ -5,6 +5,7 @@ import {
   extractionQueue,
   getPrismaClient,
   uploadFile,
+  getPresignedUrl,
   deriveLegalState,
   enqueueContractAnalysis,
   PLACEHOLDER_CONTRACT_TITLE,
@@ -26,6 +27,7 @@ import type {
 import type {
   ContractContentDto,
   ContractDetailDto,
+  ContractDownloadUrlDto,
   ContractListFilters,
   ContractListItemDto,
   ContractListPagination,
@@ -406,7 +408,10 @@ async function updateContractContent(
     actor.organizationId,
   );
 
-  const existing = await contractRepository.findById(id, user.organizationId);
+  const existing = await contractRepository.findContentById(
+    id,
+    user.organizationId,
+  );
 
   if (!existing) {
     throw createError("Contract not found", 404);
@@ -438,7 +443,10 @@ async function updateContractContent(
       // The full text isn't stored in the audit snapshot — it can be
       // hundreds of KB, and every existing audit entry snapshots short
       // structured fields, not free-form blobs. Length is enough signal
-      // that something changed and roughly how much.
+      // that something changed and roughly how much — captured on both
+      // sides so the entry actually shows a before/after, not just an
+      // after.
+      oldValue: { length: existing.extractedText?.length ?? 0 },
       newValue: { length: input.extractedText.length },
       ipAddress: requestContext.ipAddress,
       userAgent: requestContext.userAgent,
@@ -613,6 +621,38 @@ async function getContractById(
   return toContractDetailDto(contract, organizationId);
 }
 
+// Mirrors WITNESS_FILE_URL_EXPIRES_IN_SECONDS in witness.service.ts — same
+// short-lived rationale, kept separate since the two call sites have
+// unrelated auth models (regular authenticated user vs. external witness).
+const CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS = 15 * 60;
+
+async function getContractDownloadUrl(
+  id: string,
+  organizationId: string,
+): Promise<ContractDownloadUrlDto> {
+  const contract = await contractRepository.findById(id, organizationId);
+
+  if (!contract) {
+    throw createError("Contract not found", 404);
+  }
+
+  const fileName = extractFileNameFromKey(contract.fileKey);
+
+  const fileUrl = await getPresignedUrl(
+    contract.fileKey,
+    CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
+    {
+      responseContentDisposition: `inline; filename="${fileName}"`,
+    },
+  );
+
+  return {
+    fileUrl,
+    fileUrlExpiresInSeconds: CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
+    fileName,
+  };
+}
+
 async function getContractContent(
   id: string,
   organizationId: string,
@@ -637,5 +677,6 @@ export const contractService = {
   updateContractContent,
   listContracts,
   getContractById,
+  getContractDownloadUrl,
   getContractContent,
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { useQueryClient } from "@tanstack/react-query";
@@ -66,6 +66,9 @@ export default function ContractEdit() {
   const { user } = useAuth();
   const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(
+    null,
+  );
   const [isContentDirty, setIsContentDirty] = useState(false);
 
   const [form, setForm] = useState<ContractEditFormState | null>(null);
@@ -88,6 +91,23 @@ export default function ContractEdit() {
     }
   }, [contract, form]);
 
+  const isDirty = isFormDirty(form, initialForm) || isContentDirty;
+
+  // Covers tab close/refresh/typed-URL navigation. In-app navigation (Cancel
+  // button, breadcrumb links below) is guarded separately via the discard
+  // dialog — this app uses <BrowserRouter>, not a data router, so
+  // react-router's useBlocker (which would also catch the browser back
+  // button) isn't available here.
+  useEffect(() => {
+    if (!isDirty) return;
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
   const saveErrorStatus = isAxiosError(updateMutation.error)
     ? updateMutation.error.response?.status
     : undefined;
@@ -107,12 +127,18 @@ export default function ContractEdit() {
     updateMutation.reset();
   }
 
-  function handleCancelClick() {
-    if (isFormDirty(form, initialForm) || isContentDirty) {
+  function handleGuardedNavigate(path: string, event?: MouseEvent) {
+    if (isDirty) {
+      event?.preventDefault();
+      setPendingNavigation(path);
       setDiscardDialogOpen(true);
       return;
     }
-    navigate(`/contracts/${id}`);
+    navigate(path);
+  }
+
+  function handleCancelClick() {
+    handleGuardedNavigate(`/contracts/${id}`);
   }
 
   function handleSave() {
@@ -187,6 +213,7 @@ export default function ContractEdit() {
         <Link
           to="/contracts"
           className="transition-colors hover:text-foreground"
+          onClick={(event) => handleGuardedNavigate("/contracts", event)}
         >
           Contracts
         </Link>
@@ -194,6 +221,9 @@ export default function ContractEdit() {
         <Link
           to={`/contracts/${id}`}
           className="max-w-48 truncate transition-colors hover:text-foreground"
+          onClick={(event) =>
+            handleGuardedNavigate(`/contracts/${id}`, event)
+          }
         >
           {contract.title}
         </Link>
@@ -355,8 +385,11 @@ export default function ContractEdit() {
 
       <DiscardChangesDialog
         open={discardDialogOpen}
-        onOpenChange={setDiscardDialogOpen}
-        onConfirm={() => navigate(`/contracts/${id}`)}
+        onOpenChange={(open) => {
+          setDiscardDialogOpen(open);
+          if (!open) setPendingNavigation(null);
+        }}
+        onConfirm={() => navigate(pendingNavigation ?? `/contracts/${id}`)}
       />
     </div>
   );

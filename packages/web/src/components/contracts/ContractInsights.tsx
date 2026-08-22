@@ -63,21 +63,21 @@ export function ContractInsights({
           <TabsList className="h-9 w-full">
             <TabsTrigger
               value="summary"
-              className="flex-1 gap-1.5 data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
+              className="min-w-0 flex-1 gap-1.5 overflow-hidden data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
             >
-              <Sparkles className="size-4" />
-              <span className="hidden sm:inline">Summary</span>
+              <Sparkles className="size-4 shrink-0" />
+              <span className="hidden truncate sm:inline">Summary</span>
             </TabsTrigger>
             <TabsTrigger
               value="risk"
-              className="flex-1 gap-1.5 data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
+              className="min-w-0 flex-1 gap-1.5 overflow-hidden data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
             >
-              <ShieldAlert className="size-4" />
-              Risk
+              <ShieldAlert className="size-4 shrink-0" />
+              <span className="truncate">Risk</span>
               {riskCount !== undefined && (
                 <Badge
                   variant={riskCount > 0 ? "destructive" : "secondary"}
-                  className="ml-0.5 h-5 px-1.5 text-[11px]"
+                  className="ml-0.5 h-5 shrink-0 px-1.5 text-[11px]"
                 >
                   {riskCount}
                 </Badge>
@@ -85,10 +85,10 @@ export function ContractInsights({
             </TabsTrigger>
             <TabsTrigger
               value="notes"
-              className="flex-1 gap-1.5 data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
+              className="min-w-0 flex-1 gap-1.5 overflow-hidden data-[active]:bg-primary data-[active]:font-semibold data-[active]:text-primary-foreground data-[active]:shadow-sm dark:data-[active]:bg-primary dark:data-[active]:text-primary-foreground"
             >
-              <MessageSquare className="size-4" />
-              Notes
+              <MessageSquare className="size-4 shrink-0" />
+              <span className="truncate">Notes</span>
             </TabsTrigger>
           </TabsList>
         </div>

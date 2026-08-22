@@ -156,6 +156,13 @@ function detailFor(entry: AuditLogEntry): string | undefined {
       ? `Deleted: "${truncate(content, NOTE_PREVIEW_LENGTH)}"`
       : undefined;
   }
+  if (entry.action === "CONTRACT_CONTENT_UPDATED") {
+    const oldLength = entry.oldValue?.length;
+    const newLength = entry.newValue?.length;
+    return typeof oldLength === "number" && typeof newLength === "number"
+      ? `${oldLength.toLocaleString()} → ${newLength.toLocaleString()} characters`
+      : undefined;
+  }
   return undefined;
 }
 
