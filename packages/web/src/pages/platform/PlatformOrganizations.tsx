@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { AxiosError } from "axios";
 import {
   Archive,
@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -60,6 +61,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { cn } from "../../lib/utils";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { usePlatformAuth } from "../../hooks/usePlatformAuth";
 import {
@@ -100,11 +102,13 @@ const STATUS_ACTION_LABELS: Record<
   ARCHIVED: "Archive",
 };
 
-function statusVariant(status: PlatformOrganizationStatus) {
-  if (status === "ACTIVE") return "default";
-  if (status === "SUSPENDED" || status === "ARCHIVED") return "destructive";
-  return "secondary";
-}
+const STATUS_BADGE_STYLES: Record<PlatformOrganizationStatus, string> = {
+  CREATED: "border-slate-200 bg-slate-50 text-slate-700",
+  OWNER_ASSIGNED: "border-amber-200 bg-amber-50 text-amber-700",
+  ACTIVE: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  SUSPENDED: "border-orange-200 bg-orange-50 text-orange-700",
+  ARCHIVED: "border-red-200 bg-red-50 text-red-700",
+};
 
 function formatDate(value: string | null) {
   if (!value) return "Not set";
@@ -187,8 +191,6 @@ function statusDialogActionLabel(
 interface CreateOrganizationForm {
   name: string;
   slug: string;
-  timezone: string;
-  language: string;
 }
 
 interface AssignOwnerForm {
@@ -212,15 +214,16 @@ export function PlatformOrganizations() {
     organization: PlatformOrganizationListItem;
     status: UpdatePlatformOrganizationStatusPayload["status"];
   } | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [showOwnerPassword, setShowOwnerPassword] = useState(false);
 
   const [createForm, setCreateForm] = useState<CreateOrganizationForm>({
     name: "",
     slug: "",
-    timezone: "UTC",
-    language: "en",
   });
 
   const [ownerForm, setOwnerForm] = useState<AssignOwnerForm>({
@@ -228,6 +231,13 @@ export function PlatformOrganizations() {
     fullName: "",
     password: "",
   });
+
+  useEffect(() => {
+    if (!feedback) return;
+
+    const timeout = setTimeout(() => setFeedback(null), 5000);
+    return () => clearTimeout(timeout);
+  }, [feedback]);
 
   const debouncedSearch = useDebouncedValue(search, 300);
 
@@ -256,8 +266,6 @@ export function PlatformOrganizations() {
     setCreateForm({
       name: "",
       slug: "",
-      timezone: "UTC",
-      language: "en",
     });
   }
 
@@ -277,7 +285,7 @@ export function PlatformOrganizations() {
 
     try {
       await createOrganization.mutateAsync(createForm);
-      setFeedback("Organization created.");
+      setFeedback({ type: "success", message: "Organization created." });
       setCreateOpen(false);
       resetCreateForm();
     } catch (error) {
@@ -298,7 +306,7 @@ export function PlatformOrganizations() {
         organizationId: ownerTarget.id,
         payload: ownerForm,
       });
-      setFeedback("First owner assigned.");
+      setFeedback({ type: "success", message: "First owner assigned." });
       setOwnerTarget(null);
       resetOwnerForm();
     } catch (error) {
@@ -316,14 +324,15 @@ export function PlatformOrganizations() {
         organizationId: statusTarget.organization.id,
         payload: { status: statusTarget.status },
       });
-      setFeedback(
-        `${statusTarget.organization.name} updated to ${
+      setFeedback({
+        type: "success",
+        message: `${statusTarget.organization.name} updated to ${
           STATUS_LABELS[statusTarget.status]
         }.`,
-      );
+      });
       setStatusTarget(null);
     } catch (error) {
-      setFeedback(errorMessage(error));
+      setFeedback({ type: "error", message: errorMessage(error) });
       setStatusTarget(null);
     }
   }
@@ -365,8 +374,28 @@ export function PlatformOrganizations() {
       )}
 
       {feedback && (
-        <div className="rounded-lg border bg-card px-4 py-3 text-sm">
-          {feedback}
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-lg border px-4 py-3 text-sm",
+            feedback.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-destructive/30 bg-destructive/10 text-destructive",
+          )}
+        >
+          {feedback.type === "success" ? (
+            <CheckCircle2 className="size-4 shrink-0" />
+          ) : (
+            <CircleSlash className="size-4 shrink-0" />
+          )}
+          <span className="flex-1">{feedback.message}</span>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setFeedback(null)}
+            className="shrink-0 opacity-70 transition-opacity hover:opacity-100"
+          >
+            <X className="size-4" />
+          </button>
         </div>
       )}
 
@@ -387,7 +416,7 @@ export function PlatformOrganizations() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active</CardTitle>
-            <CheckCircle2 className="size-4 text-muted-foreground" />
+            <CheckCircle2 className="size-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{stats.active}</div>
@@ -398,7 +427,7 @@ export function PlatformOrganizations() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Needs Owner</CardTitle>
-            <Clock3 className="size-4 text-muted-foreground" />
+            <Clock3 className="size-4 text-slate-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{stats.needsOwner}</div>
@@ -409,7 +438,7 @@ export function PlatformOrganizations() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Suspended</CardTitle>
-            <CircleSlash className="size-4 text-muted-foreground" />
+            <CircleSlash className="size-4 text-orange-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{stats.suspended}</div>
@@ -418,37 +447,43 @@ export function PlatformOrganizations() {
         </Card>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-lg border bg-card p-4 md:flex-row md:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search organizations or slugs"
-            className="pl-9"
-          />
+      <section className="rounded-lg border bg-card">
+        <div className="flex flex-col gap-3 border-b p-4 md:flex-row md:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search organizations or slugs"
+              className="pl-9"
+            />
+          </div>
+
+          <Select
+            value={status}
+            onValueChange={(value) =>
+              setStatus(value as PlatformOrganizationStatus | "ALL")
+            }
+          >
+            <SelectTrigger className="w-full md:w-56">
+              <SelectValue placeholder="Status">
+                {(value) =>
+                  value === "ALL"
+                    ? "All statuses"
+                    : STATUS_LABELS[value as PlatformOrganizationStatus]
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option === "ALL" ? "All statuses" : STATUS_LABELS[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <Select
-          value={status}
-          onValueChange={(value) =>
-            setStatus(value as PlatformOrganizationStatus | "ALL")
-          }
-        >
-          <SelectTrigger className="w-full md:w-56">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option === "ALL" ? "All statuses" : STATUS_LABELS[option]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </section>
-
-      <section className="rounded-lg border bg-card">
         {isLoading ? (
           <div className="flex min-h-64 items-center justify-center">
             <LoadingSpinner />
@@ -494,7 +529,13 @@ export function PlatformOrganizations() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant(organization.status)}>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "rounded-full",
+                        STATUS_BADGE_STYLES[organization.status],
+                      )}
+                    >
                       {STATUS_LABELS[organization.status]}
                     </Badge>
                   </TableCell>
@@ -633,38 +674,6 @@ export function PlatformOrganizations() {
                   placeholder="acme-legal-ops"
                   required
                 />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="organization-timezone">Timezone</Label>
-                  <Input
-                    id="organization-timezone"
-                    value={createForm.timezone}
-                    onChange={(event) =>
-                      setCreateForm((current) => ({
-                        ...current,
-                        timezone: event.target.value,
-                      }))
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="organization-language">Language</Label>
-                  <Input
-                    id="organization-language"
-                    value={createForm.language}
-                    onChange={(event) =>
-                      setCreateForm((current) => ({
-                        ...current,
-                        language: event.target.value,
-                      }))
-                    }
-                    required
-                  />
-                </div>
               </div>
             </div>
 

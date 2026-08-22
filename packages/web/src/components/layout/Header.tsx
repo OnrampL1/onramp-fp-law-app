@@ -367,13 +367,14 @@ export function Header() {
           type="button"
           variant="outline"
           size="icon"
-          className="h-9 w-9"
+          className="h-9 w-auto flex items-center justify-between gap-2 px-3"
           onClick={() => setSignOutOpen(true)}
           disabled={isLoggingOut}
           aria-label="Sign out"
           title="Sign out"
         >
           <LogOut className="size-4" />
+          Sign Out
         </Button>
       </div>
       <AlertDialog open={signOutOpen} onOpenChange={setSignOutOpen}>

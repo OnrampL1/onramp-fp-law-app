@@ -21,8 +21,6 @@ export type OrganizationOnboardingResponse = {
 
 export type CompleteOrganizationOnboardingPayload = {
   name: string;
-  timezone: string;
-  language: "en" | "fr" | "ar";
   notificationPreferences?: NotificationPreferences;
 };
 

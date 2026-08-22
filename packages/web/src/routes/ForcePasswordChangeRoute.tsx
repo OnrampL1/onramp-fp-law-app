@@ -2,7 +2,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 
-export function ProtectedRoute() {
+export function ForcePasswordChangeRoute() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -17,12 +17,10 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.mustChangePassword) {
-    return <Navigate to="/force-password-change" replace />;
-  }
-
-  if (user.onboardingRequired) {
-    return <Navigate to="/onboarding" replace />;
+  if (!user.mustChangePassword) {
+    return (
+      <Navigate to={user.onboardingRequired ? "/onboarding" : "/dashboard"} replace />
+    );
   }
 
   return <Outlet />;

@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { OnboardingRoute } from "./OnboardingRoute";
+import { ForcePasswordChangeRoute } from "./ForcePasswordChangeRoute";
 import { PlatformProtectedRoute } from "./PlatformProtectedRoute";
 import { PlatformOrganizations } from "../pages/platform/PlatformOrganizations";
 import { AppLayout } from "../layouts/AppLayout";
@@ -10,6 +11,7 @@ import { Landing } from "../pages/Landing";
 import { RequestAccess } from "../pages/RequestAccess";
 import { Login } from "../pages/auth/Login";
 import { AcceptInvitation } from "../pages/auth/AcceptInvitation";
+import { ForcePasswordChange } from "../pages/auth/ForcePasswordChange";
 import { PlatformLogin } from "../pages/platform/PlatformLogin";
 import { Dashboard } from "../pages/dashboard/Dashboard";
 import { Settings } from "../pages/dashboard/Settings";
@@ -43,6 +45,18 @@ export function AppRoutes() {
           path="/accept-invitation/:token"
           element={<AcceptInvitation />}
         />
+      </Route>
+
+      {/* Authenticated forced-password-change route — gates entry to both
+          onboarding and the main app whenever a user's password was set by
+          someone else (e.g. an owner assigned by a platform admin). */}
+      <Route element={<ForcePasswordChangeRoute />}>
+        <Route element={<AuthLayout />}>
+          <Route
+            path="/force-password-change"
+            element={<ForcePasswordChange />}
+          />
+        </Route>
       </Route>
 
       <Route path="/platform/login" element={<PlatformLogin />} />

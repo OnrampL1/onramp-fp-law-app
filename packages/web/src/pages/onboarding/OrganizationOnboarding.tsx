@@ -1,4 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { isAxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,8 +13,11 @@ import {
   FileCheck2,
   Loader2,
   Save,
+  Scale,
   ShieldAlert,
   Sparkles,
+  Trash2,
+  Upload,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,35 +30,22 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { getAuthenticatedEntryPath } from "@/lib/auth-navigation";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCompleteOrganizationOnboarding,
   useOrganizationOnboarding,
 } from "@/hooks/useOnboarding";
+import {
+  useDeleteOrganizationLogo,
+  useOrganizationSettings,
+  useUploadOrganizationLogo,
+} from "@/hooks/useSettings";
 import type { NotificationPreferences } from "@/services/settings.service";
 
-const timezoneOptions = [
-  "UTC",
-  "America/New_York",
-  "Europe/London",
-  "Asia/Beirut",
-] as const;
-
-const languageOptions = [
-  { value: "en", label: "English" },
-  { value: "fr", label: "French" },
-  { value: "ar", label: "Arabic" },
-] as const;
-
-type LanguageCode = (typeof languageOptions)[number]["value"];
+// Must stay in sync with packages/api/src/constants/organization-logo.constants.ts
+const ALLOWED_LOGO_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_LOGO_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 
 const notificationOptions = [
   {
@@ -82,6 +78,13 @@ function extractErrorMessage(error: unknown): string {
   return "Unable to complete onboarding.";
 }
 
+function extractLogoErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error) && typeof error.response?.data?.error === "string") {
+    return error.response.data.error;
+  }
+  return fallback;
+}
+
 function isPreferenceEnabled(
   preferences: NotificationPreferences,
   key: NotificationKey,
@@ -95,9 +98,14 @@ export function OrganizationOnboarding() {
   const onboardingQuery = useOrganizationOnboarding();
   const completeOnboarding = useCompleteOrganizationOnboarding();
 
+  const settingsQuery = useOrganizationSettings();
+  const uploadLogo = useUploadOrganizationLogo();
+  const deleteLogo = useDeleteOrganizationLogo();
+  const logoFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const isLogoBusy = uploadLogo.isPending || deleteLogo.isPending;
+
   const [name, setName] = useState("");
-  const [timezone, setTimezone] = useState("UTC");
-  const [language, setLanguage] = useState<LanguageCode>("en");
   const [notificationPreferences, setNotificationPreferences] =
     useState<NotificationPreferences>({
       contractUpdates: true,
@@ -113,8 +121,6 @@ export function OrganizationOnboarding() {
     if (!onboarding) return;
 
     setName(onboarding.organization.name);
-    setTimezone(onboarding.settings.timezone);
-    setLanguage(onboarding.settings.language);
     setNotificationPreferences({
       contractUpdates:
         onboarding.settings.notificationPreferences?.contractUpdates !== false,
@@ -132,6 +138,45 @@ export function OrganizationOnboarding() {
     }));
   }
 
+  function handleLogoFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.item(0);
+    event.target.value = "";
+
+    if (!file) return;
+
+    setLogoError(null);
+
+    if (!ALLOWED_LOGO_MIME_TYPES.includes(file.type)) {
+      setLogoError("Logo must be a PNG, JPEG, or WebP image.");
+      return;
+    }
+
+    if (file.size > MAX_LOGO_FILE_SIZE_BYTES) {
+      setLogoError("Logo must be 2 MB or smaller.");
+      return;
+    }
+
+    uploadLogo.mutate(file, {
+      onError: (uploadError) => {
+        setLogoError(
+          extractLogoErrorMessage(uploadError, "Could not upload the logo."),
+        );
+      },
+    });
+  }
+
+  function handleRemoveLogo() {
+    setLogoError(null);
+
+    deleteLogo.mutate(undefined, {
+      onError: (deleteError) => {
+        setLogoError(
+          extractLogoErrorMessage(deleteError, "Could not remove the logo."),
+        );
+      },
+    });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -145,8 +190,6 @@ export function OrganizationOnboarding() {
 
       await completeOnboarding.mutateAsync({
         name,
-        timezone,
-        language,
         notificationPreferences,
       });
 
@@ -183,15 +226,20 @@ export function OrganizationOnboarding() {
     );
   }
 
+  const logoUrl = settingsQuery.data?.settings.logoUrl ?? null;
+
   return (
     <div className="min-h-screen bg-muted/30 px-4 py-10">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <header className="flex items-start gap-4">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Building2 className="size-5" />
+        <header className="flex flex-col items-center gap-3 text-center">
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+            <Scale className="size-7" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Welcome to Clausio
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">
               Set up your organization
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -210,8 +258,89 @@ export function OrganizationOnboarding() {
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="grid gap-5 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Organization logo</p>
+                  <p className="text-xs text-muted-foreground">
+                    Shown across the workspace, sidebar, and shared documents.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted">
+                    {logoUrl ? (
+                      <img
+                        src={logoUrl}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <Building2 className="size-7 text-muted-foreground" />
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <input
+                      ref={logoFileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="sr-only"
+                      disabled={isLogoBusy}
+                      onChange={handleLogoFileChange}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        disabled={isLogoBusy}
+                        onClick={() => logoFileInputRef.current?.click()}
+                      >
+                        {uploadLogo.isPending ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="size-3.5" />
+                        )}
+                        {logoUrl ? "Change logo" : "Upload logo"}
+                      </Button>
+                      {logoUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="gap-2 text-muted-foreground hover:text-destructive"
+                          disabled={isLogoBusy}
+                          onClick={handleRemoveLogo}
+                        >
+                          {deleteLogo.isPending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-3.5" />
+                          )}
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      PNG, JPEG, or WebP, up to 2 MB.
+                    </p>
+
+                    {logoError && (
+                      <p
+                        className="mt-1.5 text-xs text-destructive"
+                        role="alert"
+                      >
+                        {logoError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="organization-name">Organization name</Label>
                 <Input
                   id="organization-name"
@@ -220,56 +349,6 @@ export function OrganizationOnboarding() {
                   disabled={completeOnboarding.isPending}
                   required
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Timezone</Label>
-                <Select
-                  value={timezone}
-                  onValueChange={(value) => {
-                    if (value) setTimezone(value);
-                  }}
-                  disabled={completeOnboarding.isPending}
-                >
-                  <SelectTrigger
-                    className="w-full"
-                    aria-label="Organization timezone"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timezoneOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Language</Label>
-                <Select
-                  value={language}
-                  onValueChange={(value) => {
-                    if (value) setLanguage(value as LanguageCode);
-                  }}
-                  disabled={completeOnboarding.isPending}
-                >
-                  <SelectTrigger
-                    className="w-full"
-                    aria-label="Organization language"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {languageOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </CardContent>
           </Card>
