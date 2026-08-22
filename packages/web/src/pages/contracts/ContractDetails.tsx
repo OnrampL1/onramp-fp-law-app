@@ -56,6 +56,15 @@ export default function ContractDetailPage() {
   const { user } = useAuth();
   const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
 
+  function handleDownload() {
+    // Navigates to our own ContractFileViewer page rather than straight to
+    // the presigned S3 URL — that page owns the tab's title (see its own
+    // comment for why) and embeds the actual file. The target is a
+    // same-origin route known synchronously from `id`, so no popup-blocker
+    // workaround is needed here.
+    window.open(`/contracts/${id}/file`, "_blank", "noopener,noreferrer");
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center gap-3 text-sm text-muted-foreground">
@@ -129,10 +138,7 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {/* Action buttons — Download / Witness Link remain non-functional
-    placeholders until those features are built. Edit Contract,
-    Contract Investigator, and Analyze Contract are wired to real
-    pages/endpoints. */}
+        {/* Action buttons — all wired to real pages/endpoints. */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -161,7 +167,10 @@ export default function ContractDetailPage() {
                     contract.processingStatus === "EXTRACTION_FAILED" ||
                     contract.processingStatus === "AI_PENDING"
                   }
-                  onClick={() => triggerAnalysis.mutate()}
+                  onClick={() => {
+                    triggerAnalysis.mutate();
+                    navigate(`/contracts/${id}/analysis`);
+                  }}
                 >
                   <ScrollText className="size-4 text-muted-foreground" />
                   {triggerAnalysis.isPending
@@ -230,9 +239,9 @@ export default function ContractDetailPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuGroup>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem className="gap-2" onClick={handleDownload}>
                   <Download className="size-4 text-muted-foreground" />
-                  Download PDF
+                  Download
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2"
