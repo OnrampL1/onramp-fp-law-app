@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Card } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import {
   statusLabels,
@@ -387,93 +388,95 @@ export function UserManagement() {
 
       <UserStats users={members} />
 
-      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-sm">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="pl-9"
-            placeholder="Search by name or email"
-            aria-label="Search users"
-          />
-        </div>
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-sm">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="pl-9"
+              placeholder="Search by name or email"
+              aria-label="Search users"
+            />
+          </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Select
-            value={roleFilter}
-            onValueChange={(value) => setRoleFilter(value as RoleFilter)}
-          >
-            <SelectTrigger
-              className="w-full sm:w-44"
-              aria-label="Filter users by role"
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Select
+              value={roleFilter}
+              onValueChange={(value) => setRoleFilter(value as RoleFilter)}
             >
-              <SelectValue placeholder="All roles">
-                {(val) =>
-                  val === "all"
-                    ? "All roles"
-                    : roleLabels[val as BackendUserRole]
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {roleFilters.map((role) => (
-                <SelectItem key={role} value={role}>
-                  {role === "all" ? "All roles" : roleLabels[role]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                className="w-full sm:w-44"
+                aria-label="Filter users by role"
+              >
+                <SelectValue placeholder="All roles">
+                  {(val) =>
+                    val === "all"
+                      ? "All roles"
+                      : roleLabels[val as BackendUserRole]
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {roleFilters.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {role === "all" ? "All roles" : roleLabels[role]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select
-            value={statusFilter}
-            onValueChange={(value) => setStatusFilter(value as StatusFilter)}
-          >
-            <SelectTrigger
-              className="w-full sm:w-44"
-              aria-label="Filter users by status"
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as StatusFilter)}
             >
-              <SelectValue placeholder="All statuses">
-                {(val) =>
-                  val === "all"
-                    ? "All statuses"
-                    : statusLabels[val as UserAccountStatus]
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {statusFilters.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status === "all" ? "All statuses" : statusLabels[status]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                className="w-full sm:w-44"
+                aria-label="Filter users by status"
+              >
+                <SelectValue placeholder="All statuses">
+                  {(val) =>
+                    val === "all"
+                      ? "All statuses"
+                      : statusLabels[val as UserAccountStatus]
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {statusFilters.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status === "all" ? "All statuses" : statusLabels[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-16">
-          <LoadingSpinner />
-        </div>
-      ) : (
-        <UserTable
-          users={filteredUsers}
-          onSelectUser={handleSelectUser}
-          onDisableUser={handleDisableUser}
-          onReactivateUser={handleReactivateUser}
-          onResendInvite={handleResendInvite}
-          onRevokeInvite={handleOpenRevokeInvite}
-          onChangeRole={handleOpenRoleChange}
-          canChangeRole={canChangeUserRole}
-          canManageAccess={canManageUserAccess}
-          copyableLinks={copyableLinks}
-        />
-      )}
+        {isLoading ? (
+          <div className="flex justify-center py-16">
+            <LoadingSpinner />
+          </div>
+        ) : (
+          <UserTable
+            users={filteredUsers}
+            onSelectUser={handleSelectUser}
+            onDisableUser={handleDisableUser}
+            onReactivateUser={handleReactivateUser}
+            onResendInvite={handleResendInvite}
+            onRevokeInvite={handleOpenRevokeInvite}
+            onChangeRole={handleOpenRoleChange}
+            canChangeRole={canChangeUserRole}
+            canManageAccess={canManageUserAccess}
+            copyableLinks={copyableLinks}
+          />
+        )}
+      </Card>
 
       {isCurrentUserAdmin && (
         <InvitationHistory

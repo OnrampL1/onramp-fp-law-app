@@ -155,12 +155,14 @@ export function WitnessWorkflow() {
           sublabel: "new this week",
           delta: `+${stats.totalNewLast7Days}`,
           deltaPositive: true,
+          iconClassName: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
         },
         {
           icon: <ClockIcon className="h-4 w-4" />,
           value: stats.pending,
           label: "Pending Reviews",
           sublabel: "awaiting witness",
+          iconClassName: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
         },
         {
           icon: <CheckCircleIcon className="h-4 w-4" />,
@@ -169,6 +171,7 @@ export function WitnessWorkflow() {
           sublabel: "this month",
           delta: `+${stats.usedLast7Days}`,
           deltaPositive: true,
+          iconClassName: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
         },
         {
           icon: <XCircleIcon className="h-4 w-4" />,
@@ -177,6 +180,7 @@ export function WitnessWorkflow() {
           sublabel: "newly expired this week",
           delta: `+${stats.expiredNewLast7Days}`,
           deltaPositive: true,
+          iconClassName: "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-300",
         },
       ]
     : [];

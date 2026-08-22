@@ -3,7 +3,7 @@ import { authController } from "../controllers/auth.controller";
 import { witnessController } from "../controllers/witness.controller";
 import { validate } from "../middleware/validate";
 import { authenticate } from "../middleware/authenticate";
-import { authRateLimiter } from "../middleware/rate-limiter";
+import { authRateLimiter, witnessRateLimiter } from "../middleware/rate-limiter";
 import {
   acceptInvitationSchema,
   changePasswordSchema,
@@ -41,6 +41,6 @@ router.get("/me", authenticate, authController.me);
 // Public, no `authenticate` — a witness has no account (BR-4). Rate-limited
 // the same as login/accept-invitation since a token path param is an
 // unauthenticated guessing surface.
-router.post("/witness/:token", authRateLimiter, witnessController.redeem);
+router.post("/witness/:token", witnessRateLimiter, witnessController.redeem);
 
 export { router as authRouter };

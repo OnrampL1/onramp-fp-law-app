@@ -10,6 +10,11 @@ export type KpiCardItem = {
   sublabel?: string;
   delta?: string;
   deltaPositive?: boolean;
+  // Defaults to the neutral bg-accent treatment when omitted — pass a
+  // pastel bg+text pairing (e.g. "bg-emerald-50 text-emerald-600") for
+  // cards with a clear semantic color, matching the badge palette used
+  // throughout the rest of the app.
+  iconClassName?: string;
 };
 
 export function KpiCard({
@@ -19,11 +24,17 @@ export function KpiCard({
   sublabel,
   delta,
   deltaPositive,
+  iconClassName,
 }: KpiCardItem) {
   return (
     <Card className="p-5">
       <div className="flex items-start justify-between">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+        <div
+          className={cn(
+            "flex size-10 items-center justify-center rounded-lg",
+            iconClassName ?? "bg-accent text-accent-foreground",
+          )}
+        >
           {icon}
         </div>
         {delta && (

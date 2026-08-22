@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { isAxiosError } from "axios";
 import { z } from "zod";
 import {
   Scale,
@@ -38,6 +39,20 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
+
+// Surfaces the backend's actual reason instead of a single blanket message —
+// "Invalid credentials", "This account is not active", "Organization is not
+// active", and 429's "Too many authentication attempts" are all genuinely
+// different situations a user should be told apart, not collapsed into one
+// misleading "Invalid email or password" (that collapse is exactly what
+// masked a rate-limit lockout as a credentials problem before this fix).
+function extractLoginErrorMessage(error: unknown): string {
+  if (isAxiosError(error) && typeof error.response?.data?.error === "string") {
+    return error.response.data.error;
+  }
+
+  return "Invalid email or password";
+}
 
 const features = [
   {
@@ -92,8 +107,8 @@ export function Login() {
       setError(null);
       const authenticatedUser = await login(data.email, data.password);
       navigate(getAuthenticatedEntryPath(authenticatedUser), { replace: true });
-    } catch {
-      setError("Invalid email or password");
+    } catch (err) {
+      setError(extractLoginErrorMessage(err));
     }
   };
 

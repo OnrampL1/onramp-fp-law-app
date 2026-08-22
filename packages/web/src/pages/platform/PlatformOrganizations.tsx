@@ -103,11 +103,24 @@ const STATUS_ACTION_LABELS: Record<
 };
 
 const STATUS_BADGE_STYLES: Record<PlatformOrganizationStatus, string> = {
-  CREATED: "border-slate-200 bg-slate-50 text-slate-700",
-  OWNER_ASSIGNED: "border-amber-200 bg-amber-50 text-amber-700",
-  ACTIVE: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  SUSPENDED: "border-orange-200 bg-orange-50 text-orange-700",
-  ARCHIVED: "border-red-200 bg-red-50 text-red-700",
+  CREATED:
+    "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300",
+  OWNER_ASSIGNED:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+  ACTIVE:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
+  SUSPENDED:
+    "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300",
+  ARCHIVED:
+    "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
+};
+
+const STATUS_DOT_STYLES: Record<PlatformOrganizationStatus, string> = {
+  CREATED: "bg-slate-500",
+  OWNER_ASSIGNED: "bg-amber-500",
+  ACTIVE: "bg-emerald-500",
+  SUSPENDED: "bg-orange-500",
+  ARCHIVED: "bg-red-500",
 };
 
 function formatDate(value: string | null) {
@@ -532,10 +545,17 @@ export function PlatformOrganizations() {
                     <Badge
                       variant="outline"
                       className={cn(
-                        "rounded-full",
+                        "gap-1.5 rounded-full",
                         STATUS_BADGE_STYLES[organization.status],
                       )}
                     >
+                      <span
+                        className={cn(
+                          "size-1.5 rounded-full",
+                          STATUS_DOT_STYLES[organization.status],
+                        )}
+                        aria-hidden
+                      />
                       {STATUS_LABELS[organization.status]}
                     </Badge>
                   </TableCell>

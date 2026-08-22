@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card";
 
 import { useAuth } from "@/hooks/useAuth";
+import { UserRoleBadge } from "@/components/users/UserBadges";
+import { cn } from "@/lib/utils";
 
 type SecurityStatusRowProps = {
   icon: LucideIcon;
@@ -38,7 +40,16 @@ function SecurityStatusRow({
         </div>
       </div>
 
-      <Badge variant="secondary">{status}</Badge>
+      <Badge
+        variant="outline"
+        className={cn(
+          "gap-1.5 rounded-full font-medium",
+          "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
+        )}
+      >
+        <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+        {status}
+      </Badge>
     </div>
   );
 }
@@ -99,9 +110,7 @@ export function SecuritySettings() {
             </div>
           </div>
 
-          <Badge variant="secondary" className="capitalize">
-            {user.role}
-          </Badge>
+          <UserRoleBadge role={user.role} />
         </CardContent>
       </Card>
     </div>
