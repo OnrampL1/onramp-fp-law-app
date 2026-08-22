@@ -4,15 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useAskAssistant } from "@/hooks/useLegalAssistant";
 import type { AskHistoryTurn, AssistantSource } from "@/types/legal-assistant";
 import { cn } from "@/lib/utils";
@@ -24,7 +15,6 @@ import {
   ArrowUp,
   ChevronRight,
   FileText,
-  History,
   Info,
   MessageSquare,
   Plus,
@@ -153,6 +143,10 @@ export default function LegalAssistantPage() {
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? threads[0];
   const isActiveThreadPending = pendingThreadId === activeThread.id;
   const isEmpty = activeThread.messages.length === 0 && !isActiveThreadPending;
+  // The current draft (a thread with no messages yet) doesn't belong in a
+  // history list until it has something to show - matches how most chat
+  // apps don't list an unsent "New chat" as a real conversation.
+  const historyThreads = threads.filter((t) => t.messages.length > 0);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -259,52 +253,6 @@ export default function LegalAssistantPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  aria-label="Chat history"
-                  title="Chat history"
-                />
-              }
-            >
-              <History className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Chat history</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {/* Bounded and scrollable, not left to grow with the
-                    session - matches how the notifications dropdown in
-                    Header.tsx handles an open-ended list. */}
-                <div className="max-h-80 overflow-y-auto">
-                  {threads.map((thread) => (
-                    <DropdownMenuItem
-                      key={thread.id}
-                      onClick={() => switchThread(thread.id)}
-                      className={cn(
-                        "gap-2",
-                        thread.id === activeThread.id &&
-                          "bg-accent text-accent-foreground",
-                      )}
-                    >
-                      <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
-                      <span
-                        dir={textDir(threadTitle(thread))}
-                        className="truncate"
-                      >
-                        {threadTitle(thread)}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                </div>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           <Button variant="outline" className="gap-2" onClick={startNewChat}>
             <Plus className="size-4" />
             New chat
@@ -312,90 +260,146 @@ export default function LegalAssistantPage() {
         </div>
       </div>
 
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
-        {/* Scoped to this page only, not the shared ScrollArea primitive -
-            hides the visible scrollbar thumb (targeted by its data-slot,
-            likely the stray "nub" visible near the top of the empty state
-            in earlier screenshots) while leaving wheel/touch/keyboard
-            scrolling fully working via the underlying native viewport. */}
-        <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-scrollbar]]:hidden">
-          <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
-            {isEmpty ? (
-              <EmptyState onPick={send} />
-            ) : (
-              <>
-                {activeThread.messages.map((m) =>
-                  m.role === "user" ? (
-                    <UserBubble key={m.id} message={m} />
-                  ) : (
-                    <AssistantBubble key={m.id} message={m} />
-                  ),
-                )}
-                {isActiveThreadPending ? <ThinkingBubble /> : null}
-                <div ref={bottomRef} />
-              </>
-            )}
+      {/* 2-column workspace: history rail + chat, same pattern as Clause
+          Investigator (ContractInvestigator.tsx) minus that page's
+          contract-context column, which has nothing to mirror here. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+        {/* Left: Recent conversations */}
+        <Card className="hidden min-h-0 flex-col overflow-hidden p-0 lg:flex">
+          <div className="border-b border-border p-3">
+            <p className="px-1 text-xs font-medium text-muted-foreground">
+              Recent conversations
+            </p>
           </div>
-        </ScrollArea>
-
-        <div className="border-t border-border p-3">
-          {/* Wider than the message column above (max-w-2xl) so the
-              disclaimer below fits on one line instead of wrapping. */}
-          <div className="mx-auto w-full max-w-2xl">
-            {!isEmpty ? (
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {SUGGESTED_QUESTIONS.map((q) => (
+          <ScrollArea className="min-h-0 flex-1">
+            {historyThreads.length === 0 ? (
+              <HistoryEmptyState />
+            ) : (
+              <div className="flex flex-col gap-1 p-2">
+                {historyThreads.map((thread) => (
                   <button
-                    key={q}
+                    key={thread.id}
                     type="button"
-                    dir={textDir(q)}
-                    onClick={() => send(q)}
-                    className="rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => switchThread(thread.id)}
+                    className={cn(
+                      "group flex flex-col gap-0.5 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:bg-accent",
+                      thread.id === activeThread.id &&
+                        "border-border bg-accent",
+                    )}
                   >
-                    {q}
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span
+                        dir={textDir(threadTitle(thread))}
+                        className="truncate"
+                      >
+                        {threadTitle(thread)}
+                      </span>
+                    </span>
                   </button>
                 ))}
               </div>
-            ) : null}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                send(input);
-              }}
-              className="flex items-end gap-2 rounded-xl border border-input bg-card p-2 shadow-sm focus-within:ring-[3px] focus-within:ring-ring/50"
-            >
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send(input);
-                  }
+            )}
+          </ScrollArea>
+        </Card>
+
+        {/* Right: Chat */}
+        <Card className="flex min-h-0 flex-col overflow-hidden p-0">
+          {/* Scoped to this page only, not the shared ScrollArea primitive -
+              hides the visible scrollbar thumb (targeted by its data-slot,
+              likely the stray "nub" visible near the top of the empty state
+              in earlier screenshots) while leaving wheel/touch/keyboard
+              scrolling fully working via the underlying native viewport. */}
+          <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-scrollbar]]:hidden">
+            <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
+              {isEmpty ? (
+                <EmptyState onPick={send} />
+              ) : (
+                <>
+                  {activeThread.messages.map((m) =>
+                    m.role === "user" ? (
+                      <UserBubble key={m.id} message={m} />
+                    ) : (
+                      <AssistantBubble key={m.id} message={m} />
+                    ),
+                  )}
+                  {isActiveThreadPending ? <ThinkingBubble /> : null}
+                  <div ref={bottomRef} />
+                </>
+              )}
+            </div>
+          </ScrollArea>
+
+          <div className="border-t border-border p-3">
+            {/* Wider than the message column above (max-w-2xl) so the
+                disclaimer below fits on one line instead of wrapping. */}
+            <div className="mx-auto w-full max-w-2xl">
+              {!isEmpty ? (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {SUGGESTED_QUESTIONS.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      dir={textDir(q)}
+                      onClick={() => send(q)}
+                      className="rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  send(input);
                 }}
-                rows={1}
-                dir="auto"
-                placeholder="Ask anything about your contracts, organization, or Lebanese law…"
-                className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-2 pl-2 text-sm outline-none placeholder:text-muted-foreground"
-              />
-              <Button
-                type="submit"
-                size="icon"
-                className="size-9 shrink-0"
-                disabled={!input.trim() || pendingThreadId !== null}
+                className="flex items-end gap-2 rounded-xl border border-input bg-card p-2 shadow-sm focus-within:ring-[3px] focus-within:ring-ring/50"
               >
-                <ArrowUp className="size-4" />
-                <span className="sr-only">Send message</span>
-              </Button>
-            </form>
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(input);
+                    }
+                  }}
+                  rows={1}
+                  dir="auto"
+                  placeholder="Ask anything about your contracts, organization, or Lebanese law…"
+                  className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-2 pl-2 text-sm outline-none placeholder:text-muted-foreground"
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="size-9 shrink-0"
+                  disabled={!input.trim() || pendingThreadId !== null}
+                >
+                  <ArrowUp className="size-4" />
+                  <span className="sr-only">Send message</span>
+                </Button>
+              </form>
+            </div>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              Answers may draw on your contracts, your organization's indexed
+              documents, and Lebanese legal texts. This is not legal advice -
+              verify citations before relying on them.
+            </p>
           </div>
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Answers may draw on your contracts, your organization's indexed
-            documents, and Lebanese legal texts. This is not legal advice -
-            verify citations before relying on them.
-          </p>
-        </div>
-      </Card>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function HistoryEmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+      <div className="flex size-9 items-center justify-center rounded-full bg-muted">
+        <MessageSquare className="size-4 text-muted-foreground" />
+      </div>
+      <p className="text-xs text-muted-foreground">No chats yet</p>
     </div>
   );
 }
