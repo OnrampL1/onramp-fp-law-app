@@ -9,10 +9,8 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RiskBadge } from "@/components/ui/badges";
 import {
-  conversationHistory,
   suggestedQuestions,
   type ChatMessage,
-  type Conversation,
   type RiskLevel,
   type SourceRef,
 } from "@/lib/data";
@@ -25,6 +23,10 @@ import {
 import type { InvestigatorHistoryTurn } from "@/types/investigator";
 import type { RiskOverviewDto } from "@/types/ai-analysis";
 import { cn, formatSummaryParagraphs } from "@/lib/utils";
+import {
+  readPersistedThreads,
+  writePersistedThreads,
+} from "@/lib/chat-session-storage";
 import {
   ArrowLeft,
   ArrowUp,
@@ -58,6 +60,41 @@ const KEY_CLAUSE_DOT: Record<
 
 let idCounter = 0;
 const nextId = () => `live-${Date.now()}-${idCounter++}`;
+
+// Multiple chat threads per contract, persisted to sessionStorage only —
+// they survive navigating away from this page and back within the same
+// tab, but not a closed tab or a different device (same tradeoff as Legal
+// Assistant's threads — see lib/chat-session-storage.ts). Keyed by
+// contract id so switching between contracts never leaks one contract's
+// threads into another's "Recent conversations" panel.
+interface ChatThread {
+  id: string;
+  messages: ChatMessage[];
+}
+
+function threadsStorageKey(contractId: string): string {
+  return `investigator:${contractId}:threads`;
+}
+
+function createEmptyThread(): ChatThread {
+  return { id: nextId(), messages: [] };
+}
+
+// A thread has no title of its own until it has a first question to name
+// itself after — same convention as Legal Assistant's threadTitle.
+function threadTitle(thread: ChatThread): string {
+  const firstQuestion = thread.messages.find((m) => m.role === "user")?.content;
+  if (!firstQuestion) return "New chat";
+  return firstQuestion.length > 60 ? `${firstQuestion.slice(0, 60)}…` : firstQuestion;
+}
+
+function initialThreads(contractId: string | undefined): ChatThread[] {
+  if (!contractId) return [createEmptyThread()];
+  const persisted = readPersistedThreads<ChatThread>(
+    threadsStorageKey(contractId),
+  );
+  return persisted && persisted.length > 0 ? persisted : [createEmptyThread()];
+}
 
 // The API returns a single combined heading string per source (e.g. "9.4
 // Limitation of Liability") rather than a separate code/title pair — this
@@ -135,13 +172,26 @@ export default function ContractInvestigatorPage() {
   const riskOverview = useRiskOverview(id, contract?.processingStatus);
   const summaryOverview = useSummaryOverview(id, contract?.processingStatus);
 
-  const [conversations] = useState<Conversation[]>(conversationHistory);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [threads, setThreads] = useState<ChatThread[]>(() => initialThreads(id));
+  const [activeThreadId, setActiveThreadId] = useState<string>(
+    () => threads[0].id,
+  );
   const [input, setInput] = useState("");
-  const [thinking, setThinking] = useState(false);
+  // The one thread (if any) currently awaiting a response — tracked by id,
+  // not a plain boolean, so the "Reviewing contract clauses…" bubble only
+  // appears in the thread actually waiting, not wherever the user has
+  // switched to since sending. Same convention as Legal Assistant.
+  const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
 
   const askInvestigatorMutation = useAskInvestigator(id);
+
+  const activeThread = threads.find((t) => t.id === activeThreadId) ?? threads[0];
+  const isActiveThreadPending = pendingThreadId === activeThread.id;
+  // The current draft (a thread with no messages yet) doesn't belong in a
+  // history list until it has something to show - matches how most chat
+  // apps don't list an unsent "New chat" as a real conversation. Same
+  // convention as Legal Assistant's historyThreads.
+  const historyThreads = threads.filter((t) => t.messages.length > 0);
 
   // ScrollArea (@base-ui/react/scroll-area) renders its own internal
   // scrolling viewport wrapping this content — scrollTo on the content div
@@ -152,7 +202,27 @@ export default function ContractInvestigatorPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, thinking]);
+  }, [activeThread.messages, isActiveThreadPending]);
+
+  // Re-hydrate from this contract's own storage slot whenever the route's
+  // :id changes — React Router re-renders this same component instance
+  // across a /contracts/:id/investigator -> /contracts/:otherId/investigator
+  // navigation rather than remounting it, so the lazy useState initializer
+  // above only ever runs for the very first contract visited in this tab.
+  // Without this effect, a second contract's threads would silently start
+  // from whatever the first contract's threads were.
+  useEffect(() => {
+    const next = initialThreads(id);
+    setThreads(next);
+    setActiveThreadId(next[0].id);
+    setPendingThreadId(null);
+    setInput("");
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    writePersistedThreads(threadsStorageKey(id), threads);
+  }, [id, threads]);
 
   if (isContractLoading) {
     return (
@@ -174,32 +244,53 @@ export default function ContractInvestigatorPage() {
     );
   }
 
-  function startNewChat() {
-    setActiveId(null);
-    setMessages([]);
-    setInput("");
-    setThinking(false);
+  function updateThread(
+    threadId: string,
+    updater: (messages: ChatMessage[]) => ChatMessage[],
+  ) {
+    setThreads((prev) =>
+      prev.map((t) => (t.id === threadId ? { ...t, messages: updater(t.messages) } : t)),
+    );
   }
 
-  function openConversation(conv: Conversation) {
-    setActiveId(conv.id);
-    setMessages(conv.messages);
-    setThinking(false);
+  function startNewChat() {
+    // Don't stack up empty drafts - if the active thread is already blank,
+    // there's nothing to switch to that isn't already showing.
+    if (activeThread.messages.length === 0) {
+      setInput("");
+      return;
+    }
+    const thread = createEmptyThread();
+    setThreads((prev) => [thread, ...prev]);
+    setActiveThreadId(thread.id);
+    setInput("");
+  }
+
+  function switchThread(threadId: string) {
+    setActiveThreadId(threadId);
+    setInput("");
   }
 
   async function send(question: string) {
     const text = question.trim();
-    if (!text || thinking || !id) return;
+    if (!text || pendingThreadId || !id) return;
+
+    // Captured once, up front - if the user switches threads while this
+    // request is in flight, the answer must still land in the thread it
+    // was actually asked from, not wherever activeThreadId points to by
+    // the time the response comes back.
+    const targetThreadId = activeThreadId;
+    setInput("");
+    setPendingThreadId(targetThreadId);
 
     const userMessage: ChatMessage = {
       id: nextId(),
       role: "user",
       content: text,
     };
-    const history = toHistoryTurns(messages);
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setThinking(true);
+    const targetThread = threads.find((t) => t.id === targetThreadId);
+    const history = toHistoryTurns(targetThread?.messages ?? []);
+    updateThread(targetThreadId, (msgs) => [...msgs, userMessage]);
 
     try {
       const result = await askInvestigatorMutation.mutateAsync({
@@ -218,20 +309,18 @@ export default function ContractInvestigatorPage() {
         sources: sources.length > 0 ? sources : undefined,
         confidence: result.confidence,
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      updateThread(targetThreadId, (msgs) => [...msgs, assistantMessage]);
     } catch (error) {
-      const assistantMessage: ChatMessage = {
-        id: nextId(),
-        role: "assistant",
-        content: errorMessageFor(error),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      updateThread(targetThreadId, (msgs) => [
+        ...msgs,
+        { id: nextId(), role: "assistant", content: errorMessageFor(error) },
+      ]);
     } finally {
-      setThinking(false);
+      setPendingThreadId((current) => (current === targetThreadId ? null : current));
     }
   }
 
-  const isEmpty = messages.length === 0 && !thinking;
+  const isEmpty = activeThread.messages.length === 0 && !isActiveThreadPending;
   const riskScore = riskOverview.data
     ? 100 - riskOverview.data.healthScore
     : null;
@@ -311,30 +400,29 @@ export default function ContractInvestigatorPage() {
             </p>
           </div>
           <ScrollArea className="min-h-0 flex-1">
-            <div className="flex flex-col gap-1 p-2">
-              {conversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  type="button"
-                  onClick={() => openConversation(conv)}
-                  className={cn(
-                    "group flex flex-col gap-0.5 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:bg-accent",
-                    activeId === conv.id && "border-border bg-accent",
-                  )}
-                >
-                  <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                    <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{conv.title}</span>
-                  </span>
-                  <span className="truncate pl-5 text-xs text-muted-foreground">
-                    {conv.preview}
-                  </span>
-                  <span className="pl-5 text-[11px] text-muted-foreground/70">
-                    {conv.updatedAt}
-                  </span>
-                </button>
-              ))}
-            </div>
+            {historyThreads.length === 0 ? (
+              <HistoryEmptyState />
+            ) : (
+              <div className="flex flex-col gap-1 p-2">
+                {historyThreads.map((thread) => (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    onClick={() => switchThread(thread.id)}
+                    className={cn(
+                      "group flex flex-col gap-0.5 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:bg-accent",
+                      thread.id === activeThread.id &&
+                        "border-border bg-accent",
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{threadTitle(thread)}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </ScrollArea>
         </Card>
 
@@ -346,14 +434,14 @@ export default function ContractInvestigatorPage() {
                 <EmptyState onPick={send} />
               ) : (
                 <>
-                  {messages.map((m) =>
+                  {activeThread.messages.map((m) =>
                     m.role === "user" ? (
                       <UserBubble key={m.id} message={m} />
                     ) : (
                       <AssistantBubble key={m.id} message={m} />
                     ),
                   )}
-                  {thinking ? <ThinkingBubble /> : null}
+                  {isActiveThreadPending ? <ThinkingBubble /> : null}
                   <div ref={bottomRef} />
                 </>
               )}
@@ -401,7 +489,7 @@ export default function ContractInvestigatorPage() {
                   type="submit"
                   size="icon"
                   className="size-9 shrink-0"
-                  disabled={!input.trim() || thinking}
+                  disabled={!input.trim() || pendingThreadId !== null}
                 >
                   <ArrowUp className="size-4" />
                   <span className="sr-only">Send message</span>
@@ -569,6 +657,17 @@ export default function ContractInvestigatorPage() {
           </ScrollArea>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function HistoryEmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+      <div className="flex size-9 items-center justify-center rounded-full bg-muted">
+        <MessageSquare className="size-4 text-muted-foreground" />
+      </div>
+      <p className="text-xs text-muted-foreground">No chats yet</p>
     </div>
   );
 }
