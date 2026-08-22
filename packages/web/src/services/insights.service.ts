@@ -17,9 +17,12 @@ export async function fetchInsightsSummary(): Promise<InsightsSummary> {
 
 export async function fetchInsightCategoryContracts(
   category: RiskCategory,
+  page = 1,
+  pageSize = 20,
 ): Promise<InsightCategoryContracts> {
   const response = await apiClient.get<ApiEnvelope<InsightCategoryContracts>>(
     `/insights/${category}/contracts`,
+    { params: { page, pageSize } },
   );
   return response.data.data;
 }

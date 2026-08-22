@@ -10,7 +10,15 @@ export interface InsightsSummaryDto {
   categories: RiskCategorySummaryDto[];
 }
 
+export interface InsightCategoryContractsPaginationDto {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface InsightCategoryContractsDto {
   category: RiskCategory;
   contracts: DashboardContractItemDto[];
+  pagination: InsightCategoryContractsPaginationDto;
 }

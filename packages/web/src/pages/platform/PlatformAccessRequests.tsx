@@ -44,6 +44,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { PlatformPagination } from "../../components/platform/PlatformPagination";
 import { cn } from "../../lib/utils";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { usePlatformAuth } from "../../hooks/usePlatformAuth";
@@ -157,6 +158,7 @@ export function PlatformAccessRequests() {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null,
   );
+  const [page, setPage] = useState(1);
 
   const [approvalForm, setApprovalForm] = useState({
     name: "",
@@ -167,14 +169,18 @@ export function PlatformAccessRequests() {
 
   const debouncedSearch = useDebouncedValue(search, 300);
 
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, status]);
+
   const queryParams = useMemo(
     () => ({
-      page: 1,
+      page,
       limit: 50,
       ...(debouncedSearch.trim() && { search: debouncedSearch.trim() }),
       ...(status !== "ALL" && { status }),
     }),
-    [debouncedSearch, status],
+    [page, debouncedSearch, status],
   );
 
   const { data, isLoading, isError, refetch } =
@@ -460,6 +466,10 @@ export function PlatformAccessRequests() {
               ))}
             </TableBody>
           </Table>
+        )}
+
+        {pagination && pagination.total > 0 && (
+          <PlatformPagination pagination={pagination} onPageChange={setPage} />
         )}
       </section>
 

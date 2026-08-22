@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { OrganizationBrainPagination } from "@/components/organization-brain/OrganizationBrainPagination";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCreateOrganizationBrainPaste,
@@ -193,7 +194,7 @@ export function OrganizationBrain() {
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <BrainCircuit className="size-5" aria-hidden="true" />
           </div>
@@ -541,38 +542,14 @@ export function OrganizationBrain() {
             </div>
           </CardContent>
         )}
+
+        {pagination && pagination.total > 0 && (
+          <OrganizationBrainPagination
+            pagination={pagination}
+            onPageChange={setPage}
+          />
+        )}
       </Card>
-
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.totalPages}
-          </p>
-
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={page >= pagination.totalPages}
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(pagination.totalPages, current + 1),
-                )
-              }
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
 
       <AlertDialog
         open={Boolean(deleteTarget)}

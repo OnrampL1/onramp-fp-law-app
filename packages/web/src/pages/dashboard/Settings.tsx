@@ -86,7 +86,7 @@ export function Settings() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <SettingsIcon className="size-5" />
         </div>

@@ -221,9 +221,7 @@ export default function ContractEdit() {
         <Link
           to={`/contracts/${id}`}
           className="max-w-48 truncate transition-colors hover:text-foreground"
-          onClick={(event) =>
-            handleGuardedNavigate(`/contracts/${id}`, event)
-          }
+          onClick={(event) => handleGuardedNavigate(`/contracts/${id}`, event)}
         >
           {contract.title}
         </Link>
@@ -290,7 +288,7 @@ export default function ContractEdit() {
               <Button
                 type="button"
                 variant="destructive"
-                className="gap-2"
+                className="gap-2 text-primary-foreground"
                 disabled={setLegalState.isPending}
                 onClick={() => setTerminateDialogOpen(true)}
               >
@@ -369,7 +367,10 @@ export default function ContractEdit() {
         />
       )}
 
-      <ContractContentEditor contractId={id} onDirtyChange={setIsContentDirty} />
+      <ContractContentEditor
+        contractId={id}
+        onDirtyChange={setIsContentDirty}
+      />
 
       <TerminateContractDialog
         open={terminateDialogOpen}

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   fetchInsightCategoryContracts,
   fetchInsightsSummary,
@@ -12,9 +12,14 @@ export function useInsightsSummary() {
   });
 }
 
-export function useInsightCategoryContracts(category: RiskCategory) {
+export function useInsightCategoryContracts(
+  category: RiskCategory,
+  page = 1,
+  pageSize = 20,
+) {
   return useQuery({
-    queryKey: ["insights", category, "contracts"],
-    queryFn: () => fetchInsightCategoryContracts(category),
+    queryKey: ["insights", category, "contracts", page, pageSize],
+    queryFn: () => fetchInsightCategoryContracts(category, page, pageSize),
+    placeholderData: keepPreviousData,
   });
 }

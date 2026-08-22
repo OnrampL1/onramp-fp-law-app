@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, Plus, Search, ShieldCheck, UsersRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ import {
   InvitationHistory,
   RevokeInvitationDialog,
   UserDetailSheet,
+  UserManagementPagination,
   UserStats,
   UserTable,
   type InviteUserPayload,
@@ -64,6 +65,7 @@ type AccessChangeTarget = {
 
 const roleFilters: RoleFilter[] = ["all", "OWNER", "ADMIN", "INTERNAL"];
 const statusFilters: StatusFilter[] = ["all", "active", "disabled", "pending"];
+const PAGE_SIZE = 20;
 
 export function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -71,6 +73,8 @@ export function UserManagement() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [userPage, setUserPage] = useState(1);
+  const [invitationPage, setInvitationPage] = useState(1);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<TeamMember | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -123,6 +127,42 @@ export function UserManagement() {
       return matchesQuery && matchesRole && matchesStatus;
     });
   }, [query, roleFilter, statusFilter, members]);
+
+  useEffect(() => {
+    setUserPage(1);
+  }, [query, roleFilter, statusFilter]);
+
+  const userTotalPages = Math.max(
+    1,
+    Math.ceil(filteredUsers.length / PAGE_SIZE),
+  );
+  const safeUserPage = Math.min(userPage, userTotalPages);
+  const pagedUsers = filteredUsers.slice(
+    (safeUserPage - 1) * PAGE_SIZE,
+    safeUserPage * PAGE_SIZE,
+  );
+  const userPagination = {
+    page: safeUserPage,
+    pageSize: PAGE_SIZE,
+    total: filteredUsers.length,
+    totalPages: userTotalPages,
+  };
+
+  const invitationTotalPages = Math.max(
+    1,
+    Math.ceil(expiredInvitations.length / PAGE_SIZE),
+  );
+  const safeInvitationPage = Math.min(invitationPage, invitationTotalPages);
+  const pagedInvitations = expiredInvitations.slice(
+    (safeInvitationPage - 1) * PAGE_SIZE,
+    safeInvitationPage * PAGE_SIZE,
+  );
+  const invitationPagination = {
+    page: safeInvitationPage,
+    pageSize: PAGE_SIZE,
+    total: expiredInvitations.length,
+    totalPages: invitationTotalPages,
+  };
 
   function handleSelectUser(user: TeamMember) {
     setSelectedUser(user);
@@ -324,7 +364,7 @@ export function UserManagement() {
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <UsersRound className="size-5" aria-hidden="true" />
           </div>
@@ -463,25 +503,35 @@ export function UserManagement() {
             <LoadingSpinner />
           </div>
         ) : (
-          <UserTable
-            users={filteredUsers}
-            onSelectUser={handleSelectUser}
-            onDisableUser={handleDisableUser}
-            onReactivateUser={handleReactivateUser}
-            onResendInvite={handleResendInvite}
-            onRevokeInvite={handleOpenRevokeInvite}
-            onChangeRole={handleOpenRoleChange}
-            canChangeRole={canChangeUserRole}
-            canManageAccess={canManageUserAccess}
-            copyableLinks={copyableLinks}
-          />
+          <>
+            <UserTable
+              users={pagedUsers}
+              onSelectUser={handleSelectUser}
+              onDisableUser={handleDisableUser}
+              onReactivateUser={handleReactivateUser}
+              onResendInvite={handleResendInvite}
+              onRevokeInvite={handleOpenRevokeInvite}
+              onChangeRole={handleOpenRoleChange}
+              canChangeRole={canChangeUserRole}
+              canManageAccess={canManageUserAccess}
+              copyableLinks={copyableLinks}
+            />
+            {filteredUsers.length > 0 && (
+              <UserManagementPagination
+                pagination={userPagination}
+                onPageChange={setUserPage}
+              />
+            )}
+          </>
         )}
       </Card>
 
       {isCurrentUserAdmin && (
         <InvitationHistory
-          invitations={expiredInvitations}
+          invitations={pagedInvitations}
           onResendInvite={handleResendExpiredInvite}
+          pagination={invitationPagination}
+          onPageChange={setInvitationPage}
         />
       )}
 

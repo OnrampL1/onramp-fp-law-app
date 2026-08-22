@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, Upload, XCircle } from "lucide-react";
 import { UploadContractActionBar } from "../../components/layout/UploadContractActionBar";
 import { ContractFileDropzone } from "../../components/shared/ContractFileDropzone";
 import { SelectedFileSummary } from "../../components/shared/SelectedFileSummary";
@@ -129,13 +129,18 @@ export function UploadContract() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6">
-      <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight">Upload Contract</h1>
-        {/* <p className="text-muted-foreground">
-          Upload a contract file — Clausio extracts its title, counterparty,
-          dates, and tags automatically.
-        </p> */}
+    <div className="space-y-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Upload className="size-5" aria-hidden="true" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">Upload Contract</h1>
+          <p className="text-muted-foreground">
+            Upload a contract file. Clausio extracts its title, counterparty,
+            dates, and tags automatically.
+          </p>
+        </div>
       </div>
 
       <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_280px] md:items-start xl:grid-cols-[minmax(0,1fr)_320px]">

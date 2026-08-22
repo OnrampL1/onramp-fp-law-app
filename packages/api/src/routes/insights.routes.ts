@@ -2,7 +2,10 @@ import { Router } from "express";
 import { insightsController } from "../controllers/insights.controller";
 import { authenticate, withAuth } from "../middleware/authenticate";
 import { validate } from "../middleware/validate";
-import { insightCategoryParamSchema } from "../schemas/insights.schemas";
+import {
+  insightCategoryContractsQuerySchema,
+  insightCategoryParamSchema,
+} from "../schemas/insights.schemas";
 
 const router = Router();
 
@@ -12,6 +15,7 @@ router.get(
   "/:category/contracts",
   authenticate,
   validate(insightCategoryParamSchema, "params"),
+  validate(insightCategoryContractsQuerySchema, "query"),
   withAuth(insightsController.contractsByCategory),
 );
 

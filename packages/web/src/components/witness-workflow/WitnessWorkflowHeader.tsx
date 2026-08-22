@@ -1,3 +1,4 @@
+import { PenLine } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { ExportIcon, RefreshIcon } from "../shared/icons";
 
@@ -15,13 +16,18 @@ export function WitnessWorkflowHeader({
   onRefresh,
 }: WitnessWorkflowHeaderProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       {/* Title + subtitle */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Witness Workflow</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage witness invitations, secure access links, contract reviews, and witness activity.
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <PenLine className="size-5" aria-hidden="true" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Witness Workflow</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage witness invitations, secure access links, contract reviews, and witness activity.
+          </p>
+        </div>
       </div>
 
       {/* Actions */}
