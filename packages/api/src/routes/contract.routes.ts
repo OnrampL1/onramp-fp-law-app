@@ -54,10 +54,10 @@ router.get(
 );
 
 router.get(
-  "/:id/download",
+  "/:id/file",
   authenticate,
   validate(contractIdParamSchema, "params"),
-  withAuth(contractController.getDownloadUrl),
+  withAuth(contractController.getFile),
 );
 
 router.get(

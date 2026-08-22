@@ -172,7 +172,7 @@ async function getById(
   }
 }
 
-async function getDownloadUrl(
+async function getFile(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
@@ -181,12 +181,32 @@ async function getDownloadUrl(
     const { id } = req.params as unknown as ContractIdParam;
     const organizationId = req.user.orgId;
 
-    const download = await contractService.getContractDownloadUrl(
+    const file = await contractService.getContractFileStream(
       id,
       organizationId,
     );
 
-    res.json({ data: download });
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${file.fileName}"`,
+    );
+    if (file.contentLength !== undefined) {
+      res.setHeader("Content-Length", file.contentLength);
+    }
+
+    file.body.on("error", (err) => {
+      // Headers (and possibly some bytes) may already be on the wire by the
+      // time S3 errors mid-stream — the error-handler middleware always
+      // calls res.status().json(), which throws once headers are sent, so
+      // route that case to destroying the connection instead of next().
+      if (res.headersSent) {
+        res.destroy(err);
+        return;
+      }
+      next(err);
+    });
+    file.body.pipe(res);
   } catch (error) {
     next(error);
   }
@@ -219,6 +239,6 @@ export const contractController = {
   updateContent,
   list,
   getById,
-  getDownloadUrl,
+  getFile,
   getContent,
 };
