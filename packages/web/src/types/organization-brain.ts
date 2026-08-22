@@ -37,11 +37,6 @@ export interface OrganizationBrainItem {
   updatedAt: string;
 }
 
-export interface OrganizationBrainItemDetail extends OrganizationBrainItem {
-  downloadUrl: string;
-  downloadUrlExpiresInSeconds: number;
-}
-
 export interface OrganizationBrainPaginationMeta {
   page: number;
   pageSize: number;

@@ -18,8 +18,14 @@ jest.mock("../../src/services/organization-brain.service", () => ({
     createFromPaste: jest.fn(),
     listItems: jest.fn(),
     getById: jest.fn(),
+    getFileStreamById: jest.fn(),
     deleteById: jest.fn(),
   },
+  // The controller imports this alongside organizationBrainService — real
+  // implementation, not a mock, since it's pure string formatting with no
+  // external dependency of its own.
+  createAttachmentContentDisposition: (fileName: string) =>
+    `attachment; filename="${fileName}"`,
 }));
 
 import { app } from "../../app";
@@ -246,8 +252,7 @@ describe("Organization Brain routes", () => {
       createdByName: "Admin User",
       createdAt: "2026-08-09T00:00:00.000Z",
       updatedAt: "2026-08-09T00:00:00.000Z",
-      downloadUrl: "https://storage.example.com/signed-url",
-      downloadUrlExpiresInSeconds: 900,
+      extractionError: null,
     });
 
     const res = await request(app)
@@ -259,6 +264,31 @@ describe("Organization Brain routes", () => {
       itemId,
       "org-1",
     );
+  });
+
+  it("streams an item's file to any authenticated org member", async () => {
+    const { Readable } = require("node:stream");
+    mockOrganizationBrainService.getFileStreamById.mockResolvedValue({
+      body: Readable.from([Buffer.from("file bytes")]),
+      contentType: "text/plain",
+      contentLength: 10,
+      fileName: "security-policy.txt",
+    });
+
+    const res = await request(app)
+      .get(`/api/organization-brain/${itemId}/file`)
+      .set("Cookie", cookieFor("INTERNAL"));
+
+    expect(res.status).toBe(200);
+    expect(mockOrganizationBrainService.getFileStreamById).toHaveBeenCalledWith(
+      itemId,
+      "org-1",
+    );
+    expect(res.headers["content-type"]).toBe("text/plain");
+    expect(res.headers["content-disposition"]).toBe(
+      'attachment; filename="security-policy.txt"',
+    );
+    expect(res.text).toBe("file bytes");
   });
 
   it("allows admins to delete an item", async () => {

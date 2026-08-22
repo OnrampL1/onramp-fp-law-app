@@ -1,3 +1,4 @@
+import type { Readable } from "node:stream";
 import type {
   OrganizationBrainItemSource,
   OrganizationBrainItemType,
@@ -28,8 +29,13 @@ export interface OrganizationBrainItemListItemDto {
 
 export interface OrganizationBrainItemDetailDto extends OrganizationBrainItemListItemDto {
   extractionError: string | null;
-  downloadUrl: string;
-  downloadUrlExpiresInSeconds: number;
+}
+
+export interface OrganizationBrainFileStreamDto {
+  body: Readable;
+  contentType: string;
+  contentLength: number | undefined;
+  fileName: string;
 }
 
 export type OrganizationBrainItemCreateResultDto = OrganizationBrainItemListItemDto;

@@ -41,7 +41,6 @@ import {
   useCreateOrganizationBrainPaste,
   useCreateOrganizationBrainUpload,
   useDeleteOrganizationBrainItem,
-  useOrganizationBrainItem,
   useOrganizationBrainItems,
 } from "@/hooks/useOrganizationBrain";
 import { isAdminRole } from "@/lib/permissions";
@@ -108,7 +107,6 @@ export function OrganizationBrain() {
   const [content, setContent] = useState("");
   const [deleteTarget, setDeleteTarget] =
     useState<OrganizationBrainItem | null>(null);
-  const [downloadItemId, setDownloadItemId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const listParams = useMemo(
@@ -122,7 +120,6 @@ export function OrganizationBrain() {
   );
 
   const itemsQuery = useOrganizationBrainItems(listParams);
-  const detailQuery = useOrganizationBrainItem(downloadItemId);
   const uploadMutation = useCreateOrganizationBrainUpload();
   const pasteMutation = useCreateOrganizationBrainPaste();
   const deleteMutation = useDeleteOrganizationBrainItem();
@@ -134,12 +131,12 @@ export function OrganizationBrain() {
     setPage(1);
   }, [search, typeFilter]);
 
-  useEffect(() => {
-    if (!detailQuery.data || !downloadItemId) return;
-
-    window.location.assign(detailQuery.data.downloadUrl);
-    setDownloadItemId(null);
-  }, [detailQuery.data, downloadItemId]);
+  // Same-origin streaming route, not a presigned MinIO URL — MinIO has no
+  // public hostname (by design), so a presigned URL handed straight to the
+  // browser would DNS-fail in production.
+  function handleDownload(itemId: string) {
+    window.location.assign(`/api/organization-brain/${itemId}/file`);
+  }
 
   function resetCreateForm() {
     setTitle("");
@@ -500,11 +497,7 @@ export function OrganizationBrain() {
                             size="sm"
                             variant="outline"
                             className="gap-2"
-                            onClick={() => setDownloadItemId(item.id)}
-                            disabled={
-                              detailQuery.isFetching &&
-                              downloadItemId === item.id
-                            }
+                            onClick={() => handleDownload(item.id)}
                           >
                             <Download className="size-4" aria-hidden="true" />
                             Download
@@ -578,12 +571,6 @@ export function OrganizationBrain() {
               Next
             </Button>
           </div>
-        </div>
-      )}
-
-      {detailQuery.isError && downloadItemId && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          Couldn't prepare the download link. Try again.
         </div>
       )}
 

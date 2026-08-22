@@ -131,12 +131,6 @@ export interface ContractDetailResponse {
   updatedAt: string;
 }
 
-export interface ContractDownloadUrlResponse {
-  fileUrl: string;
-  fileUrlExpiresInSeconds: number;
-  fileName: string;
-}
-
 // Full-replace payload for PUT /contracts/:id/metadata — every field is
 // resent with its current value (touched or not), plus the `version` the
 // form was loaded with so the API can detect a concurrent edit (DDS §1.8).

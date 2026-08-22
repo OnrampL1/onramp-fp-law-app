@@ -5,7 +5,7 @@ import {
   extractionQueue,
   getPrismaClient,
   uploadFile,
-  getPresignedUrl,
+  getFileStream,
   deriveLegalState,
   enqueueContractAnalysis,
   PLACEHOLDER_CONTRACT_TITLE,
@@ -27,7 +27,7 @@ import type {
 import type {
   ContractContentDto,
   ContractDetailDto,
-  ContractDownloadUrlDto,
+  ContractFileStreamDto,
   ContractListFilters,
   ContractListItemDto,
   ContractListPagination,
@@ -621,15 +621,10 @@ async function getContractById(
   return toContractDetailDto(contract, organizationId);
 }
 
-// Mirrors WITNESS_FILE_URL_EXPIRES_IN_SECONDS in witness.service.ts — same
-// short-lived rationale, kept separate since the two call sites have
-// unrelated auth models (regular authenticated user vs. external witness).
-const CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS = 15 * 60;
-
-async function getContractDownloadUrl(
+async function getContractFileStream(
   id: string,
   organizationId: string,
-): Promise<ContractDownloadUrlDto> {
+): Promise<ContractFileStreamDto> {
   const contract = await contractRepository.findById(id, organizationId);
 
   if (!contract) {
@@ -637,18 +632,14 @@ async function getContractDownloadUrl(
   }
 
   const fileName = extractFileNameFromKey(contract.fileKey);
-
-  const fileUrl = await getPresignedUrl(
+  const { body, contentType, contentLength } = await getFileStream(
     contract.fileKey,
-    CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
-    {
-      responseContentDisposition: `inline; filename="${fileName}"`,
-    },
   );
 
   return {
-    fileUrl,
-    fileUrlExpiresInSeconds: CONTRACT_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
+    body,
+    contentType: contentType ?? "application/octet-stream",
+    contentLength,
     fileName,
   };
 }
@@ -677,6 +668,6 @@ export const contractService = {
   updateContractContent,
   listContracts,
   getContractById,
-  getContractDownloadUrl,
+  getContractFileStream,
   getContractContent,
 };

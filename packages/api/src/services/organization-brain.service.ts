@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import {
-  getPresignedUrl,
+  getFileStream,
   uploadFile,
   deleteFile,
   getPrismaClient,
@@ -19,6 +19,7 @@ import type {
   CreateOrganizationBrainUploadInput,
 } from "../schemas/organization-brain.schemas";
 import type {
+  OrganizationBrainFileStreamDto,
   OrganizationBrainItemCreateResultDto,
   OrganizationBrainItemDetailDto,
   OrganizationBrainItemListFilters,
@@ -29,7 +30,6 @@ import type {
 
 const prisma = getPrismaClient();
 
-const ORGANIZATION_BRAIN_DOWNLOAD_URL_EXPIRES_IN_SECONDS = 15 * 60;
 const UUID_PREFIX_LENGTH = 37;
 
 export interface OrganizationBrainActor {
@@ -172,24 +172,16 @@ function toListItemDto(
   };
 }
 
-function createAttachmentContentDisposition(fileName: string): string {
+export function createAttachmentContentDisposition(fileName: string): string {
   const asciiFileName = fileName.replace(/["\\\r\n]/g, "_");
 
   return `attachment; filename="${asciiFileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
-async function toDetailDto(
+function toDetailDto(
   row: OrganizationBrainItemDetailRow,
-): Promise<OrganizationBrainItemDetailDto> {
+): OrganizationBrainItemDetailDto {
   const fileName = row.fileName ?? extractFileNameFromKey(row.storageKey);
-  const downloadUrl = await getPresignedUrl(
-    row.storageKey,
-    ORGANIZATION_BRAIN_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
-    {
-      responseContentDisposition: createAttachmentContentDisposition(fileName),
-      responseContentType: row.mimeType,
-    },
-  );
 
   return {
     id: row.id,
@@ -203,9 +195,6 @@ async function toDetailDto(
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     extractionError: row.extractionError,
-    downloadUrl,
-    downloadUrlExpiresInSeconds:
-      ORGANIZATION_BRAIN_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
   };
 }
 
@@ -376,6 +365,29 @@ async function getById(
   return toDetailDto(item);
 }
 
+async function getFileStreamById(
+  id: string,
+  organizationId: string,
+): Promise<OrganizationBrainFileStreamDto> {
+  const item = await organizationBrainRepository.findById(id, organizationId);
+
+  if (!item) {
+    throw createError("Organization brain item not found", 404);
+  }
+
+  const fileName = item.fileName ?? extractFileNameFromKey(item.storageKey);
+  const { body, contentType, contentLength } = await getFileStream(
+    item.storageKey,
+  );
+
+  return {
+    body,
+    contentType: contentType ?? item.mimeType,
+    contentLength,
+    fileName,
+  };
+}
+
 async function deleteById(
   id: string,
   actor: OrganizationBrainActor,
@@ -434,5 +446,6 @@ export const organizationBrainService = {
   createFromPaste,
   listItems,
   getById,
+  getFileStreamById,
   deleteById,
 };

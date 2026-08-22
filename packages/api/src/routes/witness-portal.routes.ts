@@ -19,4 +19,12 @@ router.get(
   withWitnessSession(witnessController.getContract),
 );
 
+// Streams the contract's source file — separate from /contract (JSON
+// metadata) since this response is a binary body, not JSON.
+router.get(
+  "/contract/file",
+  witnessSessionMiddleware,
+  withWitnessSession(witnessController.getContractFile),
+);
+
 export { router as witnessPortalRouter };

@@ -3,7 +3,6 @@ import type {
   CreateOrganizationBrainPastePayload,
   CreateOrganizationBrainUploadPayload,
   OrganizationBrainItem,
-  OrganizationBrainItemDetail,
   OrganizationBrainListParams,
   OrganizationBrainListResult,
 } from "@/types/organization-brain";
@@ -26,16 +25,6 @@ export async function fetchOrganizationBrainItems(
   const response = await apiClient.get<
     ApiEnvelope<OrganizationBrainListResult>
   >("/organization-brain", { params: query });
-
-  return response.data.data;
-}
-
-export async function fetchOrganizationBrainItem(
-  itemId: string,
-): Promise<OrganizationBrainItemDetail> {
-  const response = await apiClient.get<
-    ApiEnvelope<OrganizationBrainItemDetail>
-  >(`/organization-brain/${itemId}`);
 
   return response.data.data;
 }

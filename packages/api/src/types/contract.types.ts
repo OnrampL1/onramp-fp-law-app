@@ -1,3 +1,4 @@
+import type { Readable } from "node:stream";
 import type {
   ContractBusinessStatus,
   ContractLegalState,
@@ -87,9 +88,10 @@ export interface ContractDetailDto {
   updatedAt: string;
 }
 
-export interface ContractDownloadUrlDto {
-  fileUrl: string;
-  fileUrlExpiresInSeconds: number;
+export interface ContractFileStreamDto {
+  body: Readable;
+  contentType: string;
+  contentLength: number | undefined;
   fileName: string;
 }
 

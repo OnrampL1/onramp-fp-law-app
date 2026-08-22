@@ -1,3 +1,4 @@
+import type { Readable } from "node:stream";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -95,6 +96,41 @@ export async function downloadFile(key: string): Promise<Buffer> {
   }
 
   return Buffer.concat(chunks);
+}
+
+export interface FileStreamResult {
+  body: Readable;
+  contentType: string | undefined;
+  contentLength: number | undefined;
+}
+
+// Streams the object's bytes through this process rather than handing the
+// caller a presigned URL — for anything the browser will load directly,
+// a presigned URL is signed against S3_ENDPOINT (the internal Docker
+// hostname in production), which the browser can never resolve. This is
+// the only way to get object bytes to a browser client; getPresignedUrl
+// remains correct for server-to-server / internal-network use.
+export async function getFileStream(key: string): Promise<FileStreamResult> {
+  const bucket = getRequiredEnv("S3_BUCKET");
+
+  let response;
+  try {
+    response = await getS3Client().send(
+      new GetObjectCommand({ Bucket: bucket, Key: key }),
+    );
+  } catch {
+    throw new Error("Could not retrieve contract file");
+  }
+
+  if (!response.Body) {
+    throw new Error("Could not retrieve contract file");
+  }
+
+  return {
+    body: response.Body as Readable,
+    contentType: response.ContentType,
+    contentLength: response.ContentLength,
+  };
 }
 
 interface PresignedUrlOptions {

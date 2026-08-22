@@ -24,7 +24,7 @@ const mockDb = {
 };
 
 const mockEmailQueueAdd = jest.fn();
-const mockGetPresignedUrl = jest.fn();
+const mockGetFileStream = jest.fn();
 
 jest.mock("@starter-kit/shared", () => ({
   getPrismaClient: () => mockDb,
@@ -33,11 +33,11 @@ jest.mock("@starter-kit/shared", () => ({
   signWitnessSessionToken: (witnessInvitationId: string) =>
     `session-for-${witnessInvitationId}`,
   emailQueue: { add: (...args: unknown[]) => mockEmailQueueAdd(...args) },
-  // getPresignedUrl lives in packages/shared/storage/client.ts, re-exported
+  // getFileStream lives in packages/shared/storage/client.ts, re-exported
   // through @starter-kit/shared's index — not a local packages/api module,
   // so it's mocked here alongside the rest of the package rather than via a
   // separate jest.mock on a path that doesn't exist in this package.
-  getPresignedUrl: (...args: unknown[]) => mockGetPresignedUrl(...args),
+  getFileStream: (...args: unknown[]) => mockGetFileStream(...args),
 }));
 
 import { witnessService } from "../../src/services/witness.service";
@@ -651,7 +651,6 @@ describe("WitnessService.getWitnessScopedContract", () => {
 
   it("looks up the contract scoped to the given id and excludes soft-deleted rows", async () => {
     mockDb.contract.findFirst.mockResolvedValue(baseContractRow());
-    mockGetPresignedUrl.mockResolvedValue("https://s3.example.com/signed-url");
 
     await witnessService.getWitnessScopedContract("contract-1");
 
@@ -664,7 +663,6 @@ describe("WitnessService.getWitnessScopedContract", () => {
 
   it("selects only witness-safe fields — never notes, aiAnalyses, org/user identity, or raw file fields", async () => {
     mockDb.contract.findFirst.mockResolvedValue(baseContractRow());
-    mockGetPresignedUrl.mockResolvedValue("https://s3.example.com/signed-url");
 
     await witnessService.getWitnessScopedContract("contract-1");
 
@@ -682,25 +680,10 @@ describe("WitnessService.getWitnessScopedContract", () => {
     await expect(
       witnessService.getWitnessScopedContract("missing-contract"),
     ).rejects.toMatchObject({ statusCode: 404 });
-    expect(mockGetPresignedUrl).not.toHaveBeenCalled();
   });
 
-  it("generates a short-lived presigned URL from the contract's fileKey", async () => {
+  it("returns metadata + extractedText but never the raw fileKey or any internal fields", async () => {
     mockDb.contract.findFirst.mockResolvedValue(baseContractRow());
-    mockGetPresignedUrl.mockResolvedValue("https://s3.example.com/signed-url");
-
-    const result = await witnessService.getWitnessScopedContract("contract-1");
-
-    expect(mockGetPresignedUrl).toHaveBeenCalledWith(
-      "contracts/org-1/file.pdf",
-      15 * 60,
-    );
-    expect(result.fileUrl).toBe("https://s3.example.com/signed-url");
-  });
-
-  it("returns metadata + extractedText + fileUrl but never the raw fileKey or any internal fields", async () => {
-    mockDb.contract.findFirst.mockResolvedValue(baseContractRow());
-    mockGetPresignedUrl.mockResolvedValue("https://s3.example.com/signed-url");
 
     const result = await witnessService.getWitnessScopedContract("contract-1");
 
@@ -716,10 +699,9 @@ describe("WitnessService.getWitnessScopedContract", () => {
       processingStatus: "EXTRACTION_COMPLETED",
       processingError: null,
       extractedText: "Full contract text...",
-      fileUrl: "https://s3.example.com/signed-url",
-      fileUrlExpiresInSeconds: 900,
     });
     expect(result).not.toHaveProperty("fileKey");
+    expect(result).not.toHaveProperty("fileUrl");
     expect(result).not.toHaveProperty("notes");
     expect(result).not.toHaveProperty("aiAnalyses");
   });
@@ -730,12 +712,60 @@ describe("WitnessService.getWitnessScopedContract", () => {
       processingStatus: "EXTRACTION_FAILED",
       processingError: "Unsupported file format",
     });
-    mockGetPresignedUrl.mockResolvedValue("https://s3.example.com/signed-url");
 
     const result = await witnessService.getWitnessScopedContract("contract-1");
 
     expect(result.processingStatus).toBe("EXTRACTION_FAILED");
     expect(result.processingError).toBe("Unsupported file format");
+  });
+});
+
+describe("WitnessService.getWitnessScopedContractFile", () => {
+  it("looks up only the fileKey, scoped to the given id, and excludes soft-deleted rows", async () => {
+    mockDb.contract.findFirst.mockResolvedValue({
+      fileKey: "contracts/org-1/file.pdf",
+    });
+    mockGetFileStream.mockResolvedValue({
+      body: "stream-placeholder",
+      contentType: "application/pdf",
+      contentLength: 1024,
+    });
+
+    await witnessService.getWitnessScopedContractFile("contract-1");
+
+    expect(mockDb.contract.findFirst).toHaveBeenCalledWith({
+      where: { id: "contract-1", deletedAt: null },
+      select: { fileKey: true },
+    });
+  });
+
+  it("throws 404 when the contract doesn't exist or is soft-deleted", async () => {
+    mockDb.contract.findFirst.mockResolvedValue(null);
+
+    await expect(
+      witnessService.getWitnessScopedContractFile("missing-contract"),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockGetFileStream).not.toHaveBeenCalled();
+  });
+
+  it("streams the object from the contract's fileKey and defaults contentType when S3 omits it", async () => {
+    mockDb.contract.findFirst.mockResolvedValue({
+      fileKey: "contracts/org-1/file.pdf",
+    });
+    mockGetFileStream.mockResolvedValue({
+      body: "stream-placeholder",
+      contentType: undefined,
+      contentLength: 1024,
+    });
+
+    const result = await witnessService.getWitnessScopedContractFile("contract-1");
+
+    expect(mockGetFileStream).toHaveBeenCalledWith("contracts/org-1/file.pdf");
+    expect(result).toEqual({
+      body: "stream-placeholder",
+      contentType: "application/octet-stream",
+      contentLength: 1024,
+    });
   });
 });
 

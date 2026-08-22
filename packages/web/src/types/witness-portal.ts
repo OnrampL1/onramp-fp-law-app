@@ -35,6 +35,4 @@ export interface WitnessPortalContract {
   processingStatus: ContractDetailResponse["processingStatus"];
   processingError: string | null;
   extractedText: string | null;
-  fileUrl: string;
-  fileUrlExpiresInSeconds: number;
 }

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { useContractFile } from "@/hooks/useContractDetail";
+import { useContractDetail } from "@/hooks/useContractDetail";
 
 // A minimal, chrome-free page (registered outside AppLayout in routes/index.tsx)
 // opened in its own tab by ContractDetails' Download button. Its only job is
@@ -9,11 +9,15 @@ import { useContractFile } from "@/hooks/useContractDetail";
 // PDFium) prefer the file's own embedded document metadata over anything we
 // send in headers, so the only reliable way to force the real contract name
 // onto the tab is to navigate to our own HTML page (whose <title> always
-// wins) and embed the file inside it, rather than navigating directly to the
-// presigned S3 URL.
+// wins) and embed the file inside it.
+//
+// The iframe points at GET /contracts/:id/file, which streams the file
+// through the API rather than redirecting to a presigned MinIO URL — MinIO
+// has no public hostname (by design, see Clausio_Deployment_Architecture.md),
+// so a presigned URL handed straight to the browser 404s/DNS-fails there.
 export default function ContractFileViewer() {
   const { id } = useParams<{ id: string }>();
-  const { data, isLoading, isError } = useContractFile(id);
+  const { data, isLoading, isError } = useContractDetail(id);
 
   useEffect(() => {
     if (data?.fileName) {
@@ -30,7 +34,7 @@ export default function ContractFileViewer() {
     );
   }
 
-  if (isError || !data) {
+  if (isError || !data || !id) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
         <p className="font-medium text-foreground">Couldn't load this file</p>
@@ -41,7 +45,7 @@ export default function ContractFileViewer() {
 
   return (
     <iframe
-      src={data.fileUrl}
+      src={`/api/contracts/${id}/file`}
       title={data.fileName}
       className="h-screen w-full border-0"
     />

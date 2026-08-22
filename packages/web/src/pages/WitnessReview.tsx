@@ -214,8 +214,12 @@ export function WitnessReview() {
     ? new Date(usedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
     : null;
 
+  // Same-origin streaming route, not a presigned MinIO URL — MinIO has no
+  // public hostname (by design), so a presigned URL handed straight to the
+  // browser would DNS-fail. No contract id in the path: the witness session
+  // cookie (set on link redemption) already scopes the request server-side.
   function handleDownload() {
-    window.open(contract.fileUrl, "_blank", "noopener,noreferrer");
+    window.open("/api/witness/contract/file", "_blank", "noopener,noreferrer");
   }
 
   return (

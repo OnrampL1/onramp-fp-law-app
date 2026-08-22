@@ -6,14 +6,14 @@ const mockPrisma = {
 
 const mockUploadFile = jest.fn();
 const mockDeleteFile = jest.fn();
-const mockGetPresignedUrl = jest.fn();
+const mockGetFileStream = jest.fn();
 const mockOrganizationBrainEmbeddingsQueue = { add: jest.fn() };
 
 jest.mock("@starter-kit/shared", () => ({
   getPrismaClient: () => mockPrisma,
   uploadFile: mockUploadFile,
   deleteFile: mockDeleteFile,
-  getPresignedUrl: mockGetPresignedUrl,
+  getFileStream: mockGetFileStream,
   organizationBrainEmbeddingsQueue: mockOrganizationBrainEmbeddingsQueue,
 }));
 
@@ -106,7 +106,11 @@ beforeEach(() => {
   mockPrisma.user.findFirst.mockResolvedValue(activeUser);
   mockUploadFile.mockResolvedValue(undefined);
   mockDeleteFile.mockResolvedValue(undefined);
-  mockGetPresignedUrl.mockResolvedValue("https://signed.example.com/file");
+  mockGetFileStream.mockResolvedValue({
+    body: "stream-placeholder",
+    contentType: "application/pdf",
+    contentLength: 12,
+  });
 
   mockOrganizationBrainRepository.create.mockResolvedValue(
     createRepositoryRow(),
@@ -383,21 +387,12 @@ describe("OrganizationBrainService.listItems", () => {
 });
 
 describe("OrganizationBrainService.getById", () => {
-  it("returns item details with a short-lived download URL", async () => {
+  it("returns item details without exposing the raw storage key", async () => {
     const result = await organizationBrainService.getById("brain-1", "org-1");
 
     expect(mockOrganizationBrainRepository.findById).toHaveBeenCalledWith(
       "brain-1",
       "org-1",
-    );
-    expect(mockGetPresignedUrl).toHaveBeenCalledWith(
-      "organization-brain/org-1/file-id-Vendor-MSA.pdf",
-      900,
-      {
-        responseContentDisposition:
-          "attachment; filename=\"Vendor-MSA.pdf\"; filename*=UTF-8''Vendor-MSA.pdf",
-        responseContentType: "application/pdf",
-      },
     );
 
     expect(result).toEqual({
@@ -412,9 +407,9 @@ describe("OrganizationBrainService.getById", () => {
       createdAt: "2026-08-09T10:00:00.000Z",
       updatedAt: "2026-08-09T10:05:00.000Z",
       extractionError: null,
-      downloadUrl: "https://signed.example.com/file",
-      downloadUrlExpiresInSeconds: 900,
     });
+    expect(result).not.toHaveProperty("storageKey");
+    expect(result).not.toHaveProperty("downloadUrl");
   });
 
   it("throws 404 when the item is missing or belongs to another organization", async () => {
@@ -423,8 +418,54 @@ describe("OrganizationBrainService.getById", () => {
     await expect(
       organizationBrainService.getById("brain-1", "org-2"),
     ).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
 
-    expect(mockGetPresignedUrl).not.toHaveBeenCalled();
+describe("OrganizationBrainService.getFileStreamById", () => {
+  it("streams the object from the item's storageKey", async () => {
+    const result = await organizationBrainService.getFileStreamById(
+      "brain-1",
+      "org-1",
+    );
+
+    expect(mockOrganizationBrainRepository.findById).toHaveBeenCalledWith(
+      "brain-1",
+      "org-1",
+    );
+    expect(mockGetFileStream).toHaveBeenCalledWith(
+      "organization-brain/org-1/file-id-Vendor-MSA.pdf",
+    );
+    expect(result).toEqual({
+      body: "stream-placeholder",
+      contentType: "application/pdf",
+      contentLength: 12,
+      fileName: "Vendor-MSA.pdf",
+    });
+  });
+
+  it("falls back to the stored mimeType when S3 omits a content type", async () => {
+    mockGetFileStream.mockResolvedValue({
+      body: "stream-placeholder",
+      contentType: undefined,
+      contentLength: 12,
+    });
+
+    const result = await organizationBrainService.getFileStreamById(
+      "brain-1",
+      "org-1",
+    );
+
+    expect(result.contentType).toBe("application/pdf");
+  });
+
+  it("throws 404 when the item is missing or belongs to another organization", async () => {
+    mockOrganizationBrainRepository.findById.mockResolvedValue(null);
+
+    await expect(
+      organizationBrainService.getFileStreamById("brain-1", "org-2"),
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    expect(mockGetFileStream).not.toHaveBeenCalled();
   });
 });
 
