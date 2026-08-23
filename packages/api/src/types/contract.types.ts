@@ -47,6 +47,7 @@ export interface ContractListItemDto {
   effectiveDate: string | null;
   expirationDate: string | null;
   updatedAt: string;
+  version: number;
 }
 
 export interface PaginationMeta {

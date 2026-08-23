@@ -4,6 +4,7 @@ import { contractService } from "../services/contract.service";
 import { createContractMetadataSchema } from "../schemas/contract.schemas";
 import type {
   ContractIdParam,
+  DeleteContractInput,
   ListContractsQuery,
   UpdateContractContentInput,
   UpdateContractMetadataInput,
@@ -99,6 +100,34 @@ async function setLegalState(
     );
 
     res.json({ data: contract });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function remove(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as unknown as ContractIdParam;
+    const input = req.body as DeleteContractInput;
+
+    await contractService.deleteContract(
+      id,
+      input,
+      {
+        userId: req.user.userId,
+        organizationId: req.user.orgId,
+      },
+      {
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      },
+    );
+
+    res.status(204).send();
   } catch (error) {
     next(error);
   }
@@ -236,6 +265,7 @@ export const contractController = {
   upload,
   updateMetadata,
   setLegalState,
+  remove,
   updateContent,
   list,
   getById,

@@ -8,6 +8,7 @@ import { parseContractUploadFile } from "../middleware/contract-upload.middlewar
 import { ADMIN_ROLES } from "@starter-kit/shared";
 import {
   contractIdParamSchema,
+  deleteContractSchema,
   listContractsQuerySchema,
   setContractLegalStateSchema,
   updateContractContentSchema,
@@ -102,6 +103,19 @@ router.put(
   validate(contractIdParamSchema, "params"),
   validate(updateContractContentSchema, "body"),
   withAuth(contractController.updateContent),
+);
+
+// Soft delete (Domain & Business Rules: only Owner/Admin, same narrower set
+// as the legal-state override — this is at least as sensitive). Version-
+// gated like every other contract mutation; the row is filtered out of all
+// reads afterward via deletedAt, never physically removed.
+router.delete(
+  "/:id",
+  authenticate,
+  authorize("OWNER", "ADMIN"),
+  validate(contractIdParamSchema, "params"),
+  validate(deleteContractSchema, "body"),
+  withAuth(contractController.remove),
 );
 
 // Thin wrapper over the same org-wide audit service, contractId pre-filled

@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Prisma } from "@prisma/client";
 import {
   deleteFile,
-  getPresignedUrl,
+  getFileStream,
   getPrismaClient,
   isAdminRole,
   isOwnerRole,
@@ -11,10 +11,7 @@ import {
   type OrganizationNotificationPreferences,
 } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
-import {
-  ALLOWED_ORGANIZATION_LOGO_EXTENSIONS,
-  ORGANIZATION_LOGO_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
-} from "../constants/organization-logo.constants";
+import { ALLOWED_ORGANIZATION_LOGO_EXTENSIONS } from "../constants/organization-logo.constants";
 import type { UpdateOrganizationSettingsInput } from "../schemas/settings.schemas";
 
 const prisma = getPrismaClient();
@@ -128,11 +125,14 @@ async function toOrganizationSettingsResponse(
   const role = organization.members[0]?.role;
   const logoStorageKey = organization.settings?.logoStorageKey ?? null;
 
+  // Same-origin streaming route, not a presigned MinIO URL — MinIO has no
+  // public hostname (by design), so a presigned URL handed straight to the
+  // browser's <img> tag DNS-fails outside the Docker network (same issue
+  // already fixed for organization brain / contract downloads). The
+  // storageKey query param busts the browser's image cache after a logo
+  // change, since the URL path itself never changes.
   const logoUrl = logoStorageKey
-    ? await getPresignedUrl(
-        logoStorageKey,
-        ORGANIZATION_LOGO_DOWNLOAD_URL_EXPIRES_IN_SECONDS,
-      )
+    ? `/api/settings/organization/logo?v=${encodeURIComponent(logoStorageKey)}`
     : null;
 
   return {
@@ -146,9 +146,7 @@ async function toOrganizationSettingsResponse(
       timezone: organization.settings?.timezone ?? "UTC",
       language: organization.settings?.language ?? "en",
       logoUrl,
-      logoUrlExpiresInSeconds: logoUrl
-        ? ORGANIZATION_LOGO_DOWNLOAD_URL_EXPIRES_IN_SECONDS
-        : null,
+      logoUrlExpiresInSeconds: null,
       notificationPreferences:
         organization.settings?.notificationPreferences ?? null,
       branding: organization.settings?.branding ?? null,
@@ -249,6 +247,32 @@ export class SettingsService {
     }
 
     return await toOrganizationSettingsResponse(organization);
+  }
+
+  async getOrganizationLogoFile(actor: SettingsActor) {
+    const organization = await findOrganizationWithSettings(
+      actor.organizationId,
+      actor.userId,
+    );
+
+    if (!organization) {
+      throw createError("Organization settings not found", 404);
+    }
+
+    const storageKey = organization.settings?.logoStorageKey ?? null;
+
+    if (!storageKey) {
+      throw createError("Organization has no logo", 404);
+    }
+
+    const { body, contentType, contentLength } =
+      await getFileStream(storageKey);
+
+    return {
+      body,
+      contentType: contentType ?? "application/octet-stream",
+      contentLength,
+    };
   }
 
   async updateOrganizationSettings(

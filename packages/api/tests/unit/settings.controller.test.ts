@@ -1,4 +1,5 @@
 import request from "supertest";
+import { Readable } from "node:stream";
 
 const mockPrisma = {
   user: {
@@ -15,6 +16,7 @@ jest.mock("@starter-kit/shared", () => ({
 jest.mock("../../src/services/settings.service", () => ({
   settingsService: {
     getOrganizationSettings: jest.fn(),
+    getOrganizationLogoFile: jest.fn(),
     updateOrganizationSettings: jest.fn(),
     uploadOrganizationLogo: jest.fn(),
     deleteOrganizationLogo: jest.fn(),
@@ -131,6 +133,51 @@ describe("GET /api/settings/organization", () => {
       organizationId: "org-1",
       role: "ADMIN",
     });
+  });
+});
+
+describe("GET /api/settings/organization/logo", () => {
+  it("returns 401 with no session", async () => {
+    const res = await request(app).get("/api/settings/organization/logo");
+
+    expect(res.status).toBe(401);
+    expect(mockSettingsService.getOrganizationLogoFile).not.toHaveBeenCalled();
+  });
+
+  it("streams the logo to any authenticated org member, inline (no attachment disposition)", async () => {
+    mockSettingsService.getOrganizationLogoFile.mockResolvedValue({
+      body: Readable.from([Buffer.from("fake-png-bytes")]),
+      contentType: "image/png",
+      contentLength: 14,
+    });
+
+    const res = await request(app)
+      .get("/api/settings/organization/logo")
+      .set("Cookie", cookieFor("INTERNAL"));
+
+    expect(res.status).toBe(200);
+    expect(mockSettingsService.getOrganizationLogoFile).toHaveBeenCalledWith({
+      userId: "user-1",
+      organizationId: "org-1",
+      role: "INTERNAL",
+    });
+    expect(res.headers["content-type"]).toBe("image/png");
+    expect(res.headers["content-disposition"]).toBeUndefined();
+    expect(Buffer.from(res.body).toString()).toBe("fake-png-bytes");
+  });
+
+  it("propagates a 404 when the organization has no logo", async () => {
+    mockSettingsService.getOrganizationLogoFile.mockRejectedValue(
+      Object.assign(new Error("Organization has no logo"), {
+        statusCode: 404,
+      }),
+    );
+
+    const res = await request(app)
+      .get("/api/settings/organization/logo")
+      .set("Cookie", cookieFor("INTERNAL"));
+
+    expect(res.status).toBe(404);
   });
 });
 

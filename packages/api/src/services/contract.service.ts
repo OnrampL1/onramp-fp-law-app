@@ -20,6 +20,7 @@ import {
 } from "../repositories/contract.repository";
 import type {
   CreateContractMetadataInput,
+  DeleteContractInput,
   SetContractLegalStateInput,
   UpdateContractContentInput,
   UpdateContractMetadataInput,
@@ -390,6 +391,53 @@ async function setContractLegalState(
   return toContractDetailDto(updated, user.organizationId);
 }
 
+// ─── Delete (soft delete) ───────────────────────────────────────────────
+
+export interface DeleteContractActor {
+  userId: string;
+  organizationId: string;
+}
+
+async function deleteContract(
+  id: string,
+  input: DeleteContractInput,
+  actor: DeleteContractActor,
+  requestContext: { ipAddress?: string; userAgent?: string },
+): Promise<void> {
+  const user = await getActiveOrganizationUser(
+    actor.userId,
+    actor.organizationId,
+  );
+
+  const existing = await contractRepository.findById(id, user.organizationId);
+
+  if (!existing) {
+    throw createError("Contract not found", 404);
+  }
+
+  const deleted = await contractRepository.softDelete(
+    id,
+    user.organizationId,
+    input.version,
+    {
+      action: "CONTRACT_SOFT_DELETED",
+      actorType: "USER",
+      actorUserId: user.id,
+      organizationId: user.organizationId,
+      oldValue: { title: existing.title },
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+    },
+  );
+
+  if (!deleted) {
+    throw createError(
+      "This contract was updated by someone else. Reload to see the latest version.",
+      409,
+    );
+  }
+}
+
 // ─── Content (extracted text edit) ─────────────────────────────────────
 
 export interface UpdateContractContentActor {
@@ -546,6 +594,7 @@ async function toContractListItemDto(
       ? row.expirationDate.toISOString().slice(0, 10)
       : null,
     updatedAt: row.updatedAt.toISOString(),
+    version: row.version,
   };
 }
 
@@ -665,6 +714,7 @@ export const contractService = {
   uploadContract,
   updateContractMetadata,
   setContractLegalState,
+  deleteContract,
   updateContractContent,
   listContracts,
   getContractById,

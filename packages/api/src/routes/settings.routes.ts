@@ -13,6 +13,13 @@ router.use(authenticate);
 
 router.get("/organization", settingsController.getOrganizationSettings);
 
+// No authorize restriction — any authenticated org member sees the logo
+// (it renders in the sidebar for everyone), not just admins.
+router.get(
+  "/organization/logo",
+  settingsController.getOrganizationLogoFile,
+);
+
 router.put(
   "/organization",
   authorize(...ADMIN_ROLES),

@@ -230,6 +230,54 @@ const setLegalState = async (
 };
 
 /**
+ * Optimistic-concurrency soft delete — same version-gated updateMany
+ * pattern as the other mutations, but sets deletedAt instead of returning
+ * the row (every other repository read already filters `deletedAt: null`,
+ * so there is nothing left to hand back to the caller on success).
+ */
+const softDelete = async (
+  id: string,
+  organizationId: string,
+  expectedVersion: number,
+  audit: ContractAuditEntry,
+): Promise<boolean> => {
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.contract.updateMany({
+      where: {
+        id,
+        organizationId,
+        version: expectedVersion,
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: new Date(),
+        version: { increment: 1 },
+      },
+    });
+
+    if (result.count !== 1) {
+      return false;
+    }
+
+    await auditService.logEvent(tx, {
+      organizationId: audit.organizationId,
+      actorType: audit.actorType,
+      actorUserId: audit.actorUserId,
+      action: audit.action,
+      targetEntityType: "Contract",
+      targetEntityId: id,
+      contractId: id,
+      oldValue: audit.oldValue as Prisma.InputJsonValue | undefined,
+      newValue: audit.newValue as Prisma.InputJsonValue | undefined,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+
+    return true;
+  });
+};
+
+/**
  * Optimistic-concurrency update for extracted-text edits — same
  * version-gated updateMany pattern as updateMetadata/setLegalState, but
  * touching only extractedText (title/counterparty/tags/dates/legalState
@@ -416,6 +464,7 @@ export const contractRepository = {
   createUploadedContract,
   updateMetadata,
   setLegalState,
+  softDelete,
   updateContent,
   correctLegalState,
   findMany,

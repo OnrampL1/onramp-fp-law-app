@@ -82,6 +82,7 @@ export interface ContractListItem {
   effectiveDate: string | null;
   expirationDate: string | null;
   updatedAt: string;
+  version: number;
 }
 
 export interface ContractListPaginationMeta {
@@ -156,5 +157,9 @@ export interface SetContractLegalStatePayload {
 
 export interface UpdateContractContentPayload {
   extractedText: string;
+  version: number;
+}
+
+export interface DeleteContractPayload {
   version: number;
 }
