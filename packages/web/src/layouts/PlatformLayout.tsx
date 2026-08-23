@@ -69,7 +69,10 @@ export function PlatformLayout() {
             <div className="leading-tight">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-semibold">Clausio</p>
-                <Badge variant="secondary" className="gap-1">
+                <Badge
+                  variant="outline"
+                  className="gap-1 border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950 dark:text-indigo-100"
+                >
                   <ShieldAlert className="size-3" />
                   Platform
                 </Badge>

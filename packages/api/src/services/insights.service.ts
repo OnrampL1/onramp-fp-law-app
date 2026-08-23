@@ -43,12 +43,27 @@ async function getSummary(organizationId: string): Promise<InsightsSummaryDto> {
 async function getContractsForCategory(
   organizationId: string,
   category: RiskCategory,
+  pagination: { page: number; pageSize: number },
 ): Promise<InsightCategoryContractsDto> {
-  const rows = await insightsRepository.getContractsByCategory(
-    organizationId,
+  const [rows, total] = await Promise.all([
+    insightsRepository.getContractsByCategory(
+      organizationId,
+      category,
+      pagination,
+    ),
+    insightsRepository.countContractsByCategory(organizationId, category),
+  ]);
+
+  return {
     category,
-  );
-  return { category, contracts: rows.map(toContractItemDto) };
+    contracts: rows.map(toContractItemDto),
+    pagination: {
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      total,
+      totalPages: Math.ceil(total / pagination.pageSize),
+    },
+  };
 }
 
 export const insightsService = {

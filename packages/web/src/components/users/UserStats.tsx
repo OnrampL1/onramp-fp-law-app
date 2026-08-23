@@ -14,6 +14,7 @@ type StatItem = {
   value: number;
   description: string;
   icon: LucideIcon;
+  iconClassName: string;
 };
 
 export function UserStats({ users }: UserStatsProps) {
@@ -30,24 +31,32 @@ export function UserStats({ users }: UserStatsProps) {
       value: activeUsers.length,
       description: "All workspace accounts",
       icon: UsersRound,
+      iconClassName:
+        "bg-slate-50 text-slate-600 dark:bg-slate-950 dark:text-slate-300",
     },
     {
       label: "Administrators",
       value: activeUsers.filter((user) => isAdminRole(user.role)).length,
       description: "Can manage access",
       icon: ShieldCheck,
+      iconClassName:
+        "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
     },
     {
       label: "Internal users",
       value: activeUsers.filter((user) => user.role === "INTERNAL").length,
       description: "Read-only contract access",
       icon: UserRound,
+      iconClassName:
+        "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300",
     },
     {
       label: "Pending invites",
       value: users.filter((user) => user.source === "invitation").length,
       description: "Awaiting acceptance",
       icon: Clock,
+      iconClassName:
+        "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
     },
   ];
 
@@ -68,7 +77,9 @@ export function UserStats({ users }: UserStatsProps) {
                 </p>
               </div>
 
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+              <div
+                className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${stat.iconClassName}`}
+              >
                 <Icon className="size-5" aria-hidden="true" />
               </div>
             </div>

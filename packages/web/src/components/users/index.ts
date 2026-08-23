@@ -4,6 +4,7 @@ export { InvitationHistory } from "./InvitationHistory";
 export { PermissionBadge, UserRoleBadge, UserStatusBadge } from "./UserBadges";
 export { RevokeInvitationDialog } from "./RevokeInvitationDialog";
 export { UserDetailSheet } from "./UserDetailSheet";
+export { UserManagementPagination } from "./UserManagementPagination";
 export { UserStats } from "./UserStats";
 export { UserTable } from "./UserTable";
 export type { InviteUserPayload } from "./InviteUserSheet";

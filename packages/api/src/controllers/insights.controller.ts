@@ -1,7 +1,10 @@
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../types/express.types";
 import { insightsService } from "../services/insights.service";
-import type { InsightCategoryParam } from "../schemas/insights.schemas";
+import type {
+  InsightCategoryContractsQuery,
+  InsightCategoryParam,
+} from "../schemas/insights.schemas";
 
 async function summary(
   req: AuthenticatedRequest,
@@ -23,9 +26,12 @@ async function contractsByCategory(
 ): Promise<void> {
   try {
     const { category } = req.params as unknown as InsightCategoryParam;
+    const { page, pageSize } =
+      req.query as unknown as InsightCategoryContractsQuery;
     const result = await insightsService.getContractsForCategory(
       req.user.orgId,
       category,
+      { page, pageSize },
     );
     res.json({ data: result });
   } catch (error) {

@@ -237,7 +237,7 @@ export default function ContractDetailPage() {
             ) : (
               <Button
                 variant="destructive"
-                className="gap-2"
+                className="gap-2 text-primary-foreground"
                 disabled={setLegalState.isPending}
                 onClick={() => setTerminateDialogOpen(true)}
               >

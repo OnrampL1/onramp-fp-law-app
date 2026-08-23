@@ -26,24 +26,42 @@ async function getCategoryContractPairs(
   return rows;
 }
 
-async function getContractsByCategory(
+function buildCategoryWhereClause(
   organizationId: string,
   category: RiskCategory,
-): Promise<DashboardContractRow[]> {
-  const where: Prisma.ContractWhereInput = {
+): Prisma.ContractWhereInput {
+  return {
     organizationId,
     deletedAt: null,
     riskFlags: { some: { category } },
   };
+}
 
+async function getContractsByCategory(
+  organizationId: string,
+  category: RiskCategory,
+  pagination: { page: number; pageSize: number },
+): Promise<DashboardContractRow[]> {
   return prisma.contract.findMany({
-    where,
+    where: buildCategoryWhereClause(organizationId, category),
     select: DASHBOARD_CONTRACT_SELECT,
     orderBy: { updatedAt: "desc" },
+    skip: (pagination.page - 1) * pagination.pageSize,
+    take: pagination.pageSize,
+  });
+}
+
+async function countContractsByCategory(
+  organizationId: string,
+  category: RiskCategory,
+): Promise<number> {
+  return prisma.contract.count({
+    where: buildCategoryWhereClause(organizationId, category),
   });
 }
 
 export const insightsRepository = {
   getCategoryContractPairs,
   getContractsByCategory,
+  countContractsByCategory,
 };

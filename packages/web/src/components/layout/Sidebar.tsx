@@ -138,25 +138,28 @@ export function Sidebar() {
             <SidebarMenuButton
               size="lg"
               className="data-open:bg-sidebar-accent"
-            >
-              <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-                {showLogo ? (
-                  <img
-                    src={logoUrl!}
-                    alt=""
-                    className="size-full object-cover"
-                    onError={() => setLogoFailedToLoad(true)}
-                  />
-                ) : (
-                  <Building2 className="size-4 text-muted-foreground" />
-                )}
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">
-                  {organizationName}
-                </span>
-              </div>
-            </SidebarMenuButton>
+              render={
+                <Link to="/settings?section=organization">
+                  <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                    {showLogo ? (
+                      <img
+                        src={logoUrl!}
+                        alt=""
+                        className="size-full object-cover"
+                        onError={() => setLogoFailedToLoad(true)}
+                      />
+                    ) : (
+                      <Building2 className="size-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">
+                      {organizationName}
+                    </span>
+                  </div>
+                </Link>
+              }
+            />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

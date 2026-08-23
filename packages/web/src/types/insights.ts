@@ -20,7 +20,15 @@ export interface InsightsSummary {
   categories: RiskCategorySummary[];
 }
 
+export interface InsightCategoryContractsPaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface InsightCategoryContracts {
   category: RiskCategory;
   contracts: DashboardContractItem[];
+  pagination: InsightCategoryContractsPaginationMeta;
 }

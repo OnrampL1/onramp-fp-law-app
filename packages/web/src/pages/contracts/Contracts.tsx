@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ContractsTable } from "@/components/contracts/ContractsTable";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Upload, X } from "lucide-react";
+import { AlertCircle, FileText, Upload, X } from "lucide-react";
 
 interface ContractsLocationState {
   notice?: string;
@@ -35,13 +35,18 @@ export default function Contracts() {
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
-            Contracts
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Manage and monitor all contracts
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <FileText className="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
+              Contracts
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Manage and monitor all contracts
+            </p>
+          </div>
         </div>
         <Button
           type="button"
