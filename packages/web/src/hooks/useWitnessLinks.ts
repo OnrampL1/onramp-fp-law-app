@@ -6,6 +6,7 @@ import {
   resendWitnessLink,
   revokeWitnessLink,
 } from "@/services/witness-link.service";
+import { LIST_REFETCH_INTERVAL_MS } from "@/lib/query-config";
 import type { CreateWitnessLinkPayload, WitnessLinkListParams } from "@/types/witness";
 
 const witnessLinksBaseKey = ["witness-links"] as const;
@@ -16,6 +17,7 @@ export function useWitnessLinks(params: WitnessLinkListParams) {
     queryKey: [...witnessLinksBaseKey, params],
     queryFn: () => listWitnessLinks(params),
     placeholderData: keepPreviousData,
+    refetchInterval: LIST_REFETCH_INTERVAL_MS,
   });
 }
 

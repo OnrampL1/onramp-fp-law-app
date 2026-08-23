@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getPermissionKeysForRole, type BackendUserRole } from "@/lib/permissions";
+import { LIST_REFETCH_INTERVAL_MS } from "@/lib/query-config";
 import type { TeamMember } from "@/lib/users";
 import {
   listUsers,
@@ -51,10 +52,15 @@ function toInvitationRow(invitation: ApiInvitation): TeamMember {
 }
 
 export function useTeamMembers() {
-  const usersQuery = useQuery({ queryKey: usersKey, queryFn: listUsers });
+  const usersQuery = useQuery({
+    queryKey: usersKey,
+    queryFn: listUsers,
+    refetchInterval: LIST_REFETCH_INTERVAL_MS,
+  });
   const invitationsQuery = useQuery({
     queryKey: invitationsKey,
     queryFn: listInvitations,
+    refetchInterval: LIST_REFETCH_INTERVAL_MS,
   });
 
   const members = useMemo<TeamMember[]>(() => {
@@ -85,6 +91,7 @@ export function useInvitationHistory() {
   const invitationsQuery = useQuery({
     queryKey: invitationsKey,
     queryFn: listInvitations,
+    refetchInterval: LIST_REFETCH_INTERVAL_MS,
   });
 
   const invitations = useMemo(

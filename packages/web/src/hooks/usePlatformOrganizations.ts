@@ -5,6 +5,7 @@ import {
   listPlatformOrganizations,
   updatePlatformOrganizationStatus,
 } from "../services/platform-organization.service";
+import { LIST_REFETCH_INTERVAL_MS } from "../lib/query-config";
 import type {
   AssignPlatformOrganizationOwnerPayload,
   CreatePlatformOrganizationPayload,
@@ -18,6 +19,7 @@ export function usePlatformOrganizations(
   return useQuery({
     queryKey: ["platform-organizations", params],
     queryFn: () => listPlatformOrganizations(params),
+    refetchInterval: LIST_REFETCH_INTERVAL_MS,
   });
 }
 

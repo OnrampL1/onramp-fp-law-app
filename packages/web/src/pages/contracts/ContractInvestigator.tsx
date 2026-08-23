@@ -20,9 +20,11 @@ import {
   useRiskOverview,
   useSummaryOverview,
 } from "@/hooks/useContractAnalysis";
+import { useAuth } from "@/hooks/useAuth";
 import type { InvestigatorHistoryTurn } from "@/types/investigator";
 import type { RiskOverviewDto } from "@/types/ai-analysis";
 import { cn, formatSummaryParagraphs } from "@/lib/utils";
+import { getInitials } from "@/lib/users";
 import {
   readPersistedThreads,
   writePersistedThreads,
@@ -349,12 +351,12 @@ export default function ContractInvestigatorPage() {
         <ChevronRight className="size-3.5" />
         <Link
           to={`/contracts/${contract.id}`}
-          className="truncate transition-colors hover:text-foreground"
+          className="min-w-0 max-w-48 truncate transition-colors hover:text-foreground"
         >
           {contract.title}
         </Link>
-        <ChevronRight className="size-3.5" />
-        <span className="truncate font-medium text-foreground">
+        <ChevronRight className="size-3.5 shrink-0" />
+        <span className="shrink-0 font-medium text-foreground">
           Contract Investigator
         </span>
       </nav>
@@ -368,10 +370,6 @@ export default function ContractInvestigatorPage() {
               Contract Investigator
             </h1>
           </div>
-          <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <FileText className="size-3.5" />
-            {contract.title} · {contract.id}
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -453,7 +451,7 @@ export default function ContractInvestigatorPage() {
             <div className="mx-auto w-full max-w-2xl">
               {!isEmpty ? (
                 <div className="mb-2 flex flex-wrap gap-1.5">
-                  {suggestedQuestions.slice(0, 3).map((q) => (
+                  {suggestedQuestions.slice(0, 2).map((q) => (
                     <button
                       key={q}
                       type="button"
@@ -482,7 +480,7 @@ export default function ContractInvestigatorPage() {
                     }
                   }}
                   rows={1}
-                  placeholder={`Ask anything about ${contract.title}…`}
+                  placeholder="Ask a question about this contract…"
                   className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-2 pl-2 text-sm outline-none placeholder:text-muted-foreground"
                 />
                 <Button
@@ -688,15 +686,12 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
         </p>
       </div>
       <div className="grid w-full max-w-lg gap-2 sm:grid-cols-2">
-        {suggestedQuestions.map((q, i) => (
+        {suggestedQuestions.slice(0, 2).map((q) => (
           <button
             key={q}
             type="button"
             onClick={() => onPick(q)}
-            className={cn(
-              "group flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3.5 py-3 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
-              i === suggestedQuestions.length - 1 && "sm:col-span-2",
-            )}
+            className="group flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3.5 py-3 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <span className="flex items-center gap-2">
               <Search className="size-4 shrink-0 text-muted-foreground group-hover:text-accent-foreground" />
@@ -711,6 +706,8 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
 }
 
 function UserBubble({ message }: { message: ChatMessage }) {
+  const { user } = useAuth();
+
   return (
     <div className="flex justify-end gap-3">
       <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
@@ -718,7 +715,7 @@ function UserBubble({ message }: { message: ChatMessage }) {
       </div>
       <Avatar className="mt-0.5 size-7 shrink-0">
         <AvatarFallback className="bg-muted text-[11px] font-medium">
-          AR
+          {user?.fullName ? getInitials(user.fullName) : "U"}
         </AvatarFallback>
       </Avatar>
     </div>

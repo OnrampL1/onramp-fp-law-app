@@ -6,6 +6,7 @@ import {
   deleteOrganizationBrainItem,
   fetchOrganizationBrainItems,
 } from "@/services/organization-brain.service";
+import { LIST_REFETCH_INTERVAL_MS } from "@/lib/query-config";
 import type {
   CreateOrganizationBrainPastePayload,
   CreateOrganizationBrainUploadPayload,
@@ -18,6 +19,7 @@ export function useOrganizationBrainItems(params: OrganizationBrainListParams) {
   return useQuery({
     queryKey: [...organizationBrainItemsKey, params],
     queryFn: () => fetchOrganizationBrainItems(params),
+    refetchInterval: LIST_REFETCH_INTERVAL_MS,
   });
 }
 
