@@ -16,7 +16,7 @@ const mockPrisma = {
   ),
 };
 
-const mockGetPresignedUrl = jest.fn();
+const mockGetFileStream = jest.fn();
 const mockUploadFile = jest.fn();
 const mockDeleteFile = jest.fn();
 
@@ -24,7 +24,7 @@ jest.mock("@starter-kit/shared", () => ({
   getPrismaClient: () => mockPrisma,
   isAdminRole: (role: string) => role === "OWNER" || role === "ADMIN",
   isOwnerRole: (role: string) => role === "OWNER",
-  getPresignedUrl: (...args: unknown[]) => mockGetPresignedUrl(...args),
+  getFileStream: (...args: unknown[]) => mockGetFileStream(...args),
   uploadFile: (...args: unknown[]) => mockUploadFile(...args),
   deleteFile: (...args: unknown[]) => mockDeleteFile(...args),
 }));
@@ -51,9 +51,6 @@ function buildLogoFile(
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetPresignedUrl.mockResolvedValue(
-    "https://storage.example.com/signed-logo-url",
-  );
 });
 
 describe("SettingsService.getOrganizationSettings", () => {
@@ -100,11 +97,6 @@ describe("SettingsService.getOrganizationSettings", () => {
       }),
     );
 
-    expect(mockGetPresignedUrl).toHaveBeenCalledWith(
-      "organization-logos/org-1/abc-logo.png",
-      900,
-    );
-
     expect(result).toEqual({
       organization: {
         id: "org-1",
@@ -115,8 +107,9 @@ describe("SettingsService.getOrganizationSettings", () => {
       settings: {
         timezone: "America/New_York",
         language: "en",
-        logoUrl: "https://storage.example.com/signed-logo-url",
-        logoUrlExpiresInSeconds: 900,
+        logoUrl:
+          "/api/settings/organization/logo?v=organization-logos%2Forg-1%2Fabc-logo.png",
+        logoUrlExpiresInSeconds: null,
         notificationPreferences: {
           contractUpdates: true,
           riskAlerts: false,
@@ -149,7 +142,6 @@ describe("SettingsService.getOrganizationSettings", () => {
       role: "INTERNAL",
     });
 
-    expect(mockGetPresignedUrl).not.toHaveBeenCalled();
     expect(result.settings).toEqual({
       timezone: "UTC",
       language: "en",
@@ -251,6 +243,76 @@ describe("SettingsService.getOrganizationSettings", () => {
         role: "ADMIN",
       }),
     ).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
+describe("SettingsService.getOrganizationLogoFile", () => {
+  it("streams the stored logo for an active member", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue({
+      id: "org-1",
+      name: "Acme Legal",
+      slug: "acme-legal",
+      status: "ACTIVE",
+      settings: {
+        logoStorageKey: "organization-logos/org-1/abc-logo.png",
+      },
+      members: [{ role: "ADMIN" }],
+    });
+
+    const fakeBody = { on: jest.fn(), pipe: jest.fn() };
+    mockGetFileStream.mockResolvedValue({
+      body: fakeBody,
+      contentType: "image/png",
+      contentLength: 1234,
+    });
+
+    const result = await settingsService.getOrganizationLogoFile({
+      userId: "user-1",
+      organizationId: "org-1",
+      role: "ADMIN",
+    });
+
+    expect(mockGetFileStream).toHaveBeenCalledWith(
+      "organization-logos/org-1/abc-logo.png",
+    );
+    expect(result).toEqual({
+      body: fakeBody,
+      contentType: "image/png",
+      contentLength: 1234,
+    });
+  });
+
+  it("throws 404 when the organization has no logo", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue({
+      id: "org-1",
+      name: "Acme Legal",
+      slug: "acme-legal",
+      status: "ACTIVE",
+      settings: { logoStorageKey: null },
+      members: [{ role: "ADMIN" }],
+    });
+
+    await expect(
+      settingsService.getOrganizationLogoFile({
+        userId: "user-1",
+        organizationId: "org-1",
+        role: "ADMIN",
+      }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    expect(mockGetFileStream).not.toHaveBeenCalled();
+  });
+
+  it("throws 404 when the user is not an active member of the organization", async () => {
+    mockPrisma.organization.findFirst.mockResolvedValue(null);
+
+    await expect(
+      settingsService.getOrganizationLogoFile({
+        userId: "user-1",
+        organizationId: "org-1",
+        role: "ADMIN",
+      }),
+    ).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 
@@ -619,8 +681,8 @@ describe("SettingsService.uploadOrganizationLogo", () => {
       "organization-logos/org-1/old-logo.png",
     );
 
-    expect(result.settings.logoUrl).toBe(
-      "https://storage.example.com/signed-logo-url",
+    expect(result.settings.logoUrl).toMatch(
+      /^\/api\/settings\/organization\/logo\?v=organization-logos%2Forg-1%2F.+-logo\.png$/,
     );
   });
 

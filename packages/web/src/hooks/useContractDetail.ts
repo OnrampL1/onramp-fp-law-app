@@ -1,4 +1,5 @@
 import {
+  deleteContract,
   fetchContractContent,
   fetchContractDetail,
   setContractLegalState,
@@ -7,6 +8,7 @@ import {
 } from "../services/contract-detail.service";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  DeleteContractPayload,
   SetContractLegalStatePayload,
   UpdateContractContentPayload,
   UpdateContractMetadataPayload,
@@ -67,6 +69,18 @@ export function useSetContractLegalState(id: string | undefined) {
       setContractLegalState(id as string, payload),
     onSuccess: (contract) => {
       queryClient.setQueryData(["contract", id], contract);
+    },
+  });
+}
+
+export function useDeleteContract(id: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: DeleteContractPayload) =>
+      deleteContract(id as string, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
     },
   });
 }

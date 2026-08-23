@@ -2,6 +2,7 @@ import { apiClient } from "@/lib/api-client";
 import type {
   ContractContentResponse,
   ContractDetailResponse,
+  DeleteContractPayload,
   SetContractLegalStatePayload,
   UpdateContractContentPayload,
   UpdateContractMetadataPayload,
@@ -49,6 +50,13 @@ export async function setContractLegalState(
     payload,
   );
   return response.data.data;
+}
+
+export async function deleteContract(
+  id: string,
+  payload: DeleteContractPayload,
+): Promise<void> {
+  await apiClient.delete(`/contracts/${id}`, { data: payload });
 }
 
 export async function updateContractContent(

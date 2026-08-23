@@ -52,7 +52,7 @@ export function ContractRow({ contract: c }: ContractRowProps) {
         {formatRelativeTime(c.updatedAt)}
       </TableCell>
       <TableCell className="text-right">
-        <ContractRowActions id={c.id} />
+        <ContractRowActions id={c.id} title={c.title} version={c.version} />
       </TableCell>
     </TableRow>
   );

@@ -189,6 +189,17 @@ export type SetContractLegalStateInput = z.infer<
   typeof setContractLegalStateSchema
 >;
 
+// Same optimistic-concurrency shape as setContractLegalStateSchema, minus
+// `action` — there's only one thing this endpoint does.
+export const deleteContractSchema = z.object({
+  version: z
+    .number()
+    .int()
+    .positive("A contract version is required for concurrency checking"),
+});
+
+export type DeleteContractInput = z.infer<typeof deleteContractSchema>;
+
 export type ContractIdParam = z.infer<typeof contractIdParamSchema>;
 
 // ─── Content (extracted text edit) ─────────────────────────────────────
