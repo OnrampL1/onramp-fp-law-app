@@ -3,6 +3,7 @@ import {
   fetchOrganizationActivity,
   type OrganizationActivityParams,
 } from "../services/audit-log.service";
+import { LIST_REFETCH_INTERVAL_MS } from "../lib/query-config";
 
 export function useOrganizationActivity(
   organizationId: string | undefined,
@@ -13,5 +14,6 @@ export function useOrganizationActivity(
     queryFn: () => fetchOrganizationActivity(organizationId as string, params),
     enabled: Boolean(organizationId),
     placeholderData: keepPreviousData,
+    refetchInterval: LIST_REFETCH_INTERVAL_MS,
   });
 }

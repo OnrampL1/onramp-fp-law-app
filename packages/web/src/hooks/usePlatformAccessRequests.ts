@@ -5,6 +5,7 @@ import {
   getPlatformAccessRequest,
   listPlatformAccessRequests,
 } from "../services/platform-access-request.service";
+import { LIST_REFETCH_INTERVAL_MS } from "../lib/query-config";
 import type {
   ApprovePlatformAccessRequestPayload,
   DeclinePlatformAccessRequestPayload,
@@ -17,6 +18,7 @@ export function usePlatformAccessRequests(
   return useQuery({
     queryKey: ["platform-access-requests", params],
     queryFn: () => listPlatformAccessRequests(params),
+    refetchInterval: LIST_REFETCH_INTERVAL_MS,
   });
 }
 

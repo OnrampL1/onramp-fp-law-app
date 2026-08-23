@@ -5,8 +5,10 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAskAssistant } from "@/hooks/useLegalAssistant";
+import { useAuth } from "@/hooks/useAuth";
 import type { AskHistoryTurn, AssistantSource } from "@/types/legal-assistant";
 import { cn } from "@/lib/utils";
+import { getInitials } from "@/lib/users";
 import {
   readPersistedThreads,
   writePersistedThreads,
@@ -445,6 +447,8 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
 }
 
 function UserBubble({ message }: { message: ChatMessage }) {
+  const { user } = useAuth();
+
   return (
     <div className="flex justify-end gap-3">
       <div
@@ -455,7 +459,7 @@ function UserBubble({ message }: { message: ChatMessage }) {
       </div>
       <Avatar className="mt-0.5 size-7 shrink-0">
         <AvatarFallback className="bg-muted text-[11px] font-medium">
-          AR
+          {user?.fullName ? getInitials(user.fullName) : "U"}
         </AvatarFallback>
       </Avatar>
     </div>
