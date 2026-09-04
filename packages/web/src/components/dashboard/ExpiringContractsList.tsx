@@ -41,7 +41,11 @@ export function ExpiringContractsList({
   isLoading = false,
 }: ExpiringContractsListProps) {
   const navigate = useNavigate();
-  const items = contracts ?? [];
+  // Capped rather than showing every match - this card sits beside Legal
+  // State Overview at a fixed-ish height, and a long list here would either
+  // force that layout or just look unbalanced. "View All Contracts" below
+  // is the escape hatch for anything beyond these three.
+  const items = (contracts ?? []).slice(0, 3);
 
   return (
     <Card>

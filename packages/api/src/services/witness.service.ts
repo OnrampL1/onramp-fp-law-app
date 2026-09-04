@@ -481,6 +481,16 @@ export class WitnessService {
       throw createError("Contract not found", 404);
     }
 
+    // A logo streamed through this same session (see
+    // getWitnessScopedOrganizationLogoFile below) rather than exposing the
+    // storage key or a presigned URL — same reasoning as fileKey never
+    // reaching the DTO. Only surfaced when a logo actually exists, so the
+    // frontend has a clean signal to fall back to a generic mark instead of
+    // requesting a file that isn't there.
+    const organizationLogoUrl = contract.organization.settings?.logoStorageKey
+      ? "/api/witness/organization/logo"
+      : null;
+
     return {
       id: contract.id,
       title: contract.title,
@@ -493,6 +503,8 @@ export class WitnessService {
       processingStatus: contract.processingStatus,
       processingError: contract.processingError,
       extractedText: contract.extractedText,
+      organizationName: contract.organization.name,
+      organizationLogoUrl,
     };
   }
 
@@ -515,6 +527,37 @@ export class WitnessService {
     const { body, contentType, contentLength } = await getFileStream(
       contract.fileKey,
     );
+
+    return {
+      body,
+      contentType: contentType ?? "application/octet-stream",
+      contentLength,
+    };
+  }
+
+  // Same streaming approach as getWitnessScopedContractFile, for the owning
+  // organization's logo instead of the contract's own file — the witness
+  // session's contractId is still the only thing trusted to reach an
+  // organization at all, matching this file's existing "resolve everything
+  // through the session, never a client-supplied id" pattern.
+  async getWitnessScopedOrganizationLogoFile(contractId: string) {
+    const contract = await prisma.contract.findFirst({
+      where: { id: contractId, deletedAt: null },
+      select: {
+        organization: { select: { settings: { select: { logoStorageKey: true } } } },
+      },
+    });
+
+    if (!contract) {
+      throw createError("Contract not found", 404);
+    }
+
+    const storageKey = contract.organization.settings?.logoStorageKey;
+    if (!storageKey) {
+      throw createError("Organization has no logo", 404);
+    }
+
+    const { body, contentType, contentLength } = await getFileStream(storageKey);
 
     return {
       body,

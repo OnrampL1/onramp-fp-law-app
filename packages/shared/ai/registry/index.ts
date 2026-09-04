@@ -4,14 +4,14 @@ import type { ZodTypeAny } from "zod";
 
 const ACTIVE_PROMPT_VERSIONS: Record<string, string> = {
   test: "v1",
-  investigator: "v1",
+  investigator: "v3",
   "organization-brain-ask": "v1",
   "legal-kb-ask": "v1",
   summary: "v1",
   risk: "v3",
   metadata: "v1",
-  "assistant-planner": "v1",
-  "assistant-synthesis": "v2",
+  "assistant-planner": "v2",
+  "assistant-synthesis": "v3",
 };
 
 const ACTIVE_SCHEMA_VERSIONS: Record<string, string> = {

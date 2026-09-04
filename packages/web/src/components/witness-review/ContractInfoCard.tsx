@@ -1,7 +1,6 @@
 import { Card, CardContent } from "../../components/ui/card";
 import {
   FileTextIcon,
-  ContractNameIcon,
   CounterpartyIcon,
   CalendarIcon,
   StatusIcon,
@@ -14,39 +13,27 @@ interface ContractInfoCardProps {
 
 /**
  * Displays the contract being reviewed:
- * - Name + ID with an "Awaiting Witness Acknowledgement" status pill
- * - 4 metadata fields: contract name, counterparty, effective date, status
+ * - Name (the witness's own access is already confirmed by having reached
+ *   this page - a "pending" badge here would describe the witness's own
+ *   access back to them, not a real status)
+ * - 3 metadata fields: counterparty, effective date, status - name and id
+ *   are not repeated here, the name already appears right above and the
+ *   internal contract id isn't meaningful to a witness
  */
 export function ContractInfoCard({ contract }: ContractInfoCardProps) {
   return (
     <Card>
       <CardContent className="p-0">
-        {/* ── Top row: name + status badge ── */}
-        <div className="flex flex-col gap-3 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <FileTextIcon />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">{contract.name}</p>
-              <p className="text-xs text-muted-foreground">{contract.id}</p>
-            </div>
+        {/* ── Top row: name ── */}
+        <div className="flex items-center gap-3 border-b border-border p-5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <FileTextIcon />
           </div>
-
-          {/* Awaiting badge — reuses same pill pattern as WitnessStatusBadge */}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-300/50 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700 dark:border-yellow-700/30 dark:bg-yellow-900/20 dark:text-yellow-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
-            Awaiting Witness Access
-          </span>
+          <p className="font-semibold text-foreground">{contract.name}</p>
         </div>
 
-        {/* ── Bottom row: 4 metadata fields ── */}
-        <div className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
-          <MetaField
-            icon={<ContractNameIcon />}
-            label="Contract name"
-            value={contract.name}
-          />
+        {/* ── Bottom row: 3 metadata fields ── */}
+        <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-3">
           <MetaField
             icon={<CounterpartyIcon />}
             label="Counterparty"

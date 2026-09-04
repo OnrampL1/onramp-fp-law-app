@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Loader2, Upload, XCircle } from "lucide-react";
 import { UploadContractActionBar } from "../../components/layout/UploadContractActionBar";
 import { ContractFileDropzone } from "../../components/shared/ContractFileDropzone";
@@ -22,6 +23,7 @@ import {
 } from "../../hooks/useContractDetail";
 
 export function UploadContract() {
+  const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
@@ -119,9 +121,19 @@ export function UploadContract() {
               />
             </dl>
 
-            <Button type="button" variant="outline" onClick={handleReset}>
-              Upload another contract
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {!isProcessing && (
+                <Button
+                  type="button"
+                  onClick={() => navigate(`/contracts/${uploadResult.id}`)}
+                >
+                  View Contract
+                </Button>
+              )}
+              <Button type="button" variant="outline" onClick={handleReset}>
+                Upload another contract
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

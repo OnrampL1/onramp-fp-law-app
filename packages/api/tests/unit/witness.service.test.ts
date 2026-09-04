@@ -646,6 +646,10 @@ describe("WitnessService.getWitnessScopedContract", () => {
       processingError: null,
       extractedText: "Full contract text...",
       fileKey: "contracts/org-1/file.pdf",
+      organization: {
+        name: "Ridgeline & Voss LLP",
+        settings: { logoStorageKey: "organization-logos/org-1/logo.png" },
+      },
     };
   }
 
@@ -699,11 +703,25 @@ describe("WitnessService.getWitnessScopedContract", () => {
       processingStatus: "EXTRACTION_COMPLETED",
       processingError: null,
       extractedText: "Full contract text...",
+      organizationName: "Ridgeline & Voss LLP",
+      organizationLogoUrl: "/api/witness/organization/logo",
     });
     expect(result).not.toHaveProperty("fileKey");
     expect(result).not.toHaveProperty("fileUrl");
     expect(result).not.toHaveProperty("notes");
     expect(result).not.toHaveProperty("aiAnalyses");
+  });
+
+  it("returns a null organizationLogoUrl when the organization has no logo uploaded, rather than a URL that 404s", async () => {
+    mockDb.contract.findFirst.mockResolvedValue({
+      ...baseContractRow(),
+      organization: { name: "Ridgeline & Voss LLP", settings: { logoStorageKey: null } },
+    });
+
+    const result = await witnessService.getWitnessScopedContract("contract-1");
+
+    expect(result.organizationName).toBe("Ridgeline & Voss LLP");
+    expect(result.organizationLogoUrl).toBeNull();
   });
 
   it("surfaces processingStatus and processingError so the portal can render a pending/failed state", async () => {

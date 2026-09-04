@@ -90,7 +90,7 @@ export function WitnessAcknowledgementPanel({
         <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
         <p className="text-sm leading-relaxed text-muted-foreground">
           <span className="font-semibold text-foreground">Access recorded. </span>
-          Opening this link marked you as having reviewed {contract.name} ({contract.id}) as an
+          Opening this link marked you as having reviewed {contract.name} as an
           independent witness{usedAt ? ` on ${usedAt}` : ""}. This link is single-use and can no
           longer be redeemed elsewhere.
         </p>

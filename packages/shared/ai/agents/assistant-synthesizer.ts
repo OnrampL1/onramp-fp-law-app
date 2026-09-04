@@ -1,11 +1,16 @@
 import { getValidatedCompletion, AiValidationError } from "../schemas";
+import { markValidationFailed } from "../providers";
 import { resolvePrompt, resolveSchema } from "../registry";
 import { getInvestigatorHistoryTurnLimit, getInvestigatorMaxTokens } from "../config";
 import type { AiMessage } from "../types";
 import type { InvestigatorTurn } from "../retrieval/investigator";
 import type { AssistantAnswerV1 } from "../schemas/assistant-answer/v1";
 import type { ToolName } from "../tools/definitions";
-import type { AggregatedAssistantContext, AssistantEvidenceUnit } from "./assistant-aggregation";
+import type {
+  AggregatedAssistantContext,
+  AssistantEvidenceUnit,
+  AssistantSubAnswer,
+} from "./assistant-aggregation";
 
 const MAX_SYNTHESIS_ATTEMPTS = 2;
 
@@ -43,6 +48,21 @@ function formatEvidenceBlocks(evidence: AssistantEvidenceUnit[]): string {
     })
     .join("\n\n");
   return `Evidence gathered:\n\n${blocks}`;
+}
+
+// Background context only - deliberately has no [EVIDENCE id=...] tag, so
+// there is nothing here for the model to cite. See AssistantSubAnswer's own
+// comment for why: without this split, a sub-tool's full answer was the
+// path of least resistance for a citation, producing a "source" that just
+// re-quoted the whole answer back at the user.
+function formatSubAnswers(subAnswers: AssistantSubAnswer[]): string {
+  if (subAnswers.length === 0) {
+    return "";
+  }
+  const rows = subAnswers
+    .map((s) => `- [${s.capability}]${s.contractId ? ` (contract ${s.contractId})` : ""}: ${s.text}`)
+    .join("\n");
+  return `Prior capability answers (background context only - these are NOT citable, they have no id; cite the EVIDENCE blocks above instead for any specific quote or claim):\n\n${rows}`;
 }
 
 function formatContractsFound(
@@ -112,6 +132,7 @@ export function buildSynthesisMessages(
 
   const sections = [
     formatEvidenceBlocks(aggregated.evidence),
+    formatSubAnswers(aggregated.subAnswers),
     formatContractsFound(aggregated.contractsFound),
     formatEmptyResults(aggregated.emptyResults),
     formatUnavailableTools(aggregated.failedTools),
@@ -208,7 +229,22 @@ export async function synthesizeAssistantAnswer(
   const historyLimit = getInvestigatorHistoryTurnLimit();
   const limitedHistory = (input.history ?? []).slice(-historyLimit);
 
-  let lastError: AiValidationError | undefined;
+  // Guaranteed fallback once every synthesis attempt fails to produce a
+  // verifiable answer (malformed completion, or a citation referencing an
+  // evidence id that was never provided) - never the unverified content
+  // itself, just a normal answer-shaped decline instead of a thrown error.
+  // Matches the exact wording the prompt itself already uses for a
+  // model-declared "nothing grounded this" case (assistant-synthesis/v2.md
+  // rule 14), so the fallback is indistinguishable in tone from a normal
+  // decline.
+  const verificationFailedAnswer = (
+    callLogId: string,
+  ): AssistantSynthesisResult => ({
+    answer: "I couldn't find enough grounded information to answer that reliably.",
+    sources: [],
+    confidence: 0,
+    callLogId,
+  });
 
   for (let attempt = 1; attempt <= MAX_SYNTHESIS_ATTEMPTS; attempt++) {
     const messages = buildSynthesisMessages(
@@ -233,10 +269,12 @@ export async function synthesizeAssistantAnswer(
         schema,
       );
     } catch (error) {
+      // getValidatedCompletion() already calls markValidationFailed() itself
+      // before throwing, so there's nothing further to record here - just
+      // fall back once attempts run out.
       if (error instanceof AiValidationError) {
-        lastError = error;
         if (attempt === MAX_SYNTHESIS_ATTEMPTS) {
-          throw error;
+          return verificationFailedAnswer(error.callLogId);
         }
         continue;
       }
@@ -251,10 +289,11 @@ export async function synthesizeAssistantAnswer(
 
     if (resolution.unknownIds.length > 0) {
       if (attempt === MAX_SYNTHESIS_ATTEMPTS) {
-        throw new AiValidationError(
-          `Cited unknown evidence id(s) after ${MAX_SYNTHESIS_ATTEMPTS} attempt(s): ${resolution.unknownIds.join(", ")}`,
+        await markValidationFailed(
           result.callLogId,
+          `Cited unknown evidence id(s) after ${MAX_SYNTHESIS_ATTEMPTS} attempt(s): ${resolution.unknownIds.join(", ")}`,
         );
+        return verificationFailedAnswer(result.callLogId);
       }
       continue;
     }
@@ -275,6 +314,6 @@ export async function synthesizeAssistantAnswer(
     };
   }
 
-  // Unreachable: the loop above always returns or throws.
-  throw lastError ?? new AiValidationError("Failed to produce a valid synthesis", "");
+  // Unreachable: the loop above always returns.
+  return verificationFailedAnswer("");
 }

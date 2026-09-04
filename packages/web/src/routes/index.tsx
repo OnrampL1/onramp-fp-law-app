@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { Ban, CalendarClock, Copyright, Search, ShieldAlert } from "lucide-react";
+import { Search } from "lucide-react";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { OnboardingRoute } from "./OnboardingRoute";
 import { ForcePasswordChangeRoute } from "./ForcePasswordChangeRoute";
@@ -31,7 +31,7 @@ import { PlaceholderPage } from "@/pages/dashboard/PlaceholderPage";
 import { AuditLogPage } from "../pages/AuditLogPage";
 import { OrganizationBrain } from "../pages/dashboard/OrganizationBrain";
 import LegalAssistantPage from "../pages/dashboard/LegalAssistant";
-import { InsightCategoryPage } from "@/pages/insights/InsightCategoryPage";
+import { InsightCategoryRoute } from "@/pages/insights/InsightCategoryPage";
 import { PlatformAccessRequests } from "../pages/platform/PlatformAccessRequests";
 import { OrganizationOnboarding } from "../pages/onboarding/OrganizationOnboarding";
 // import { PlaceholderPage } from "../pages/PlaceholderPage";
@@ -106,48 +106,8 @@ export function AppRoutes() {
             element={<ContractInvestigatorPage />}
           />
           <Route
-            path="/insights/auto-renewal"
-            element={
-              <InsightCategoryPage
-                category="AUTO_RENEWAL"
-                title="Auto Renewal Alerts"
-                description="Contracts flagged for an auto-renewal clause worth reviewing."
-                icon={CalendarClock}
-              />
-            }
-          />
-          <Route
-            path="/insights/liability"
-            element={
-              <InsightCategoryPage
-                category="LIABILITY"
-                title="Liability Risks"
-                description="Contracts with an uncapped or broad liability exposure."
-                icon={ShieldAlert}
-              />
-            }
-          />
-          <Route
-            path="/insights/non-compete"
-            element={
-              <InsightCategoryPage
-                category="NON_COMPETE"
-                title="Non-Compete Detection"
-                description="Contracts with a non-compete or restrictive covenant flagged."
-                icon={Ban}
-              />
-            }
-          />
-          <Route
-            path="/insights/ip-assignment"
-            element={
-              <InsightCategoryPage
-                category="IP_ASSIGNMENT"
-                title="IP Assignment Detection"
-                description="Contracts with an IP assignment or transfer provision flagged."
-                icon={Copyright}
-              />
-            }
+            path="/insights/:categorySlug"
+            element={<InsightCategoryRoute />}
           />
 
           <Route

@@ -25,6 +25,24 @@ export interface AssistantEvidenceUnit {
   confidence?: number;
 }
 
+// A sub-tool's own already-synthesized prose (e.g. answerOrganizationBrainQuestion's
+// "answer") kept as background context for the final synthesis prompt, but
+// deliberately NOT a citable AssistantEvidenceUnit - it has no `id`, so
+// nothing in the final synthesis prompt can point a citation at it. Without
+// this split, that whole paragraph used to become the only citable
+// "evidence" available whenever the model didn't bother citing the finer
+// chunk-level excerpts sitting right next to it, which produced a source
+// card that just re-quoted the entire answer back at the user - the same
+// paragraph twice, no real "source" in the citation sense. The chunk-level
+// excerpts (still real AssistantEvidenceUnits) remain the only thing a
+// citation can point to; this is just context to write from.
+export interface AssistantSubAnswer {
+  tool: ToolName;
+  capability: string;
+  contractId?: string;
+  text: string;
+}
+
 export interface AssistantFailedTool {
   tool: ToolName;
   error: string;
@@ -53,6 +71,8 @@ export interface AssistantEmptyResult {
 
 export interface AggregatedAssistantContext {
   evidence: AssistantEvidenceUnit[];
+  // Sub-tool answers kept as non-citable context - see AssistantSubAnswer.
+  subAnswers: AssistantSubAnswer[];
   // Contracts found by searchContracts - reference data, not citable
   // "evidence" in the excerpt sense (there's no excerpt to quote), so kept
   // as its own list rather than forced into AssistantEvidenceUnit's shape.
@@ -107,96 +127,77 @@ function fromGetContractAnalysis(
   return units;
 }
 
+interface ToolAggregationResult {
+  evidence: AssistantEvidenceUnit[];
+  subAnswer: AssistantSubAnswer;
+}
+
 function fromAskContractQuestion(
   data: AskContractQuestionResult,
-): AssistantEvidenceUnit[] {
+): ToolAggregationResult {
   const capability = capabilityOf("askContractQuestion");
-  const units: AssistantEvidenceUnit[] = [
-    {
-      id: `askContractQuestion-${data.contractId}-answer`,
+  const evidence: AssistantEvidenceUnit[] = data.sources.map((source) => ({
+    id: source.chunkId,
+    tool: "askContractQuestion" as const,
+    capability,
+    label: source.headingPath ?? "Contract clause",
+    content: source.excerpt,
+    contractId: data.contractId,
+    confidence: data.confidence,
+  }));
+
+  return {
+    evidence,
+    subAnswer: {
       tool: "askContractQuestion",
       capability,
-      label: "Clause Investigator answer",
-      content: data.answer,
       contractId: data.contractId,
-      confidence: data.confidence,
+      text: data.answer,
     },
-  ];
-
-  for (const source of data.sources) {
-    units.push({
-      id: source.chunkId,
-      tool: "askContractQuestion",
-      capability,
-      label: source.headingPath ?? "Contract clause",
-      content: source.excerpt,
-      contractId: data.contractId,
-      confidence: data.confidence,
-    });
-  }
-
-  return units;
+  };
 }
 
 function fromSearchOrganizationBrain(
   data: SearchOrganizationBrainResult,
-): AssistantEvidenceUnit[] {
+): ToolAggregationResult {
   const capability = capabilityOf("searchOrganizationBrain");
-  const units: AssistantEvidenceUnit[] = [
-    {
-      id: "searchOrganizationBrain-answer",
-      tool: "searchOrganizationBrain",
-      capability,
-      label: "Organization Brain answer",
-      content: data.answer,
-      confidence: data.confidence,
-    },
-  ];
+  const evidence: AssistantEvidenceUnit[] = data.sources.map((source) => ({
+    id: source.chunkId,
+    tool: "searchOrganizationBrain" as const,
+    capability,
+    label: source.headingPath ?? "Organization document",
+    content: source.excerpt,
+    confidence: data.confidence,
+  }));
 
-  for (const source of data.sources) {
-    units.push({
-      id: source.chunkId,
-      tool: "searchOrganizationBrain",
-      capability,
-      label: source.headingPath ?? "Organization document",
-      content: source.excerpt,
-      confidence: data.confidence,
-    });
-  }
-
-  return units;
+  return {
+    evidence,
+    subAnswer: { tool: "searchOrganizationBrain", capability, text: data.answer },
+  };
 }
 
 function fromSearchLegalKnowledge(
   data: SearchLegalKnowledgeResult,
-): AssistantEvidenceUnit[] {
+): ToolAggregationResult {
   const capability = capabilityOf("searchLegalKnowledge");
-  const units: AssistantEvidenceUnit[] = [
-    {
-      id: "searchLegalKnowledge-answer",
-      tool: "searchLegalKnowledge",
-      capability,
-      label: "Legal Knowledge Base answer",
-      content: data.answer,
-      confidence: data.confidence,
-    },
-  ];
-
-  for (const source of data.sources) {
+  const evidence: AssistantEvidenceUnit[] = data.sources.map((source) => {
     const label = source.articleNumber
       ? `${source.instrumentTitle} — Article ${source.articleNumber}`
       : source.instrumentTitle;
-    units.push({
+    return {
       id: source.chunkId,
-      tool: "searchLegalKnowledge",
+      tool: "searchLegalKnowledge" as const,
       capability,
       label,
       content: source.excerpt,
       confidence: data.confidence,
-    });
-  }
+    };
+  });
 
-  return units;
+  return {
+    evidence,
+    subAnswer: { tool: "searchLegalKnowledge", capability, text: data.answer },
+  };
 }
 
 // Plan-and-Execute, not ReAct: this reads every tool's already-produced,
@@ -209,6 +210,7 @@ export function aggregateToolResults(
   const contractsById = new Map<string, SearchContractsResultItem>();
   const failedTools: AssistantFailedTool[] = [];
   const emptyResults: AssistantEmptyResult[] = [];
+  const subAnswers: AssistantSubAnswer[] = [];
 
   for (const outcome of outcomes) {
     if (!outcome.ok || !outcome.result) {
@@ -243,15 +245,24 @@ export function aggregateToolResults(
           evidence.push(...fromGetContractAnalysis(outcome.result.data));
         }
         break;
-      case "askContractQuestion":
-        evidence.push(...fromAskContractQuestion(outcome.result.data));
+      case "askContractQuestion": {
+        const result = fromAskContractQuestion(outcome.result.data);
+        evidence.push(...result.evidence);
+        subAnswers.push(result.subAnswer);
         break;
-      case "searchOrganizationBrain":
-        evidence.push(...fromSearchOrganizationBrain(outcome.result.data));
+      }
+      case "searchOrganizationBrain": {
+        const result = fromSearchOrganizationBrain(outcome.result.data);
+        evidence.push(...result.evidence);
+        subAnswers.push(result.subAnswer);
         break;
-      case "searchLegalKnowledge":
-        evidence.push(...fromSearchLegalKnowledge(outcome.result.data));
+      }
+      case "searchLegalKnowledge": {
+        const result = fromSearchLegalKnowledge(outcome.result.data);
+        evidence.push(...result.evidence);
+        subAnswers.push(result.subAnswer);
         break;
+      }
     }
   }
 
@@ -269,6 +280,7 @@ export function aggregateToolResults(
 
   return {
     evidence: dedupedEvidence,
+    subAnswers,
     contractsFound,
     failedTools,
     emptyResults,

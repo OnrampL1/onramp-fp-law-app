@@ -31,7 +31,12 @@ import type {
   RiskOverviewDto,
 } from "@/types/ai-analysis";
 import type { Severity } from "@/lib/data";
-import { cn, formatDate, formatRelativeTime, formatSummaryParagraphs } from "@/lib/utils";
+import {
+  cn,
+  formatDate,
+  formatRelativeTime,
+  formatSummaryParagraphs,
+} from "@/lib/utils";
 import {
   ArrowLeft,
   Ban,
@@ -85,7 +90,10 @@ function categoryLabel(category: string): string {
   return CATEGORY_LABELS[category] ?? category;
 }
 
-const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+const CATEGORY_ICONS: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
   LIABILITY: ShieldAlert,
   INDEMNIFICATION: Scale,
   AUTO_RENEWAL: RefreshCw,
@@ -101,20 +109,9 @@ function categoryIcon(category: string) {
   return CATEGORY_ICONS[category] ?? HelpCircle;
 }
 
-function severityDotColor(score: number) {
-  if (score >= 80) return "bg-red-500";
-  if (score >= 60) return "bg-orange-500";
-  if (score >= 40) return "bg-amber-500";
-  return "bg-emerald-500";
-}
-
-const RISK_MATRIX_ACCENT: Record<Severity, string> = {
-  Critical: "border-red-200 bg-red-50 text-red-700",
-  High: "border-orange-200 bg-orange-50 text-orange-700",
-  Medium: "border-amber-200 bg-amber-50 text-amber-700",
-  Low: "border-emerald-200 bg-emerald-50 text-emerald-700",
-};
-
+// Solid fill colors for severity segments within a category's stacked bar -
+// same palette SeverityBadge uses elsewhere, just as a bg-* for a bar
+// segment instead of a badge.
 const RISK_MATRIX_DOT: Record<Severity, string> = {
   Critical: "bg-red-500",
   High: "bg-orange-500",
@@ -124,7 +121,11 @@ const RISK_MATRIX_DOT: Record<Severity, string> = {
 
 const PROCESSING_STATUS_BADGE: Record<
   string,
-  { label: string; className: string; icon: React.ComponentType<{ className?: string }> }
+  {
+    label: string;
+    className: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }
 > = {
   AI_COMPLETED: {
     label: "Complete",
@@ -146,10 +147,7 @@ const PROCESSING_STATUS_BADGE: Record<
   },
 };
 
-const ANALYSIS_STATUS_BADGE: Record<
-  AIAnalysisListItemDto["status"],
-  string
-> = {
+const ANALYSIS_STATUS_BADGE: Record<AIAnalysisListItemDto["status"], string> = {
   COMPLETED:
     "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
   PENDING:
@@ -193,28 +191,6 @@ function SectionHeading({
         </p>
       </div>
     </div>
-  );
-}
-
-function RiskFlagCard({ flag }: { flag: RiskOverviewDto["redFlags"][number] }) {
-  return (
-    <Card>
-      <CardContent className="space-y-2 pt-6">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-foreground">
-            {categoryLabel(flag.category)}
-          </span>
-          <SeverityBadge severity={SEVERITY_LABELS[flag.severity]} />
-        </div>
-        <p className="text-sm text-muted-foreground text-pretty">
-          {flag.description}
-        </p>
-        <div className="flex gap-2 rounded-md border-l-2 border-border bg-muted/40 p-2 text-xs italic text-muted-foreground">
-          <Quote className="size-3.5 shrink-0 opacity-60" />
-          <span className="text-pretty">{flag.sourceText}</span>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -338,8 +314,8 @@ export default function ContractAnalysisPage() {
                   No AI analysis yet for this contract
                 </p>
                 <p className="max-w-sm text-sm text-muted-foreground">
-                  Run analysis to generate a risk score, findings, and a
-                  summary for this contract.
+                  Run analysis to generate a risk score, findings, and a summary
+                  for this contract.
                 </p>
                 <Button
                   className="mt-2 gap-2"
@@ -431,15 +407,27 @@ export default function ContractAnalysisPage() {
     severityCounts[SEVERITY_LABELS[flag.severity]] += 1;
   }
 
-  const categoryCounts = new Map<string, number>();
+  // Per category, how many findings fall at each severity - lets one bar
+  // carry both signals at once (its length is the category's share of all
+  // findings, its color makeup is the severity mix within it) instead of
+  // needing a separate severity-only widget alongside it.
+  const categoryBreakdown = new Map<string, Record<Severity, number>>();
   for (const flag of risk.redFlags) {
-    categoryCounts.set(flag.category, (categoryCounts.get(flag.category) ?? 0) + 1);
+    const severity = SEVERITY_LABELS[flag.severity];
+    const bucket = categoryBreakdown.get(flag.category) ?? {
+      Critical: 0,
+      High: 0,
+      Medium: 0,
+      Low: 0,
+    };
+    bucket[severity] += 1;
+    categoryBreakdown.set(flag.category, bucket);
   }
-  const maxCategoryCount = Math.max(1, ...categoryCounts.values());
-
-  const paymentFlags = risk.redFlags.filter((f) => f.category === "PAYMENT");
-  const terminationFlags = risk.redFlags.filter(
-    (f) => f.category === "TERMINATION" || f.category === "AUTO_RENEWAL",
+  const categoryTotal = (bucket: Record<Severity, number>) =>
+    bucket.Critical + bucket.High + bucket.Medium + bucket.Low;
+  const maxCategoryTotal = Math.max(
+    1,
+    ...[...categoryBreakdown.values()].map(categoryTotal),
   );
 
   const obligations = risk.timeline.filter((e) => e.kind === "OBLIGATION");
@@ -546,43 +534,54 @@ export default function ContractAnalysisPage() {
         <SectionHeading
           icon={ShieldAlert}
           title="Risk Assessment"
-          description="Severity matrix and category distribution across the agreement."
+          description="Category distribution and severity mix across the agreement."
         />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {(["Critical", "High", "Medium", "Low"] as Severity[]).map((level) => (
-            <Card key={level} className={cn("border", RISK_MATRIX_ACCENT[level])}>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">
+              Risk by Clause Category
+            </CardTitle>
+            <CardDescription>
+              Each bar's length is that category's share of all findings; its
+              color breakdown is the severity mix within it.
+            </CardDescription>
+            {/* The severity legend the four standalone cards used to show,
+                folded in here instead of repeated as its own section - the
+                same counts, read directly off the bars' own colors. */}
+            <div className="flex flex-wrap gap-x-5 gap-y-1.5 pt-1">
+              {(["Critical", "High", "Medium", "Low"] as Severity[]).map(
+                (level) => (
+                  <span
+                    key={level}
+                    className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+                  >
                     <span
-                      className={cn("size-2.5 rounded-full", RISK_MATRIX_DOT[level])}
+                      className={cn(
+                        "size-2.5 rounded-full",
+                        RISK_MATRIX_DOT[level],
+                      )}
                       aria-hidden
                     />
-                    <span className="text-sm font-semibold">{level}</span>
-                  </div>
-                  <span className="text-sm font-semibold tracking-tight">
-                    {severityCounts[level]}
+                    {level}
+                    <span className="tabular-nums text-foreground">
+                      {severityCounts[level]}
+                    </span>
                   </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        {categoryCounts.size > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">
-                Risk by Clause Category
-              </CardTitle>
-              <CardDescription>
-                Distribution of findings grouped by contractual domain.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {[...categoryCounts.entries()]
-                .sort((a, b) => b[1] - a[1])
-                .map(([category, count]) => {
+                ),
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {categoryBreakdown.size === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No risk flags were identified in this contract.
+              </p>
+            ) : (
+              [...categoryBreakdown.entries()]
+                .sort((a, b) => categoryTotal(b[1]) - categoryTotal(a[1]))
+                .map(([category, bucket]) => {
                   const Icon = categoryIcon(category);
+                  const total = categoryTotal(bucket);
                   return (
                     <div key={category} className="flex items-center gap-3">
                       <span className="flex w-36 shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
@@ -591,55 +590,36 @@ export default function ContractAnalysisPage() {
                       </span>
                       <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                         <div
-                          className={cn(
-                            "h-full rounded-full",
-                            severityDotColor((count / maxCategoryCount) * 100),
+                          className="flex w-full h-full rounded-full"
+                          style={{
+                            width: `${(total / maxCategoryTotal) * 100}%`,
+                          }}
+                        >
+                          {(
+                            ["Critical", "High", "Medium", "Low"] as Severity[]
+                          ).map((level) =>
+                            bucket[level] > 0 ? (
+                              <div
+                                key={level}
+                                className={RISK_MATRIX_DOT[level]}
+                                style={{
+                                  width: `${(bucket[level] / total) * 100}%`,
+                                }}
+                              />
+                            ) : null,
                           )}
-                          style={{ width: `${(count / maxCategoryCount) * 100}%` }}
-                        />
+                        </div>
                       </div>
                       <span className="w-6 shrink-0 text-right text-sm font-medium tabular-nums text-foreground">
-                        {count}
+                        {total}
                       </span>
                     </div>
                   );
-                })}
-            </CardContent>
-          </Card>
-        )}
+                })
+            )}
+          </CardContent>
+        </Card>
       </section>
-
-      {/* Payment Risks */}
-      {paymentFlags.length > 0 && (
-        <section className="space-y-4">
-          <SectionHeading
-            icon={CreditCard}
-            title="Payment Risks"
-            description="Findings related to invoicing terms, penalties, and escalation."
-          />
-          <div className="grid gap-3 md:grid-cols-2">
-            {paymentFlags.map((flag, i) => (
-              <RiskFlagCard key={i} flag={flag} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Termination & Renewal Risks */}
-      {terminationFlags.length > 0 && (
-        <section className="space-y-4">
-          <SectionHeading
-            icon={DoorOpen}
-            title="Termination & Renewal Risks"
-            description="Findings related to term length, renewal mechanics, and exit provisions."
-          />
-          <div className="grid gap-3 md:grid-cols-2">
-            {terminationFlags.map((flag, i) => (
-              <RiskFlagCard key={i} flag={flag} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Risk Findings */}
       <section className="space-y-4">
@@ -669,26 +649,26 @@ export default function ContractAnalysisPage() {
                 {risk.redFlags.map((f, i) => {
                   const Icon = categoryIcon(f.category);
                   return (
-                  <TableRow key={i} className="align-top">
-                    <TableCell className="whitespace-normal font-medium text-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                        {categoryLabel(f.category)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <SeverityBadge severity={SEVERITY_LABELS[f.severity]} />
-                    </TableCell>
-                    <TableCell className="whitespace-normal">
-                      <div className="flex gap-2 rounded-md border-l-2 border-border bg-muted/40 p-2 text-xs italic text-muted-foreground">
-                        <Quote className="size-3.5 shrink-0 opacity-60" />
-                        <span className="text-pretty">{f.sourceText}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="whitespace-normal text-sm text-muted-foreground text-pretty">
-                      {f.description}
-                    </TableCell>
-                  </TableRow>
+                    <TableRow key={i} className="align-top">
+                      <TableCell className="whitespace-normal font-medium text-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                          {categoryLabel(f.category)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <SeverityBadge severity={SEVERITY_LABELS[f.severity]} />
+                      </TableCell>
+                      <TableCell className="whitespace-normal">
+                        <div className="flex gap-2 rounded-md border-l-2 border-border bg-muted/40 p-2 text-xs italic text-muted-foreground">
+                          <Quote className="size-3.5 shrink-0 opacity-60" />
+                          <span className="text-pretty">{f.sourceText}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-normal text-sm text-muted-foreground text-pretty">
+                        {f.description}
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
               </TableBody>
@@ -710,7 +690,8 @@ export default function ContractAnalysisPage() {
               <Loader2 className="size-4 animate-spin" />
               Loading history…
             </div>
-          ) : !analysisHistory.data || analysisHistory.data.items.length === 0 ? (
+          ) : !analysisHistory.data ||
+            analysisHistory.data.items.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
               No analysis runs recorded yet.
             </div>

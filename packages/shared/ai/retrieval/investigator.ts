@@ -15,6 +15,7 @@ import {
   AiValidationError,
   type StructuredCompletionResult,
 } from "../schemas";
+import { markValidationFailed } from "../providers";
 import { resolvePrompt, resolveSchema } from "../registry";
 import {
   getInvestigatorMaxTokens,
@@ -267,6 +268,14 @@ interface AnswerQuestionResult {
 interface AnswerQuestionParams {
   ops: AnswerQuestionOps;
   notIndexedMessage: string;
+  // Shown instead of throwing when every generation attempt fails to
+  // produce a verifiable answer (malformed completion, a citation that
+  // doesn't match the retrieved text, or a failed additionalVerification
+  // check). The unverified content itself is never returned either way -
+  // this only changes *how* that failure reaches the caller: a normal
+  // answer-shaped response instead of a thrown error, mirroring how the
+  // model's own "the sources don't address this" replies already look.
+  verificationFailedMessage: string;
   promptId: string;
   schemaId: string;
   organizationId: string;
@@ -289,6 +298,7 @@ async function answerQuestion(
   const {
     ops,
     notIndexedMessage,
+    verificationFailedMessage,
     promptId,
     schemaId,
     organizationId,
@@ -312,7 +322,17 @@ async function answerQuestion(
   const sourceBlocks = formatSourceBlocks(retrieved);
   const maxTokens = getInvestigatorMaxTokens();
 
-  let lastCallLogId: string | undefined;
+  // Guaranteed fallback once every generation attempt fails to produce a
+  // verifiable answer - never the unverified content itself, just a normal
+  // answer-shaped decline instead of a thrown error. Reuses whatever this
+  // call's retrieved chunks were, same as a model-declared "not addressed".
+  const verificationFailedAnswer = (): AnswerQuestionResult => ({
+    answer: verificationFailedMessage,
+    sources: [],
+    confidence: 0,
+    chunksRetrieved: retrieved.length,
+    retrievedChunks: retrieved,
+  });
 
   for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
     const messages = buildMessages(
@@ -339,17 +359,17 @@ async function answerQuestion(
     } catch (error) {
       // A malformed (non-JSON, or JSON that fails schema validation)
       // response is retried exactly like a citation mismatch below, up to
-      // MAX_GENERATION_ATTEMPTS.
+      // MAX_GENERATION_ATTEMPTS. getValidatedCompletion() already calls
+      // markValidationFailed() itself before throwing, so there's nothing
+      // further to record here - just fall back once attempts run out.
       if (error instanceof AiValidationError) {
-        lastCallLogId = error.callLogId;
         if (attempt === MAX_GENERATION_ATTEMPTS) {
-          throw error;
+          return verificationFailedAnswer();
         }
         continue;
       }
       throw error;
     }
-    lastCallLogId = result.callLogId;
 
     const data = result.data as InvestigatorResponseShape;
     const verification = verifyCitations(data.sources, retrieved);
@@ -371,27 +391,26 @@ async function answerQuestion(
       }
 
       if (isLastAttempt) {
-        throw new AiValidationError(
-          `Additional verification failed after ${MAX_GENERATION_ATTEMPTS} attempt(s): ${extra.reason}`,
+        await markValidationFailed(
           result.callLogId,
+          `Additional verification failed after ${MAX_GENERATION_ATTEMPTS} attempt(s): ${extra.reason}`,
         );
+        return verificationFailedAnswer();
       }
       continue;
     }
 
     if (isLastAttempt) {
-      throw new AiValidationError(
-        `Citation verification failed after ${MAX_GENERATION_ATTEMPTS} attempt(s): ${verification.reason}`,
+      await markValidationFailed(
         result.callLogId,
+        `Citation verification failed after ${MAX_GENERATION_ATTEMPTS} attempt(s): ${verification.reason}`,
       );
+      return verificationFailedAnswer();
     }
   }
 
-  // Unreachable: the loop above always returns or throws.
-  throw new AiValidationError(
-    "Failed to produce an answer",
-    lastCallLogId ?? "",
-  );
+  // Unreachable: the loop above always returns.
+  return verificationFailedAnswer();
 }
 
 export interface AskInvestigatorInput {
@@ -417,6 +436,8 @@ export async function answerContractQuestion(
     },
     notIndexedMessage:
       "This contract has not been indexed for Clause Investigator yet",
+    verificationFailedMessage:
+      "I couldn't produce a reliably verified answer to this question from the contract's indexed text. Try rephrasing the question, or review the contract directly.",
     promptId: "investigator",
     schemaId: "investigator",
     organizationId: input.organizationId,
@@ -454,6 +475,8 @@ export async function answerOrganizationBrainQuestion(
         }),
     },
     notIndexedMessage: "Your organization has no indexed content yet",
+    verificationFailedMessage:
+      "I couldn't produce a reliably verified answer to this question from your organization's indexed content.",
     promptId: "organization-brain-ask",
     schemaId: "investigator",
     organizationId: input.organizationId,
@@ -506,6 +529,8 @@ export async function answerLegalKbQuestion(
       countIndexed: () => prisma.legalChunk.count(),
     },
     notIndexedMessage: "The Legal Knowledge Base has no indexed content yet",
+    verificationFailedMessage:
+      "I couldn't produce a reliably verified answer to this question from the indexed legal texts.",
     promptId: "legal-kb-ask",
     schemaId: "legal-kb",
     organizationId: input.organizationId,

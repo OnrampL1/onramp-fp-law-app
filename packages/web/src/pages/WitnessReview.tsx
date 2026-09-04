@@ -16,9 +16,16 @@ import {
 } from "../components/witness-review";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
-import { useWitnessPortal, type WitnessPortalErrorKind } from "@/hooks/useWitnessPortal";
+import {
+  useWitnessPortal,
+  type WitnessPortalErrorKind,
+} from "@/hooks/useWitnessPortal";
 import { formatDate } from "@/lib/utils";
-import type { DocumentPage, WitnessInfo, WitnessReviewContract } from "../components/witness-review/types";
+import type {
+  DocumentPage,
+  WitnessInfo,
+  WitnessReviewContract,
+} from "../components/witness-review/types";
 import type { WitnessPortalContract } from "@/types/witness-portal";
 
 function humanizeStatus(value: string): string {
@@ -30,31 +37,202 @@ function humanizeStatus(value: string): string {
     .join(" ");
 }
 
+// A numbered clause heading on its own line - "1. PURPOSE", "12. TERM" - is
+// the standard convention extracted contract text uses for its clause list.
+// Requiring the heading text to be all-uppercase (vs. a numbered sentence
+// like "1. The Parties shall...") is what keeps this from misfiring on
+// ordinary numbered prose.
+const CLAUSE_HEADING_LINE = /^(\d{1,3})\.\s+([A-Z][A-Z0-9 &\-/,']*)$/;
+
+// A standalone "SIGNATURES" / "SIGNATURE" line is the conventional marker
+// for where a contract's signature block starts - never part of a clause's
+// own substance, so it's treated as a hard section break the same way a
+// numbered clause heading is.
+const SIGNATURE_BLOCK_LINE = /^SIGNATURES?$/i;
+
+// A synthetic "CONTRACT <n>:" marker some extraction/seed pipelines prepend
+// ahead of the document's own title - never real contract text, safe to
+// drop outright regardless of the number.
+const CONTRACT_NUMBER_PREFIX_LINE = /^CONTRACT\s+\d+\s*:/i;
+
+// A line of all-caps text (3+ letters, no lowercase) is how a document's own
+// title/heading conventionally appears in its first line(s) - e.g. "MUTUAL
+// NON-DISCLOSURE AGREEMENT". The page already shows a title above the
+// document body, so echoing the document's own caps title again inside it
+// just reads as a duplicate.
+function isAllCapsHeadingLine(line: string): boolean {
+  if (!line || /[a-z]/.test(line)) return false;
+  return (line.match(/[A-Z]/g)?.length ?? 0) >= 3;
+}
+
+// A numbered clause heading ("13. GENERAL") or the signature-block marker
+// also happens to satisfy isAllCapsHeadingLine's own "no lowercase" test -
+// front-matter stripping must never treat either as a strippable title,
+// since both are real, substantive section headings, not an echo of the
+// document's own name.
+function isRealSectionHeadingLine(line: string): boolean {
+  return CLAUSE_HEADING_LINE.test(line) || SIGNATURE_BLOCK_LINE.test(line);
+}
+
+// Drops a leading "CONTRACT <n>:" marker (however many physical lines its
+// wrapped title spans, up to a small safety bound) together with whatever
+// standalone all-caps title line follows it, and — independent of any
+// marker — drops a standalone all-caps title line that opens the document
+// on its own. Only ever touches the very start of the document: the moment
+// a normal content line is seen, front-matter stripping stops for good, so
+// nothing deeper in the document (e.g. an all-caps "IN WITNESS WHEREOF"
+// nearer the signature block) is touched. Generic by construction — no
+// contract-specific text is matched, so this applies the same way to every
+// contract's extracted text, not just one.
+function stripTitleFrontMatter(lines: string[]): string[] {
+  const result: string[] = [];
+  let inFrontMatter = true;
+  let strippingContractPrefix = false;
+  let contractPrefixLinesSeen = 0;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!inFrontMatter || !line) {
+      result.push(rawLine);
+      continue;
+    }
+
+    if (strippingContractPrefix) {
+      contractPrefixLinesSeen += 1;
+      if (isRealSectionHeadingLine(line)) {
+        strippingContractPrefix = false;
+        inFrontMatter = false;
+        result.push(rawLine);
+        continue;
+      }
+      if (isAllCapsHeadingLine(line)) {
+        inFrontMatter = false; // this caps line is itself the title echo
+        continue;
+      }
+      if (contractPrefixLinesSeen <= 4) {
+        continue; // still consuming the wrapped "CONTRACT n: <title>" line
+      }
+      // Safety valve: didn't find a caps line within a few lines, so this
+      // wasn't the pattern expected - stop stripping and fall through.
+      strippingContractPrefix = false;
+      inFrontMatter = false;
+      result.push(rawLine);
+      continue;
+    }
+
+    if (CONTRACT_NUMBER_PREFIX_LINE.test(line)) {
+      strippingContractPrefix = true;
+      contractPrefixLinesSeen = 1;
+      continue;
+    }
+
+    if (isAllCapsHeadingLine(line) && !isRealSectionHeadingLine(line)) {
+      inFrontMatter = false;
+      continue;
+    }
+
+    inFrontMatter = false;
+    result.push(rawLine);
+  }
+
+  return result;
+}
+
 // extractedText is a flat string (no page/section structure from the AI
-// extraction pipeline) — wrapped as a single synthetic "page" so the
-// existing search/zoom viewer still works over the real contract text
-// instead of needing a second, simpler viewer built just for this case.
+// extraction pipeline). Splitting only on blank lines (the previous
+// approach) doesn't help when a document's clauses are separated by single
+// newlines with no blank line between them, as real extracted contracts
+// often are — every clause then collapses into one unbroken block of text
+// with its "1. PURPOSE" / "2. CONTRIBUTIONS" markers buried inline instead
+// of standing out. Detecting the clause-heading lines themselves as hard
+// section breaks (in addition to still respecting blank lines within a
+// clause) gives each clause its own heading + paragraph, however the
+// source text is wrapped.
+function parseDocumentSections(extractedText: string) {
+  const lines = stripTitleFrontMatter(extractedText.trim().split("\n"));
+
+  const blocks: { heading: string; paragraphWords: string[][] }[] = [
+    { heading: "", paragraphWords: [[]] },
+  ];
+  // Once the signature block starts, each party's own name line (also
+  // all-caps, e.g. "HARFOUSH LAW GROUP") is treated as a further section
+  // break too, so each party's By/Name/Title/Date fields end up as their
+  // own paragraph instead of every party running together into one block.
+  // Scoped to after "SIGNATURES" specifically - an all-caps line earlier in
+  // an ordinary clause is left alone.
+  let inSignatureBlock = false;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    const block = blocks[blocks.length - 1];
+    const currentParagraph =
+      block.paragraphWords[block.paragraphWords.length - 1];
+
+    if (!line) {
+      if (currentParagraph.length > 0) {
+        block.paragraphWords.push([]);
+      }
+      continue;
+    }
+
+    const headingMatch = line.match(CLAUSE_HEADING_LINE);
+    if (headingMatch) {
+      inSignatureBlock = false;
+      blocks.push({
+        heading: `${headingMatch[1]}. ${headingMatch[2]}`,
+        paragraphWords: [[]],
+      });
+      continue;
+    }
+
+    if (SIGNATURE_BLOCK_LINE.test(line)) {
+      inSignatureBlock = true;
+      blocks.push({ heading: line, paragraphWords: [[]] });
+      continue;
+    }
+
+    if (inSignatureBlock && isAllCapsHeadingLine(line)) {
+      blocks.push({ heading: line, paragraphWords: [[]] });
+      continue;
+    }
+
+    currentParagraph.push(line);
+  }
+
+  return blocks
+    .map((block) => ({
+      heading: block.heading,
+      paragraphs: block.paragraphWords
+        .map((words) => words.join(" ").trim())
+        .filter(Boolean),
+    }))
+    .filter((section) => section.heading || section.paragraphs.length > 0);
+}
+
+// Wrapped as a single synthetic "page" so the existing search/zoom viewer
+// still works over the real contract text instead of needing a second,
+// simpler viewer built just for this case.
 function buildDocumentPages(contract: WitnessPortalContract): DocumentPage[] {
-  const paragraphs =
-    contract.extractedText
-      ?.trim()
-      .split(/\n{2,}/)
-      .map((p) => p.trim())
-      .filter(Boolean) ?? [];
+  const sections = contract.extractedText
+    ? parseDocumentSections(contract.extractedText)
+    : [];
 
   return [
     {
       pageNumber: 1,
       totalPages: 1,
       title: contract.title,
-      sections: [
-        {
-          heading: contract.title,
-          paragraphs: paragraphs.length
-            ? paragraphs
-            : ["No extracted text is available for this contract yet."],
-        },
-      ],
+      sections: sections.length
+        ? sections
+        : [
+            {
+              heading: "",
+              paragraphs: [
+                "No extracted text is available for this contract yet.",
+              ],
+            },
+          ],
     },
   ];
 }
@@ -63,11 +241,7 @@ function buildDocumentPages(contract: WitnessPortalContract): DocumentPage[] {
 // internal contract viewer — a witness only cares whether text extraction
 // itself succeeded, never how far the (internal-only) AI analysis has
 // gotten, so every other processingStatus falls through to the real viewer.
-function DocumentStateCard({
-  contract,
-}: {
-  contract: WitnessPortalContract;
-}) {
+function DocumentStateCard({ contract }: { contract: WitnessPortalContract }) {
   if (contract.processingStatus === "PENDING_EXTRACTION") {
     return (
       <Card className="flex min-h-[480px] flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
@@ -101,7 +275,8 @@ const PROBLEM_COPY: Record<
   "not-found": {
     icon: Ban,
     title: "This witness link doesn't exist",
-    description: "Double-check the link you were sent — it may have been mistyped or truncated.",
+    description:
+      "Double-check the link you were sent — it may have been mistyped or truncated.",
   },
   expired: {
     icon: Clock3,
@@ -111,12 +286,14 @@ const PROBLEM_COPY: Record<
   revoked: {
     icon: ShieldOff,
     title: "Access to this contract has been revoked",
-    description: "The organization that sent you this link has revoked access. Contact them if you believe this is a mistake.",
+    description:
+      "The organization that sent you this link has revoked access. Contact them if you believe this is a mistake.",
   },
   used: {
     icon: Ban,
     title: "This witness link has already been used",
-    description: "Witness links are single-use. If you need access again, contact whoever sent it to request a new link.",
+    description:
+      "Witness links are single-use. If you need access again, contact whoever sent it to request a new link.",
   },
   unknown: {
     icon: AlertTriangle,
@@ -145,9 +322,16 @@ function ProblemScreen({
           <Icon className="size-6" />
         </div>
         <h1 className="text-lg font-semibold text-foreground">{copy.title}</h1>
-        <p className="text-sm text-muted-foreground">{message ?? copy.description}</p>
+        <p className="text-sm text-muted-foreground">
+          {message ?? copy.description}
+        </p>
         {onRetry && kind === "unknown" && (
-          <Button variant="outline" size="sm" onClick={onRetry} className="mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            className="mt-2"
+          >
             Try again
           </Button>
         )}
@@ -159,7 +343,8 @@ function ProblemScreen({
 
 export function WitnessReview() {
   const { token } = useParams<{ token: string }>();
-  const { data, isLoading, isError, errorInfo, refetch } = useWitnessPortal(token);
+  const { data, isLoading, isError, errorInfo, refetch } =
+    useWitnessPortal(token);
 
   if (!token) {
     return <ProblemScreen kind="not-found" />;
@@ -171,7 +356,9 @@ export function WitnessReview() {
         <WitnessReviewHeader />
         <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center sm:px-6">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Verifying your access…</p>
+          <p className="text-sm text-muted-foreground">
+            Verifying your access…
+          </p>
         </main>
         <WitnessReviewFooter />
       </div>
@@ -211,7 +398,10 @@ export function WitnessReview() {
   const securityReference = `WV-${contract.id.slice(0, 8).toUpperCase()}`;
   const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const usedAtDisplay = usedAt
-    ? new Date(usedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+    ? new Date(usedAt).toLocaleString("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
     : null;
 
   // Same-origin streaming route, not a presigned MinIO URL — MinIO has no
@@ -224,13 +414,14 @@ export function WitnessReview() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
-      <WitnessReviewHeader />
+      <WitnessReviewHeader
+        organizationName={contract.organizationName}
+        organizationLogoUrl={contract.organizationLogoUrl}
+      />
 
       {/* ── Main content ────────────────────────────────────────────────────── */}
       <main className="mx-auto w-full max-w-4xl flex-1 space-y-6 px-4 py-8 sm:px-6">
-
         {/* Page intro */}
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -240,7 +431,22 @@ export function WitnessReview() {
             Review and witness this contract
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            You have been invited as an independent witness. Please review the full contract below.
+            You have been invited as an independent witness. Please review the
+            full contract below.
+          </p>
+        </div>
+
+        {/* Single-use warning — opening this page already redeemed the link
+            (see WitnessAcknowledgementPanel below), so this is the witness's
+            only window; closing it loses access for good rather than just
+            pausing it. */}
+        <div className="flex items-start gap-3 rounded-lg border border-amber-300/50 bg-amber-50 p-4 text-sm dark:border-amber-700/30 dark:bg-amber-900/20">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="text-amber-800 dark:text-amber-300">
+            <span className="font-semibold">This link is single-use. </span>
+            If you close this page before you're done, you won't be able to
+            reopen it, and you'll need to contact whoever sent it to request a
+            new witness link.
           </p>
         </div>
 
@@ -259,12 +465,10 @@ export function WitnessReview() {
           usedAt={usedAtDisplay}
           onDownload={handleDownload}
         />
-
       </main>
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <WitnessReviewFooter />
-
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAskAssistant } from "@/hooks/useLegalAssistant";
+import { ChatAnswerText } from "@/components/shared/ChatAnswerText";
 import { useAuth } from "@/hooks/useAuth";
 import type { AskHistoryTurn, AssistantSource } from "@/types/legal-assistant";
 import { cn } from "@/lib/utils";
@@ -117,10 +118,13 @@ function textDir(text: string): "rtl" | "ltr" {
 // Kept to questions verified live against real indexed data, not merely
 // plausible-sounding ones - a suggested prompt that reliably returns "I
 // couldn't find enough grounded information" undersells the feature on
-// first contact. Revisit once the Legal Knowledge Base corpus is ingested
-// in this environment (currently empty) to bring back a Lebanese-law example.
+// first contact. One is Arabic to surface the Assistant's Arabic support on
+// first contact too, deliberately asked against Organization Brain (real
+// indexed content, grounded, cites a real source) rather than the Legal
+// Knowledge Base, whose corpus is still empty in this environment - revisit
+// once that's ingested to bring back a Lebanese-law example instead/as well.
 const SUGGESTED_QUESTIONS = [
-  "What does our organization's standard confidentiality policy say?",
+  "ما هي سياسة السرية القياسية لمؤسستنا؟",
   "Which of our contracts are currently active?",
 ];
 
@@ -149,6 +153,18 @@ export default function LegalAssistantPage() {
   // history list until it has something to show - matches how most chat
   // apps don't list an unsent "New chat" as a real conversation.
   const historyThreads = threads.filter((t) => t.messages.length > 0);
+
+  // Once a suggestion has been asked in this thread, drop it rather than
+  // let the user click the same chip again - same fix as Contract
+  // Investigator's suggestion row.
+  const askedQuestions = new Set(
+    activeThread.messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content),
+  );
+  const remainingSuggestions = SUGGESTED_QUESTIONS.filter(
+    (q) => !askedQuestions.has(q),
+  );
 
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -336,9 +352,9 @@ export default function LegalAssistantPage() {
             {/* Wider than the message column above (max-w-2xl) so the
                 disclaimer below fits on one line instead of wrapping. */}
             <div className="mx-auto w-full max-w-2xl">
-              {!isEmpty ? (
+              {!isEmpty && remainingSuggestions.length > 0 ? (
                 <div className="mb-2 flex flex-wrap gap-1.5">
-                  {SUGGESTED_QUESTIONS.map((q) => (
+                  {remainingSuggestions.map((q) => (
                     <button
                       key={q}
                       type="button"
@@ -477,7 +493,7 @@ function AssistantBubble({ message }: { message: ChatMessage }) {
           dir={textDir(message.content)}
           className="text-sm leading-relaxed text-foreground"
         >
-          <RichText text={message.content} />
+          <ChatAnswerText text={message.content} />
         </div>
 
         {message.sources && message.sources.length > 0 ? (
@@ -575,24 +591,5 @@ function ThinkingBubble() {
         <span className="text-xs text-muted-foreground">Thinking…</span>
       </div>
     </div>
-  );
-}
-
-// Lightweight inline markdown: supports **bold** only - same convention as
-// ContractInvestigator.tsx's RichText.
-function RichText({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return (
-    <p className="text-pretty">
-      {parts.map((part, i) =>
-        part.startsWith("**") && part.endsWith("**") ? (
-          <strong key={i} className="font-semibold text-foreground">
-            {part.slice(2, -2)}
-          </strong>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </p>
   );
 }

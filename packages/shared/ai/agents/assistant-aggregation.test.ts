@@ -39,6 +39,7 @@ describe("aggregateToolResults", () => {
 
     expect(result.contractsFound.map((c) => c.id)).toEqual(["c1", "c2"]);
     expect(result.evidence).toEqual([]);
+    expect(result.subAnswers).toEqual([]);
     expect(result.hasEvidence).toBe(true);
   });
 
@@ -100,7 +101,7 @@ describe("aggregateToolResults", () => {
     expect(result.hasEvidence).toBe(false);
   });
 
-  it("turns askContractQuestion's answer and sources into evidence units carrying contractId and confidence", () => {
+  it("turns askContractQuestion's sources into evidence units carrying contractId and confidence, keeping the answer itself out of evidence", () => {
     const outcomes: ToolExecutionOutcome[] = [
       {
         tool: "askContractQuestion",
@@ -122,12 +123,19 @@ describe("aggregateToolResults", () => {
 
     const result = aggregateToolResults(outcomes);
 
-    expect(result.evidence).toHaveLength(2);
-    expect(result.evidence[0]).toMatchObject({ label: "Clause Investigator answer", contractId: CONTRACT_ID, confidence: 88 });
-    expect(result.evidence[1]).toMatchObject({ id: "chunk-1", label: "Section 4", contractId: CONTRACT_ID, confidence: 88 });
+    expect(result.evidence).toHaveLength(1);
+    expect(result.evidence[0]).toMatchObject({ id: "chunk-1", label: "Section 4", contractId: CONTRACT_ID, confidence: 88 });
+    expect(result.subAnswers).toEqual([
+      {
+        tool: "askContractQuestion",
+        capability: "Clause Investigator",
+        contractId: CONTRACT_ID,
+        text: "The notice period is 30 days.",
+      },
+    ]);
   });
 
-  it("turns searchOrganizationBrain's result into evidence units without a contractId", () => {
+  it("turns searchOrganizationBrain's sources into evidence units without a contractId, and keeps its answer as a non-citable sub-answer", () => {
     const outcomes: ToolExecutionOutcome[] = [
       {
         tool: "searchOrganizationBrain",
@@ -146,10 +154,15 @@ describe("aggregateToolResults", () => {
 
     const result = aggregateToolResults(outcomes);
 
+    expect(result.evidence).toHaveLength(1);
     expect(result.evidence.every((e) => e.contractId === undefined)).toBe(true);
-    expect(result.evidence.map((e) => e.capability)).toEqual([
-      "Organization Brain",
-      "Organization Brain",
+    expect(result.evidence.map((e) => e.capability)).toEqual(["Organization Brain"]);
+    expect(result.subAnswers).toEqual([
+      {
+        tool: "searchOrganizationBrain",
+        capability: "Organization Brain",
+        text: "Our standard notice period is 30 days.",
+      },
     ]);
   });
 
@@ -188,8 +201,12 @@ describe("aggregateToolResults", () => {
 
     const result = aggregateToolResults(outcomes);
 
-    expect(result.evidence[1].label).toBe("Code of Obligations and Contracts — Article 654");
-    expect(result.evidence[1].capability).toBe("Legal Knowledge Base");
+    expect(result.evidence).toHaveLength(1);
+    expect(result.evidence[0].label).toBe("Code of Obligations and Contracts — Article 654");
+    expect(result.evidence[0].capability).toBe("Legal Knowledge Base");
+    expect(result.subAnswers).toEqual([
+      { tool: "searchLegalKnowledge", capability: "Legal Knowledge Base", text: "Article 654 governs..." },
+    ]);
   });
 
   it("routes a failed outcome to failedTools instead of evidence", () => {
@@ -253,8 +270,9 @@ describe("aggregateToolResults", () => {
 
     const result = aggregateToolResults(outcomes);
 
-    // One "answer" unit plus exactly one deduped "chunk-1" unit, not three.
-    expect(result.evidence).toHaveLength(2);
+    // Exactly one deduped "chunk-1" unit, not three - the answer text
+    // itself never becomes an evidence unit at all (see subAnswers).
+    expect(result.evidence).toHaveLength(1);
     expect(result.evidence.filter((e) => e.id === "chunk-1")).toHaveLength(1);
   });
 
@@ -317,6 +335,7 @@ describe("aggregateToolResults", () => {
 
     expect(result).toEqual({
       evidence: [],
+      subAnswers: [],
       contractsFound: [],
       failedTools: [],
       emptyResults: [],

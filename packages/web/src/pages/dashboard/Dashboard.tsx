@@ -35,6 +35,7 @@ export function Dashboard() {
   } = useDashboardSummary();
 
   const contracts = dashboardSummary?.contracts;
+  const hasExpiringSoon = (contracts?.expiringSoon.length ?? 0) > 0;
 
   const kpiItems: KpiCardItem[] = [
     {
@@ -94,32 +95,41 @@ export function Dashboard() {
 
       <KpiCards items={kpiItems} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3">
+      {/* Legal State Overview shares the row 50/50 with Expiring Contracts
+          only when there's something to show there - with nothing expiring
+          soon, a half-empty "Expiring Contracts" card next to it is just
+          wasted space, so Legal State Overview takes the full row instead. */}
+      {hasExpiringSoon ? (
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
           <ContractStatusOverview
             counts={contracts?.legalStateCounts}
             total={contracts?.total ?? 0}
             isLoading={isLoading}
           />
-        </div>
-        <div className="lg:col-span-2">
-          <AiInsightsPanel />
-        </div>
-      </div>
-
-      <RecentContracts contracts={contracts?.recent} isLoading={isLoading} />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <ActivityFeed />
-        </div>
-        <div className="lg:col-span-2">
           <ExpiringContractsList
             contracts={contracts?.expiringSoon}
             isLoading={isLoading}
           />
         </div>
-      </div>
+      ) : (
+        <ContractStatusOverview
+          counts={contracts?.legalStateCounts}
+          total={contracts?.total ?? 0}
+          isLoading={isLoading}
+        />
+      )}
+
+      {/* Stacked full-width rather than side by side: AI Insights now shows
+          every category with a finding (not a fixed set of four), so its
+          height varies with the portfolio - a fixed-height neighbor card
+          next to it either traps blank space or gets cramped. Full width
+          also gives its own row-list room to wrap into columns instead of
+          one long single-file list. */}
+      <AiInsightsPanel />
+
+      <RecentContracts contracts={contracts?.recent} isLoading={isLoading} />
+
+      <ActivityFeed />
     </div>
   );
 }
