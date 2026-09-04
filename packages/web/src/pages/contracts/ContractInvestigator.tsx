@@ -15,6 +15,7 @@ import {
   type SourceRef,
 } from "@/lib/data";
 import { useAskInvestigator } from "@/hooks/useContractInvestigator";
+import { ChatAnswerText } from "@/components/shared/ChatAnswerText";
 import { useContractDetail } from "@/hooks/useContractDetail";
 import {
   useRiskOverview,
@@ -194,6 +195,18 @@ export default function ContractInvestigatorPage() {
   // apps don't list an unsent "New chat" as a real conversation. Same
   // convention as Legal Assistant's historyThreads.
   const historyThreads = threads.filter((t) => t.messages.length > 0);
+
+  // Once a suggestion has been asked in this thread, drop it rather than
+  // let the user click the same chip again — the next unused question from
+  // the pool takes its place, so the row stays useful instead of static.
+  const askedQuestions = new Set(
+    activeThread.messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content),
+  );
+  const remainingSuggestions = suggestedQuestions.filter(
+    (q) => !askedQuestions.has(q),
+  );
 
   // ScrollArea (@base-ui/react/scroll-area) renders its own internal
   // scrolling viewport wrapping this content — scrollTo on the content div
@@ -449,9 +462,9 @@ export default function ContractInvestigatorPage() {
           {/* Composer */}
           <div className="border-t border-border p-3">
             <div className="mx-auto w-full max-w-2xl">
-              {!isEmpty ? (
+              {!isEmpty && remainingSuggestions.length > 0 ? (
                 <div className="mb-2 flex flex-wrap gap-1.5">
-                  {suggestedQuestions.slice(0, 2).map((q) => (
+                  {remainingSuggestions.slice(0, 2).map((q) => (
                     <button
                       key={q}
                       type="button"
@@ -730,7 +743,7 @@ function AssistantBubble({ message }: { message: ChatMessage }) {
       </div>
       <div className="min-w-0 flex-1 space-y-3">
         <div className="text-sm leading-relaxed text-foreground">
-          <RichText text={message.content} />
+          <ChatAnswerText text={message.content} />
         </div>
 
         {message.sources && message.sources.length > 0 ? (
@@ -801,23 +814,5 @@ function ThinkingBubble() {
         </span>
       </div>
     </div>
-  );
-}
-
-// Lightweight inline markdown: supports **bold** only.
-function RichText({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return (
-    <p className="text-pretty">
-      {parts.map((part, i) =>
-        part.startsWith("**") && part.endsWith("**") ? (
-          <strong key={i} className="font-semibold text-foreground">
-            {part.slice(2, -2)}
-          </strong>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </p>
   );
 }

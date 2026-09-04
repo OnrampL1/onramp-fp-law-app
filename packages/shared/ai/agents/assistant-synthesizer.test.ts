@@ -5,6 +5,19 @@ jest.mock("../schemas", () => ({
   getValidatedCompletion: (...args: unknown[]) => mockGetValidatedCompletion(...args),
 }));
 
+// synthesizeAssistantAnswer() calls markValidationFailed() (../providers)
+// directly once retries are exhausted on an unknown-evidence-id citation -
+// that function reaches the real Prisma client via getPrismaClient(), so
+// it's mocked here the same way investigator.test.ts mocks it.
+const mockPrisma = {
+  aICallLog: {
+    update: jest.fn(),
+  },
+};
+jest.mock("../../db", () => ({
+  getPrismaClient: () => mockPrisma,
+}));
+
 import {
   buildSynthesisMessages,
   synthesizeAssistantAnswer,
@@ -27,6 +40,7 @@ const EVIDENCE: AssistantEvidenceUnit[] = [
 function contextOf(overrides: Partial<AggregatedAssistantContext> = {}): AggregatedAssistantContext {
   return {
     evidence: [],
+    subAnswers: [],
     contractsFound: [],
     failedTools: [],
     emptyResults: [],
@@ -139,6 +153,30 @@ describe("buildSynthesisMessages", () => {
     expect(userContent).toContain("Searches that ran successfully and found nothing");
     expect(userContent).toContain("matched zero contracts");
     expect(userContent).not.toContain("No evidence was gathered for this question.");
+  });
+
+  it("presents a sub-tool's own answer as non-citable background context, distinct from the EVIDENCE blocks", () => {
+    const aggregated = contextOf({
+      subAnswers: [
+        {
+          tool: "searchOrganizationBrain",
+          capability: "Organization Brain",
+          text: "Our standard confidentiality term is 3 to 5 years.",
+        },
+      ],
+    });
+
+    const userContent = buildSynthesisMessages(
+      "SYSTEM",
+      [],
+      "what does our confidentiality policy say?",
+      aggregated,
+    )[1].content;
+
+    expect(userContent).toContain("Prior capability answers");
+    expect(userContent).toContain("NOT citable");
+    expect(userContent).toContain("Our standard confidentiality term is 3 to 5 years.");
+    expect(userContent).not.toContain("[EVIDENCE id=");
   });
 });
 
@@ -254,19 +292,31 @@ describe("synthesizeAssistantAnswer", () => {
     expect(mockGetValidatedCompletion).toHaveBeenCalledTimes(2);
   });
 
-  it("throws after exhausting retries when the model keeps citing an unknown evidence id", async () => {
+  it("falls back to a safe decline rather than a fabricated citation, after exhausting retries when the model keeps citing an unknown evidence id", async () => {
     mockGetValidatedCompletion.mockResolvedValue(
       completionResult({ answer: "...", sources: [{ id: "not-real" }] }),
     );
 
-    await expect(
-      synthesizeAssistantAnswer({
-        organizationId: "org-1",
-        question: "what does article 654 say?",
-        aggregated: contextOf({ evidence: EVIDENCE, hasEvidence: true }),
-      }),
-    ).rejects.toThrow(AiValidationError);
+    const result = await synthesizeAssistantAnswer({
+      organizationId: "org-1",
+      question: "what does article 654 say?",
+      aggregated: contextOf({ evidence: EVIDENCE, hasEvidence: true }),
+    });
+
+    expect(result.answer).toBe(
+      "I couldn't find enough grounded information to answer that reliably.",
+    );
+    expect(result.sources).toEqual([]);
+    expect(result.confidence).toBe(0);
     expect(mockGetValidatedCompletion).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.aICallLog.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "VALIDATION_FAILED",
+          errorMessage: expect.stringContaining("Cited unknown evidence id(s) after 2 attempt"),
+        }),
+      }),
+    );
   });
 
   it("does not retry on a non-validation error", async () => {

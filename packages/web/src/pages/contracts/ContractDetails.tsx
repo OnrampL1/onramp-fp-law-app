@@ -185,7 +185,7 @@ export default function ContractDetailPage() {
                   <ScrollText className="size-4 text-muted-foreground" />
                   {triggerAnalysis.isPending
                     ? "Queuing..."
-                    : "Analyze Contract"}
+                    : "Reanalyze Contract"}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2"

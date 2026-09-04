@@ -50,7 +50,7 @@ export function ContractDocumentViewer({ pages }: ContractDocumentViewerProps) {
     const regex = new RegExp(`(${escapeRegExp(query)})`, "gi");
     return text.split(regex).map((part, index) =>
       index % 2 === 1 ? (
-        <mark key={index} className="bg-yellow-200 text-foreground rounded-sm px-0.5">
+        <mark key={index} className="bg-yellow-200 text-yellow-950 rounded-sm px-0.5">
           {part}
         </mark>
       ) : (
@@ -135,18 +135,18 @@ export function ContractDocumentViewer({ pages }: ContractDocumentViewerProps) {
           <div className="mb-6 text-center">
             <h2 className="text-lg font-bold text-foreground">{page.title}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              {page.pageNumber === 1 ? `${page.sections[0]?.heading ? "" : ""}` : ""}
-              {page.sections[0]?.paragraphs.length ? `${page.sections[0].heading ? "" : ""}` : ""}
-              {`${pages[0].sections[0]?.paragraphs[0]?.substring(0, 0) ?? ""}${page.sections[0]?.heading ? "" : page.title} · Page ${page.pageNumber} of ${totalPages}`}
+              Page {page.pageNumber} of {totalPages}
             </p>
           </div>
 
           {/* Sections */}
           {page.sections.map((section, i) => (
             <div key={i} className="mb-5">
-              <h3 className="mb-3 text-sm font-bold text-foreground">
-                {normalizedSearch ? highlightText(section.heading, normalizedSearch) : section.heading}
-              </h3>
+              {section.heading && (
+                <h3 className="mb-3 text-sm font-bold text-foreground">
+                  {normalizedSearch ? highlightText(section.heading, normalizedSearch) : section.heading}
+                </h3>
+              )}
               {section.paragraphs.map((para, j) => (
                 <p
                   key={j}

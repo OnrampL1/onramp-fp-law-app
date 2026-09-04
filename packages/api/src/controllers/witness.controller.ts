@@ -129,6 +129,34 @@ export const witnessController = {
     }
   },
 
+  async getOrganizationLogo(
+    req: WitnessAuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const file = await witnessService.getWitnessScopedOrganizationLogoFile(
+        req.witnessSession.contractId,
+      );
+
+      res.setHeader("Content-Type", file.contentType);
+      if (file.contentLength !== undefined) {
+        res.setHeader("Content-Length", file.contentLength);
+      }
+
+      file.body.on("error", (streamErr) => {
+        if (res.headersSent) {
+          res.destroy(streamErr);
+          return;
+        }
+        next(streamErr);
+      });
+      file.body.pipe(res);
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async revoke(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const witnessToken = await witnessService.revokeWitnessLink(

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   Card,
   CardHeader,
@@ -22,6 +22,8 @@ import { LEGAL_STATE_LABELS } from "@/components/dashboard/RecentContractsTable"
 import { InsightCategoryPagination } from "@/components/insights/InsightCategoryPagination";
 import { useInsightCategoryContracts } from "@/hooks/useInsights";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
+import { RISK_CATEGORY_BY_SLUG, RISK_CATEGORY_META } from "@/lib/insight-categories";
+import { NotFound } from "@/pages/NotFound";
 import type { RiskCategory } from "@/types/insights";
 
 interface InsightCategoryPageProps {
@@ -193,5 +195,30 @@ export function InsightCategoryPage({
         ) : null}
       </Card>
     </div>
+  );
+}
+
+// Resolves the :categorySlug route param against RISK_CATEGORY_META so a
+// single dynamic route covers every risk category's drill-down page,
+// instead of one hardcoded <Route> per category (the AI Insights panel
+// links here for whichever categories actually have findings, which can
+// now be any of the nine, not just the four that used to have their own
+// route).
+export function InsightCategoryRoute() {
+  const { categorySlug } = useParams<{ categorySlug: string }>();
+  const category = categorySlug ? RISK_CATEGORY_BY_SLUG[categorySlug] : undefined;
+
+  if (!category) {
+    return <NotFound />;
+  }
+
+  const meta = RISK_CATEGORY_META[category];
+  return (
+    <InsightCategoryPage
+      category={category}
+      title={meta.title}
+      description={meta.description}
+      icon={meta.icon}
+    />
   );
 }

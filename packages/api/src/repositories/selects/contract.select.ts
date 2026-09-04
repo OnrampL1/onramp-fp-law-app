@@ -49,6 +49,12 @@ export const CONTRACT_CONTENT_SELECT = {
 // — those relations simply never appear here, so there's no relation to
 // forget to strip later. fileKey is included only to generate a presigned
 // download URL server-side; it is never put on the response DTO itself.
+// The nested organization name/logo key are a different case from the
+// excluded organizationId above — that's an internal identifier, this is
+// the org's own public-facing branding, exactly what the witness-facing
+// page displays so the review reads as coming from that organization
+// rather than from Clausio itself. logoStorageKey, like fileKey, is only
+// ever used server-side to stream the logo file — never put on the DTO.
 export const WITNESS_CONTRACT_SELECT = {
   id: true,
   title: true,
@@ -62,4 +68,10 @@ export const WITNESS_CONTRACT_SELECT = {
   processingError: true,
   extractedText: true,
   fileKey: true,
+  organization: {
+    select: {
+      name: true,
+      settings: { select: { logoStorageKey: true } },
+    },
+  },
 } satisfies Prisma.ContractSelect;

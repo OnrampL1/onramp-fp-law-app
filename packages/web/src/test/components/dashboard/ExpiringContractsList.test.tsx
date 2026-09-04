@@ -38,6 +38,25 @@ describe("ExpiringContractsList", () => {
     expect(screen.getByText("days")).toBeInTheDocument();
   });
 
+  it("shows at most 3 contracts even when more are passed in", () => {
+    const contracts: DashboardContractItem[] = Array.from(
+      { length: 5 },
+      (_, i) => ({
+        ...contract,
+        id: `contract-${i}`,
+        title: `Contract ${i}`,
+      }),
+    );
+
+    renderComponent(<ExpiringContractsList contracts={contracts} />);
+
+    expect(screen.getByText("Contract 0")).toBeInTheDocument();
+    expect(screen.getByText("Contract 1")).toBeInTheDocument();
+    expect(screen.getByText("Contract 2")).toBeInTheDocument();
+    expect(screen.queryByText("Contract 3")).not.toBeInTheDocument();
+    expect(screen.queryByText("Contract 4")).not.toBeInTheDocument();
+  });
+
   it("shows an empty state when no contracts expire soon", () => {
     renderComponent(<ExpiringContractsList contracts={[]} />);
 

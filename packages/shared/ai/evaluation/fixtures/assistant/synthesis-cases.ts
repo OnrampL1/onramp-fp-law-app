@@ -28,6 +28,7 @@ export const S01_CONTEXT: AggregatedAssistantContext = {
     },
   ],
   contractsFound: [],
+  subAnswers: [],
   failedTools: [],
   emptyResults: [],
   hasEvidence: true,
@@ -41,6 +42,7 @@ export const S02_QUESTION =
 export const S02_CONTEXT: AggregatedAssistantContext = {
   evidence: [],
   contractsFound: [],
+  subAnswers: [],
   failedTools: [],
   emptyResults: [],
   hasEvidence: false,
@@ -67,6 +69,7 @@ export const S03_CONTEXT: AggregatedAssistantContext = {
     },
   ],
   contractsFound: [],
+  subAnswers: [],
   failedTools: [],
   emptyResults: [],
   hasEvidence: true,
@@ -100,6 +103,7 @@ export const S04_CONTEXT: AggregatedAssistantContext = {
     },
   ],
   contractsFound: [],
+  subAnswers: [],
   failedTools: [
     { tool: "searchLegalKnowledge", error: "Legal Knowledge Base is temporarily unavailable" },
   ],

@@ -35,4 +35,11 @@ export interface WitnessPortalContract {
   processingStatus: ContractDetailResponse["processingStatus"];
   processingError: string | null;
   extractedText: string | null;
+  // The owning organization's own branding, not Clausio's — the witness
+  // portal header shows whichever organization sent this link, matching
+  // convention for signing/witnessing platforms. Null logo URL means the
+  // organization hasn't uploaded one; the header falls back to a generic
+  // mark rather than requesting a file that isn't there.
+  organizationName: string;
+  organizationLogoUrl: string | null;
 }

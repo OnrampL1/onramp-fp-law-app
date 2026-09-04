@@ -46,6 +46,15 @@ describe("AiInsightsPanel", () => {
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("Auto-renewal")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
+
+    // A category with real findings (Indemnification: 2) is shown even
+    // though it isn't one of the categories that used to be hardcoded.
+    expect(screen.getByText("Indemnification")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+
+    // A zero-count category is not shown - nothing to drill into yet.
+    expect(screen.queryByText("Non-compete")).not.toBeInTheDocument();
+    expect(screen.queryByText("Termination")).not.toBeInTheDocument();
   });
 
   it("shows an error state with retry", () => {
