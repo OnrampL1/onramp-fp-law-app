@@ -118,14 +118,22 @@ function textDir(text: string): "rtl" | "ltr" {
 // Kept to questions verified live against real indexed data, not merely
 // plausible-sounding ones - a suggested prompt that reliably returns "I
 // couldn't find enough grounded information" undersells the feature on
-// first contact. One is Arabic to surface the Assistant's Arabic support on
-// first contact too, deliberately asked against Organization Brain (real
-// indexed content, grounded, cites a real source) rather than the Legal
-// Knowledge Base, whose corpus is still empty in this environment - revisit
-// once that's ingested to bring back a Lebanese-law example instead/as well.
+// first contact. Only the first two show at once (see .slice(0, 2) at both
+// call sites below); asking one drops it and the third takes its place.
+//
+// The Arabic slot is the Legal Knowledge Base question (Article 844 of the
+// Code of Obligations and Contracts, seeded dev-only via
+// packages/workers/scripts/seed-legal-kb-dev.ts - see that script's own
+// comment for why it's the ONLY Legal KB question worth featuring: the
+// corpus's only other real source, Law 81/2018, has nothing indexed but its
+// procedural enactment clause, not a substantive rule). The Organization
+// Brain question that used to occupy this slot is kept third, so it
+// surfaces as the next suggestion once the Legal KB one has been asked,
+// rather than being dropped from the product.
 const SUGGESTED_QUESTIONS = [
-  "ما هي سياسة السرية القياسية لمؤسستنا؟",
+  "ماذا يقول القانون اللبناني عن المادة 844 من قانون الموجبات والعقود؟",
   "Which of our contracts are currently active?",
+  "ما هي سياسة السرية القياسية لمؤسستنا؟",
 ];
 
 function initialThreads(): ChatThread[] {
@@ -354,7 +362,7 @@ export default function LegalAssistantPage() {
             <div className="mx-auto w-full max-w-2xl">
               {!isEmpty && remainingSuggestions.length > 0 ? (
                 <div className="mb-2 flex flex-wrap gap-1.5">
-                  {remainingSuggestions.map((q) => (
+                  {remainingSuggestions.slice(0, 2).map((q) => (
                     <button
                       key={q}
                       type="button"
@@ -435,7 +443,7 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
           (the message column, max-w-2xl) so each card gets more room and
           wraps less. */}
       <div className="grid w-full gap-2 sm:grid-cols-2">
-        {SUGGESTED_QUESTIONS.map((q) => (
+        {SUGGESTED_QUESTIONS.slice(0, 2).map((q) => (
           <button
             key={q}
             type="button"
